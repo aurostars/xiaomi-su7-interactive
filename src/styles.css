@@ -1,0 +1,24 @@
+:root {
+  color: #111111;
+  background: #ffffff;
+  font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+}
