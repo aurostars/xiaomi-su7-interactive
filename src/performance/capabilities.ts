@@ -50,7 +50,7 @@ export function detectCapabilities(environment: CapabilityEnvironment = {}): Cap
 
 export interface StageFeedback {
   loading(progress?: number): void;
-  failed(message?: string): void;
+  failed(message?: string, retryable?: boolean): void;
   ready(): void;
 }
 
@@ -84,7 +84,7 @@ export function createStageFeedback(
       feedback.innerHTML = `<span>正在加载车辆 ${percentage}%</span><progress max="100" value="${percentage}">${percentage}%</progress>`;
       stage.append(feedback);
     },
-    failed(message = '车辆模型暂时无法加载') {
+    failed(message = '车辆模型暂时无法加载', retryable = true) {
       showFallback();
       clearFeedback();
       const feedback = document.createElement('div');
@@ -92,17 +92,124 @@ export function createStageFeedback(
       feedback.setAttribute('role', 'alert');
       const text = document.createElement('p');
       text.textContent = message;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = '重试加载';
-      button.addEventListener('click', onRetry, { once: true });
-      feedback.append(text, button);
+      feedback.append(text);
+      if (retryable) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = '重试加载';
+        button.addEventListener('click', onRetry, { once: true });
+        feedback.append(button);
+      }
       stage.append(feedback);
     },
     ready() {
       clearFeedback();
       clearFallback();
       canvas.hidden = false;
+    },
+  };
+}
+
+export interface ExperienceAttempt<T> {
+  load(onProgress: (progress: number) => void): Promise<T>;
+  activate(value: T): void;
+  discard(value: T): void;
+  dispose(): void;
+}
+
+export interface ExperienceOrchestratorOptions<T> {
+  canvas: HTMLCanvasElement;
+  webgl: boolean;
+  feedback: StageFeedback;
+  createAttempt(): ExperienceAttempt<T>;
+}
+
+export interface ExperienceOrchestrator {
+  retry(): void;
+  dispose(): void;
+}
+
+export function createExperienceOrchestrator<T>({
+  canvas,
+  webgl,
+  feedback,
+  createAttempt,
+}: ExperienceOrchestratorOptions<T>): ExperienceOrchestrator {
+  let attempt: ExperienceAttempt<T> | undefined;
+  let generation = 0;
+  let destroyed = false;
+  let contextLost = false;
+
+  const stopAttempt = () => {
+    generation += 1;
+    attempt?.dispose();
+    attempt = undefined;
+  };
+
+  const start = () => {
+    if (destroyed || !webgl) return;
+    stopAttempt();
+    const ownGeneration = generation;
+    feedback.loading(0);
+
+    try {
+      attempt = createAttempt();
+    } catch {
+      if (ownGeneration === generation && !destroyed) {
+        feedback.failed('三维场景初始化失败，请重试。');
+      }
+      return;
+    }
+
+    const ownAttempt = attempt;
+    void ownAttempt.load((progress) => {
+      if (!destroyed && ownGeneration === generation) feedback.loading(progress);
+    }).then((value) => {
+      if (destroyed || ownGeneration !== generation || attempt !== ownAttempt) {
+        ownAttempt.discard(value);
+        return;
+      }
+      try {
+        ownAttempt.activate(value);
+        feedback.ready();
+      } catch {
+        stopAttempt();
+        if (!destroyed) feedback.failed('车辆模型启用失败，请重试。');
+      }
+    }).catch(() => {
+      if (destroyed || ownGeneration !== generation || attempt !== ownAttempt) return;
+      stopAttempt();
+      if (!destroyed) feedback.failed('车辆模型加载失败，请检查网络后重试。');
+    });
+  };
+
+  const onContextLost = (event: Event) => {
+    event.preventDefault();
+    if (destroyed) return;
+    contextLost = true;
+    stopAttempt();
+    feedback.failed('三维画面连接已中断，正在等待恢复。');
+  };
+  const onContextRestored = () => {
+    if (destroyed || !contextLost) return;
+    contextLost = false;
+    start();
+  };
+
+  canvas.addEventListener('webglcontextlost', onContextLost);
+  canvas.addEventListener('webglcontextrestored', onContextRestored);
+
+  if (webgl) start();
+  else feedback.failed('当前设备不支持 WebGL，已切换为静态车辆展示。', false);
+
+  return {
+    retry: start,
+    dispose() {
+      if (destroyed) return;
+      destroyed = true;
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
+      stopAttempt();
     },
   };
 }
