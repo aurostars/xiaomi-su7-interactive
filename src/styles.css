@@ -35,6 +35,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .vehicle-stage { position: relative; z-index: 1; min-height: 100dvh; overflow: hidden; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
 .vehicle-canvas { position: absolute; inset: 0 0 0 31%; z-index: 1; width: 69%; height: 100%; cursor: grab; pointer-events: auto; touch-action: none; }
 .vehicle-canvas:active { cursor: grabbing; }
+.vehicle-canvas[hidden] { display: none; }
+.vehicle-fallback { position: absolute; inset: 0 0 0 31%; z-index: 1; width: 69%; height: 100%; object-fit: cover; object-position: center; }
+.vehicle-stage-feedback { position: absolute; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; z-index: 5; width: min(320px, calc(100% - 40px)); padding: 16px; border: 1px solid var(--line); background: rgba(7, 10, 14, .9); pointer-events: auto; }
+.vehicle-stage-feedback span, .vehicle-stage-feedback p { display: block; margin: 0 0 10px; color: #d7dade; font-size: 13px; }
+.vehicle-stage-feedback progress { width: 100%; accent-color: var(--accent); }
+.vehicle-stage-feedback button { min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); background: transparent; }
+.vehicle-stage-error { border-color: rgba(255, 90, 50, .55); }
 .stage-atmosphere { position: absolute; inset: auto -10% -15% 28%; z-index: 0; height: 46%; opacity: .42; background: radial-gradient(ellipse, rgba(43, 219, 242, .28), transparent 58%); filter: blur(40px); }
 .hero-copy { position: relative; z-index: 2; width: min(440px, 38vw); padding: clamp(150px, 20vh, 220px) 0 60px max(48px, calc((100vw - 1160px) / 2)); }
 .hero-label, .section-label { margin: 0 0 18px; color: var(--cyan); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
@@ -97,7 +104,8 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .brand b { display: none; }
   .header-cta { padding: 8px 13px; }
   .vehicle-stage { min-height: 100dvh; padding-bottom: 150px; }
-  .vehicle-canvas { inset: 20% -22% auto 4%; width: 118%; height: 56%; }
+  .vehicle-canvas, .vehicle-fallback { inset: 20% -22% auto 4%; width: 118%; height: 56%; }
+  .vehicle-stage-feedback { right: 20px; bottom: 166px; }
   .hero-copy { width: 100%; padding: 108px 20px 20px; }
   .hero-copy h1 { font-size: clamp(64px, 22vw, 88px); }
   .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
@@ -129,8 +137,12 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .stage-atmosphere { filter: none; opacity: .2; }
 }
+
+.reduced-motion .stage-atmosphere { filter: none; opacity: .2; }
+.reduced-motion .primary-cta:hover { transform: none; }
 
 @media (prefers-reduced-transparency: reduce) {
   .site-header, .vehicle-controls { background: #080b0f; backdrop-filter: none; }
