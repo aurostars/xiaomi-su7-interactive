@@ -71,12 +71,20 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   await page.getByRole('tab', { name: '座舱' }).click();
   const cameraTargets = new Set<string>();
+  let previousCameraTarget = JSON.stringify((await readDiagnostics(page)).camera?.target);
   for (const [seat, expectedView] of [['主驾', 'driver'], ['副驾', 'passenger'], ['后排', 'rear']] as const) {
     await page.getByRole('button', { name: seat }).click();
-    await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe(expectedView);
+    await expect.poll(async () => {
+      const camera = (await readDiagnostics(page)).camera;
+      return {
+        view: camera?.view,
+        targetChanged: JSON.stringify(camera?.target) !== previousCameraTarget,
+      };
+    }).toEqual({ view: expectedView, targetChanged: true });
     const target = (await readDiagnostics(page)).camera?.target;
     expect(target).toBeDefined();
-    cameraTargets.add(JSON.stringify(target));
+    previousCameraTarget = JSON.stringify(target);
+    cameraTargets.add(previousCameraTarget);
   }
   expect(cameraTargets.size).toBe(3);
   expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4 });
@@ -88,9 +96,10 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   });
   await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
   await page.getByRole('tab', { name: '外观' }).click();
-  await expect.poll(async () => (await readDiagnostics(page)).camera?.view, { timeout: 15_000 }).toBe('performance');
-  const exteriorCamera = (await readDiagnostics(page)).camera;
-  expect(exteriorCamera?.position[0]).toBeGreaterThan(2);
+  await expect.poll(async () => {
+    const camera = (await readDiagnostics(page)).camera;
+    return { view: camera?.view, movedOutside: (camera?.position[0] ?? 0) > 2 };
+  }, { timeout: 15_000 }).toEqual({ view: 'performance', movedOutside: true });
   await expect(page.locator('.story-hotspot')).toContainText('电驱与底盘');
 
   const moveWithinSection = async (progress: number) => {
@@ -110,6 +119,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
   const hotspotPositions = new Set<string>();
+  let previousHotspotPosition = '';
   const hotspotExpectations = {
     aero: ['空气动力学', 'front', '前翼与流线车身'],
     performance: ['电驱与底盘', 'wheel', '轮组与低重心底盘'],
@@ -135,9 +145,16 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     await expect(hotspot).toHaveAttribute('data-hotspot-position', position);
     await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
     await expect(marker).toBeVisible();
+    await expect.poll(async () => {
+      const box = await marker.boundingBox();
+      return box ? `${Math.round(box.x)}:${Math.round(box.y)}` : '';
+    }).not.toBe(previousHotspotPosition);
     const box = await marker.boundingBox();
     expect(box).not.toBeNull();
-    if (box) hotspotPositions.add(`${Math.round(box.x)}:${Math.round(box.y)}`);
+    if (box) {
+      previousHotspotPosition = `${Math.round(box.x)}:${Math.round(box.y)}`;
+      hotspotPositions.add(previousHotspotPosition);
+    }
     await marker.evaluate((button: HTMLButtonElement) => button.click());
     await expect(marker).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('.hotspot-detail')).toContainText(detail);

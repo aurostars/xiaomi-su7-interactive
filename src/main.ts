@@ -11,7 +11,7 @@ import {
   type CameraController,
   type CameraView,
 } from './scene/camera-controller';
-import { createScene } from './scene/create-scene';
+import { createScene, renderFrameInterval } from './scene/create-scene';
 import {
   loadVehicle,
   type LoadedVehicle,
@@ -78,7 +78,11 @@ orchestrator = createExperienceOrchestrator({
   webgl: capabilities.webgl,
   feedback,
   createAttempt() {
-    const runtime = createScene(elements.canvas, capabilities.quality === 'high' ? 'high' : 'low');
+    const runtime = createScene(
+      elements.canvas,
+      capabilities.quality === 'high' ? 'high' : 'low',
+      renderFrameInterval(import.meta.env.VITE_E2E_DIAGNOSTICS === '1'),
+    );
     const camera = createCameraController(runtime.camera);
     diagnosticCamera = camera;
     let vehicleController: VehicleController | undefined;
@@ -147,6 +151,7 @@ orchestrator = createExperienceOrchestrator({
         applyVehicleCapabilities(elements, vehicle.capabilities);
         vehicleController.applyState(store.getState());
         vehicleController.setRotation(vehicleYaw);
+        runtime.render();
       },
       discard(vehicle: LoadedVehicle) {
         vehicle.dispose();

@@ -8,11 +8,12 @@ import {
 } from '../src/scene/create-scene';
 
 describe('final visual regression guardrails', () => {
-  it('keeps antialiasing enabled for the vehicle silhouette at every quality tier', () => {
-    expect(rendererOptions('low').antialias).toBe(true);
+  it('keeps high-quality antialiasing while bounding constrained render cost', () => {
+    expect(rendererOptions('low').antialias).toBe(false);
     expect(rendererOptions('high').antialias).toBe(true);
-    expect(pixelRatioCap('low')).toBeGreaterThanOrEqual(1.5);
-    expect(pixelRatioFor('low', 1)).toBe(1.5);
+    expect(pixelRatioCap('low')).toBe(1);
+    expect(pixelRatioFor('low', 2)).toBe(1);
+    expect(pixelRatioFor('high', 1)).toBe(1.5);
   });
 
   it('uses a restrained lighting preset that preserves saturated paint color', () => {

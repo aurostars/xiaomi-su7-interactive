@@ -17,6 +17,8 @@ export function createScrollStory(
   onProgress: ScrollProgressHandler,
 ): ScrollStory {
   let disposed = false;
+  let lastView: CameraView | undefined;
+  let lastProgress = Number.NaN;
 
   return {
     update(autoCameraSuspendedUntil = 0) {
@@ -31,6 +33,9 @@ export function createScrollStory(
 
       const bounds = section.element.getBoundingClientRect();
       const progress = Math.min(1, Math.max(0, (viewportCenter - bounds.top) / bounds.height));
+      if (section.view === lastView && Math.abs(progress - lastProgress) < .0001) return;
+      lastView = section.view;
+      lastProgress = progress;
       onProgress(section.view, progress);
     },
     dispose() {

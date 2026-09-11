@@ -23,15 +23,16 @@ export interface SceneRuntime {
   camera: PerspectiveCamera;
   renderer: WebGLRenderer;
   resize(): void;
+  render(): void;
   start(): void;
   dispose(): void;
 }
 
-const pixelRatioCaps: Record<SceneQuality, number> = { low: 1.5, medium: 1.5, high: 2 };
+const pixelRatioCaps: Record<SceneQuality, number> = { low: 1, medium: 1.5, high: 2 };
 
 export function pixelRatioCap(quality: SceneQuality): number { return pixelRatioCaps[quality]; }
 export function pixelRatioFor(quality: SceneQuality, devicePixelRatio: number): number {
-  return Math.min(Math.max(devicePixelRatio || 1, 1.5), pixelRatioCap(quality));
+  return Math.min(Math.max(devicePixelRatio || 1, quality === 'low' ? 1 : 1.5), pixelRatioCap(quality));
 }
 
 export const automotiveLighting = {
@@ -48,8 +49,12 @@ export const automotiveSurface = {
   groundSize: 36,
 } as const;
 
-export function rendererOptions(_quality: SceneQuality) {
-  return { antialias: true, alpha: true } as const;
+export function rendererOptions(quality: SceneQuality) {
+  return { antialias: quality !== 'low', alpha: true } as const;
+}
+
+export function renderFrameInterval(diagnostics: boolean): number {
+  return diagnostics ? 2_000 : 0;
 }
 
 export function bindSceneResize(resize: () => void): () => void {
@@ -68,7 +73,7 @@ export function attachEnvironmentTarget(scene: Scene, target: WebGLRenderTarget)
   };
 }
 
-export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): SceneRuntime {
+export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, minimumFrameInterval = 0): SceneRuntime {
   const scene = new Scene();
   scene.background = new Color(0x05090f);
   const camera = new PerspectiveCamera(32, 1, 0.1, 100);
@@ -129,14 +134,22 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
     camera.updateProjectionMatrix();
   };
   const unbindResize = bindSceneResize(resize);
-  const render = () => {
+  let lastRenderAt = 0;
+  const render = (now = performance.now()) => {
     if (!running) return;
-    renderer.render(scene, camera);
+    if (now - lastRenderAt >= minimumFrameInterval) {
+      renderer.render(scene, camera);
+      lastRenderAt = now;
+    }
     animationFrame = requestAnimationFrame(render);
   };
 
   return {
     scene, camera, renderer, resize,
+    render() {
+      renderer.render(scene, camera);
+      lastRenderAt = performance.now();
+    },
     start() {
       if (running) return;
       running = true;

@@ -71,6 +71,18 @@ describe('scroll story', () => {
     story.dispose();
   });
 
+  it('does not repeat unchanged frames while the viewport is stationary', () => {
+    const fixture = makeSections();
+    const frames: Array<{ view: string; progress: number }> = [];
+    const story = createScrollStory(fixture.sections, (view, progress) => frames.push({ view, progress }));
+
+    story.update(0);
+    story.update(0);
+
+    expect(frames).toEqual([{ view: 'aero', progress: 0.25 }]);
+    story.dispose();
+  });
+
   it('does not drive the camera until autoCameraSuspendedUntil has elapsed', () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
