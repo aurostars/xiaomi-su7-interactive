@@ -88,7 +88,12 @@ export function renderShell(root: HTMLElement): ShellElements {
       <div class="vehicle-visual">
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
         <div class="stage-atmosphere" aria-hidden="true"></div>
-        <div class="story-hotspot" aria-live="polite"><span>当前系统</span><strong>空气动力学</strong></div>
+        <div class="story-hotspot" data-hotspot-view="aero" data-hotspot-position="front" aria-live="polite">
+          <button class="hotspot-marker" type="button" aria-expanded="false" aria-controls="story-hotspot-detail" aria-label="查看空气动力学部件说明">
+            <span class="hotspot-pulse" aria-hidden="true"></span><strong>空气动力学</strong>
+          </button>
+          <div id="story-hotspot-detail" class="hotspot-detail" hidden><b>空气动力学</b><p>前翼与流线车身协同梳理气流，稳定高速姿态。</p></div>
+        </div>
       </div>
       <div class="vehicle-stage">
         <div class="hero-copy">

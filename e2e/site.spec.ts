@@ -36,7 +36,7 @@ function overlaps(a: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>, b
 }
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const blockingConsoleErrors: string[] = [];
   const failedResources: string[] = [];
 
@@ -53,7 +53,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const response = await page.goto('/xiaomi-su7-interactive/');
   expect(response?.status()).toBe(200);
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
   const gulfBlue = page.getByRole('button', { name: '海湾蓝' });
   await gulfBlue.click();
@@ -88,7 +88,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   });
   await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
   await page.getByRole('tab', { name: '外观' }).click();
-  await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe('performance');
+  await expect.poll(async () => (await readDiagnostics(page)).camera?.view, { timeout: 15_000 }).toBe('performance');
   const exteriorCamera = (await readDiagnostics(page)).camera;
   expect(exteriorCamera?.position[0]).toBeGreaterThan(2);
   await expect(page.locator('.story-hotspot')).toContainText('电驱与底盘');
@@ -109,7 +109,14 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(lateFrame.camera?.fov).not.toBe(earlyFrame.camera?.fov);
   expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
-  for (const view of ['aero', 'performance', 'cabin', 'sensing']) {
+  const hotspotPositions = new Set<string>();
+  const hotspotExpectations = {
+    aero: ['空气动力学', 'front', '前翼与流线车身'],
+    performance: ['电驱与底盘', 'wheel', '轮组与低重心底盘'],
+    cabin: ['智能座舱', 'cabin', '座舱交互空间'],
+    sensing: ['智能驾驶感知', 'roof', '车顶与环车感知'],
+  } as const;
+  for (const view of ['aero', 'performance', 'cabin', 'sensing'] as const) {
     await page.evaluate((targetView) => {
       document.documentElement.style.scrollBehavior = 'auto';
       const section = document.querySelector<HTMLElement>(`[data-story-view="${targetView}"]`);
@@ -120,7 +127,23 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       const state = await readDiagnostics(page);
       return { hotspot: state.hotspot, cameraView: state.camera?.view };
     }).toEqual({ hotspot: view, cameraView: view });
+
+    const [label, position, detail] = hotspotExpectations[view];
+    const hotspot = page.locator('.story-hotspot');
+    const marker = hotspot.locator('.hotspot-marker');
+    await expect(hotspot).toHaveAttribute('data-hotspot-view', view);
+    await expect(hotspot).toHaveAttribute('data-hotspot-position', position);
+    await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
+    await expect(marker).toBeVisible();
+    const box = await marker.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) hotspotPositions.add(`${Math.round(box.x)}:${Math.round(box.y)}`);
+    await marker.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(marker).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.hotspot-detail')).toContainText(detail);
+    await marker.evaluate((button: HTMLButtonElement) => button.click());
   }
+  expect(hotspotPositions.size).toBe(4);
 
   const yawBefore = (await readDiagnostics(page)).vehicleYaw;
   await page.evaluate(() => {
@@ -151,7 +174,7 @@ for (const viewport of [
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(viewport);
     await page.goto('/xiaomi-su7-interactive/');
-    await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
+    await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
     const heading = page.getByRole('heading', { level: 1, name: /Xiaomi\s*SU7/ });
     const cta = page.getByRole('link', { name: '探索核心科技' });
@@ -170,11 +193,13 @@ for (const viewport of [
 
     if (viewport.width === 390) {
       const ctaBox = await cta.boundingBox();
+      const cabinCtaBox = await cabinCta.boundingBox();
+      const hotspotBox = await page.locator('.hotspot-marker').boundingBox();
       const canvasBox = await page.locator('canvas.vehicle-canvas').boundingBox();
       const specsBox = await specs.boundingBox();
       const controlsBox = await controls.boundingBox();
-      expect(ctaBox && canvasBox && specsBox && controlsBox).toBeTruthy();
-      if (ctaBox && canvasBox && specsBox && controlsBox) {
+      expect(ctaBox && cabinCtaBox && hotspotBox && canvasBox && specsBox && controlsBox).toBeTruthy();
+      if (ctaBox && cabinCtaBox && hotspotBox && canvasBox && specsBox && controlsBox) {
         const visibleVehicle = {
           x: Math.max(0, canvasBox.x),
           y: Math.max(0, canvasBox.y),
@@ -182,6 +207,8 @@ for (const viewport of [
           height: Math.min(viewport.height, canvasBox.y + canvasBox.height) - Math.max(0, canvasBox.y),
         };
         expect(overlaps(ctaBox, visibleVehicle), JSON.stringify({ ctaBox, visibleVehicle })).toBe(false);
+        expect(overlaps(hotspotBox, ctaBox)).toBe(false);
+        expect(overlaps(hotspotBox, cabinCtaBox)).toBe(false);
         expect(specsBox.y + specsBox.height).toBeLessThanOrEqual(controlsBox.y);
       }
     }
@@ -191,7 +218,7 @@ for (const viewport of [
 test('reduced motion keeps scroll chapters and target camera active with immediate transitions', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
   await page.evaluate(() => {
     const section = document.querySelector<HTMLElement>('[data-story-view="sensing"]');

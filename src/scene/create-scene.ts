@@ -12,6 +12,7 @@ import {
   ShadowMaterial,
   SRGBColorSpace,
   WebGLRenderer,
+  type WebGLRenderTarget,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
@@ -56,6 +57,17 @@ export function bindSceneResize(resize: () => void): () => void {
   return () => window.removeEventListener('resize', resize);
 }
 
+export function attachEnvironmentTarget(scene: Scene, target: WebGLRenderTarget): () => void {
+  scene.environment = target.texture;
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    scene.environment = null;
+    target.dispose();
+  };
+}
+
 export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): SceneRuntime {
   const scene = new Scene();
   scene.background = new Color(0x05090f);
@@ -73,8 +85,8 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
 
   const pmrem = new PMREMGenerator(renderer);
   const room = new RoomEnvironment();
-  const environment = pmrem.fromScene(room, .04).texture;
-  scene.environment = environment;
+  const environmentTarget = pmrem.fromScene(room, .04);
+  const disposeEnvironment = attachEnvironmentTarget(scene, environmentTarget);
   room.dispose();
   pmrem.dispose();
 
@@ -135,8 +147,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
       running = false;
       cancelAnimationFrame(animationFrame);
       unbindResize();
-      scene.environment = null;
-      environment.dispose();
+      disposeEnvironment();
       groundGeometry.dispose();
       groundMaterial.dispose();
       renderer.dispose();

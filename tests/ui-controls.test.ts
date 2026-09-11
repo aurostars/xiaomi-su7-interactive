@@ -72,14 +72,34 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.disabled).toBe(true);
   });
 
-  it('shows the current story system label to users', () => {
+  it('updates a positioned, expandable hotspot for all four story chapters', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const unbind = bindControls(elements, store);
+    const marker = elements.hotspotLabel.querySelector<HTMLButtonElement>('.hotspot-marker')!;
+    const detail = elements.hotspotLabel.querySelector<HTMLElement>('.hotspot-detail')!;
+    const expected = {
+      aero: ['空气动力学', '前翼与流线车身', 'front'],
+      performance: ['电驱与底盘', '轮组与低重心底盘', 'wheel'],
+      cabin: ['智能座舱', '座舱交互空间', 'cabin'],
+      sensing: ['智能驾驶感知', '车顶与环车感知', 'roof'],
+    } as const;
 
-    store.actions.setHotspot('sensing');
+    for (const [view, [label, description, position]] of Object.entries(expected)) {
+      store.actions.setHotspot(view);
+      expect(elements.hotspotLabel.dataset.hotspotView).toBe(view);
+      expect(elements.hotspotLabel.dataset.hotspotPosition).toBe(position);
+      expect(marker.getAttribute('aria-label')).toBe(`查看${label}部件说明`);
+      expect(marker.textContent).toContain(label);
+      expect(detail.hidden).toBe(true);
 
-    expect(elements.hotspotLabel.textContent).toContain('智能驾驶感知');
+      marker.click();
+      expect(marker.getAttribute('aria-expanded')).toBe('true');
+      expect(detail.hidden).toBe(false);
+      expect(detail.textContent).toContain(description);
+      marker.click();
+    }
+
     unbind();
   });
 

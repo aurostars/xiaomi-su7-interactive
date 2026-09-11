@@ -31,8 +31,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .header-cta { justify-self: end; padding: 10px 17px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13px; }
 
 .driving-experience { position: relative; isolation: isolate; background: #05070a; }
-.vehicle-visual { position: sticky; top: 0; z-index: 0; height: 100dvh; margin-bottom: -100dvh; overflow: hidden; pointer-events: none; }
-.vehicle-stage { position: relative; z-index: 1; min-height: 100dvh; overflow: hidden; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
+.vehicle-visual { position: sticky; top: 0; z-index: 2; height: 100dvh; margin-bottom: -100dvh; overflow: hidden; pointer-events: none; }
+.vehicle-stage { position: relative; z-index: 3; min-height: 100dvh; overflow: hidden; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
 .vehicle-canvas { position: absolute; inset: 0 0 0 31%; z-index: 1; width: 69%; height: 100%; cursor: grab; pointer-events: auto; touch-action: none; }
 .vehicle-canvas:active { cursor: grabbing; }
 .vehicle-canvas[hidden] { display: none; }
@@ -58,9 +58,20 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .hero-specs dt { font-size: 19px; font-weight: 750; }
 .hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
 
-.story-hotspot { position: absolute; z-index: 4; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; display: grid; gap: 4px; min-width: 186px; padding: 12px 14px; border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .72); backdrop-filter: blur(14px); }
-.story-hotspot span { color: #8f969e; font-size: 10px; letter-spacing: .08em; }
-.story-hotspot strong { font-size: 14px; }
+.story-hotspot { position: absolute; z-index: 4; left: var(--hotspot-x, 72%); top: var(--hotspot-y, 58%); pointer-events: auto; transition: left .45s ease, top .45s ease; }
+.story-hotspot[data-hotspot-position="front"] { --hotspot-x: 76%; --hotspot-y: 57%; }
+.story-hotspot[data-hotspot-position="wheel"] { --hotspot-x: 71%; --hotspot-y: 69%; }
+.story-hotspot[data-hotspot-position="cabin"] { --hotspot-x: 61%; --hotspot-y: 43%; }
+.story-hotspot[data-hotspot-position="roof"] { --hotspot-x: 67%; --hotspot-y: 29%; }
+.hotspot-marker { min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px 13px 8px 8px; border: 1px solid rgba(75, 223, 242, .5); border-radius: 999px; background: rgba(7, 10, 14, .82); backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); }
+.hotspot-marker strong { font-size: 12px; white-space: nowrap; }
+.hotspot-pulse { position: relative; width: 27px; height: 27px; flex: 0 0 27px; border: 1px solid var(--cyan); border-radius: 50%; }
+.hotspot-pulse::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--cyan); font-size: 17px; line-height: 1; }
+.hotspot-marker[aria-expanded="true"] .hotspot-pulse::after { content: "−"; }
+.hotspot-detail { position: absolute; top: calc(100% + 9px); right: 0; width: 248px; padding: 15px 16px; border: 1px solid var(--line); border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .94); backdrop-filter: blur(16px); }
+.hotspot-detail[hidden] { display: none; }
+.hotspot-detail b { font-size: 13px; }
+.hotspot-detail p { margin: 7px 0 0; color: #afb5bc; font-size: 12px; line-height: 1.65; }
 
 .vehicle-controls { position: absolute; z-index: 4; top: 96px; right: max(36px, calc((100vw - 1160px) / 2)); width: 224px; padding: 10px; border: 1px solid var(--line); background: rgba(7, 10, 14, .82); backdrop-filter: blur(18px); }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
@@ -119,7 +130,13 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
   .hero-actions { gap: 8px; }
   .primary-cta, .secondary-cta { min-height: 44px; padding: 0 15px; font-size: 13px; }
-  .story-hotspot { top: 64px; right: 12px; bottom: auto; min-width: 148px; padding: 9px 11px; }
+  .story-hotspot { transform: translateX(-50%); }
+  .story-hotspot[data-hotspot-position="front"] { --hotspot-x: 72%; --hotspot-y: 66%; }
+  .story-hotspot[data-hotspot-position="wheel"] { --hotspot-x: 67%; --hotspot-y: 74%; }
+  .story-hotspot[data-hotspot-position="cabin"] { --hotspot-x: 54%; --hotspot-y: 58%; }
+  .story-hotspot[data-hotspot-position="roof"] { --hotspot-x: 62%; --hotspot-y: 53%; }
+  .hotspot-marker { min-width: 44px; padding-right: 10px; }
+  .hotspot-detail { right: auto; left: 50%; width: min(230px, calc(100vw - 32px)); transform: translateX(-50%); }
   .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
   .hero-specs div { padding: 10px; }
   .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; overscroll-behavior-inline: contain; border-width: 1px 0 0; }
