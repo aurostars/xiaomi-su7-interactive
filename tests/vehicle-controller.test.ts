@@ -38,6 +38,7 @@ function makeVehicle(): LoadedVehicle & { untouched: MeshStandardMaterial } {
       leftDoor: true,
       rightDoor: true,
     },
+    dispose: () => undefined,
     untouched,
   };
 }

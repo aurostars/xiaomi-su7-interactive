@@ -1,5 +1,7 @@
 import {
+  BufferGeometry,
   Group,
+  Texture,
   type Material,
   type Object3D,
 } from 'three';
@@ -34,6 +36,8 @@ export interface LoadedVehicle {
     right?: Object3D;
   };
   capabilities: VehicleCapabilities;
+  /** Releases this vehicle's GPU resources and detaches it. Safe to call repeatedly. */
+  dispose(): void;
 }
 
 const normalizeName = (name: string) => name.trim().toLowerCase();
@@ -76,15 +80,37 @@ function createDoorPivot(
   return pivot;
 }
 
-export async function loadVehicle(
-  url: string,
-  onProgress: (progress: number) => void = () => undefined,
-): Promise<LoadedVehicle> {
-  const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(url, (event) => {
-    onProgress(event.total > 0 ? Math.min(1, event.loaded / event.total) : 0);
+function disposeGpuResources(root: Object3D) {
+  const geometries = new Set<BufferGeometry>();
+  const materials = new Set<Material>();
+  const textures = new Set<Texture>();
+
+  root.traverse((object) => {
+    if (!('geometry' in object) || !('material' in object)) return;
+    const renderable = object as Object3D & {
+      geometry?: BufferGeometry;
+      material?: Material | Material[];
+    };
+    if (renderable.geometry instanceof BufferGeometry) geometries.add(renderable.geometry);
+    const materialList = Array.isArray(renderable.material)
+      ? renderable.material
+      : renderable.material
+        ? [renderable.material]
+        : [];
+    materialList.forEach((material) => materials.add(material));
   });
-  const root = gltf.scene;
+
+  materials.forEach((material) => {
+    Object.values(material).forEach((value) => {
+      if (value instanceof Texture) textures.add(value);
+    });
+  });
+  textures.forEach((texture) => texture.dispose());
+  materials.forEach((material) => material.dispose());
+  geometries.forEach((geometry) => geometry.dispose());
+}
+
+export function createLoadedVehicle(root: Object3D): LoadedVehicle {
   const bodyMaterials = collectMaterials(root, BODY_MATERIAL_NAMES);
   const interiorMaterials = collectMaterials(root, INTERIOR_MATERIAL_NAMES);
   const leftDoor = createDoorPivot(
@@ -99,6 +125,7 @@ export async function loadVehicle(
     'right',
     [1.04, 0, -0.94],
   );
+  let disposed = false;
 
   root.traverse((object) => {
     if (!('isMesh' in object)) return;
@@ -118,5 +145,22 @@ export async function loadVehicle(
       leftDoor: Boolean(leftDoor),
       rightDoor: Boolean(rightDoor),
     },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      root.removeFromParent();
+      disposeGpuResources(root);
+    },
   };
+}
+
+export async function loadVehicle(
+  url: string,
+  onProgress: (progress: number) => void = () => undefined,
+): Promise<LoadedVehicle> {
+  const loader = new GLTFLoader();
+  const gltf = await loader.loadAsync(url, (event) => {
+    onProgress(event.total > 0 ? Math.min(1, event.loaded / event.total) : 0);
+  });
+  return createLoadedVehicle(gltf.scene);
 }
