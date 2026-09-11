@@ -1,0 +1,93 @@
+import {
+  ACESFilmicToneMapping,
+  AmbientLight,
+  Color,
+  DirectionalLight,
+  PCFSoftShadowMap,
+  PerspectiveCamera,
+  Scene,
+  SRGBColorSpace,
+  WebGLRenderer,
+} from 'three';
+
+export type SceneQuality = 'low' | 'medium' | 'high';
+
+export interface SceneRuntime {
+  scene: Scene;
+  camera: PerspectiveCamera;
+  renderer: WebGLRenderer;
+  resize(): void;
+  start(): void;
+  dispose(): void;
+}
+
+const pixelRatioCaps: Record<SceneQuality, number> = {
+  low: 1,
+  medium: 1.5,
+  high: 2,
+};
+
+export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): SceneRuntime {
+  const scene = new Scene();
+  scene.background = new Color(0x05090f);
+
+  const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+  camera.position.set(6.8, 2.8, 7.8);
+  camera.lookAt(0, 0.7, 0);
+
+  const renderer = new WebGLRenderer({ canvas, antialias: quality !== 'low', alpha: true });
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = quality !== 'low';
+  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCaps[quality]));
+
+  const ambient = new AmbientLight(0xdce8ff, 1.35);
+  const key = new DirectionalLight(0xffffff, 4.2);
+  key.name = 'main-rim-light';
+  key.position.set(4, 7, 5);
+  key.castShadow = quality !== 'low';
+  const cyan = new DirectionalLight(0x4de8ff, 3.2);
+  cyan.name = 'cool-cyan-side-light';
+  cyan.position.set(-5, 2.4, 1.5);
+  const warm = new DirectionalLight(0xff8050, 2.1);
+  warm.name = 'warm-fill-light';
+  warm.position.set(2, 1.2, -5);
+  scene.add(ambient, key, cyan, warm);
+
+  let animationFrame = 0;
+  let running = false;
+
+  const resize = () => {
+    const width = Math.max(1, canvas.clientWidth);
+    const height = Math.max(1, canvas.clientHeight);
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  };
+
+  const render = () => {
+    if (!running) return;
+    renderer.render(scene, camera);
+    animationFrame = requestAnimationFrame(render);
+  };
+
+  return {
+    scene,
+    camera,
+    renderer,
+    resize,
+    start() {
+      if (running) return;
+      running = true;
+      resize();
+      animationFrame = requestAnimationFrame(render);
+    },
+    dispose() {
+      running = false;
+      cancelAnimationFrame(animationFrame);
+      renderer.dispose();
+    },
+  };
+}

@@ -1,4 +1,5 @@
 import './styles.css';
+export { vehicleFallbackUrl, vehicleModelUrl } from './scene/load-vehicle';
 
 export function assetUrl(relativePath: string): string {
   const baseUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
