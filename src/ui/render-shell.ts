@@ -82,10 +82,12 @@ export function renderShell(root: HTMLElement): ShellElements {
       <nav aria-label="主导航"><a href="#vehicle-stage">SU7</a><a href="#story">细节</a><a href="#technology">科技</a><a href="#film">影像</a></nav>
       <a class="header-cta" href="#vehicle-stage">预约试驾</a>
     </header>
-    <main>
-      <section id="vehicle-stage" class="vehicle-stage" role="region" aria-label="小米 SU7 交互车辆舞台">
+    <section id="vehicle-stage" class="driving-experience" role="region" aria-label="小米 SU7 交互车辆舞台">
+      <div class="vehicle-visual">
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
         <div class="stage-atmosphere" aria-hidden="true"></div>
+      </div>
+      <div class="vehicle-stage">
         <div class="hero-copy">
           <p class="hero-label">C级高性能生态科技轿车</p>
           <h1>Xiaomi<br>SU7</h1>
@@ -93,30 +95,34 @@ export function renderShell(root: HTMLElement): ShellElements {
           <a class="primary-cta" href="#story">探索核心科技</a>
           <dl class="hero-specs"><div><dt>800V</dt><dd>高压平台</dd></div><div><dt>HyperOS</dt><dd>智能座舱</dd></div><div><dt>EV</dt><dd>高性能电驱</dd></div></dl>
         </div>
-        <aside class="vehicle-controls" aria-label="车辆个性化控制">
+        <aside class="vehicle-controls" aria-label="车辆个性化控制" data-mobile-control-rail>
           <div class="mode-tabs" role="tablist" aria-label="车辆视图">
-            <button type="button" role="tab" data-mode="exterior">外观</button>
-            <button type="button" role="tab" data-mode="cabin">座舱</button>
+            <button id="tab-exterior" type="button" role="tab" data-mode="exterior" aria-controls="exterior-controls">外观</button>
+            <button id="tab-cabin" type="button" role="tab" data-mode="cabin" aria-controls="cabin-controls">座舱</button>
           </div>
-          <div class="control-group paint-group"><span>车漆</span><div>${paintColors.map(([value, name, color]) => colorButton(value, name, color, 'paint')).join('')}</div></div>
-          <div class="control-group interior-group"><span>内饰</span><div>${interiorColors.map(([value, name, color]) => colorButton(value, name, color, 'interior')).join('')}</div></div>
-          <div class="seat-views" aria-label="座舱座席"><button type="button" data-seat="driver">主驾</button><button type="button" data-seat="passenger">副驾</button><button type="button" data-seat="rear">后排</button></div>
+          <div id="exterior-controls" class="control-panel paint-group" role="tabpanel" aria-labelledby="tab-exterior">
+            <div class="control-group"><span>车漆</span><div>${paintColors.map(([value, name, color]) => colorButton(value, name, color, 'paint')).join('')}</div></div>
+          </div>
+          <div id="cabin-controls" class="control-panel cabin-controls" role="tabpanel" aria-labelledby="tab-cabin">
+            <div class="control-group interior-group"><span>内饰</span><div>${interiorColors.map(([value, name, color]) => colorButton(value, name, color, 'interior')).join('')}</div></div>
+            <div class="seat-views" aria-label="座舱座席"><button type="button" data-seat="driver">主驾</button><button type="button" data-seat="passenger">副驾</button><button type="button" data-seat="rear">后排</button></div>
+          </div>
           <button class="door-button" type="button" aria-pressed="false">开门</button>
         </aside>
-      </section>
+      </div>
       <div id="story" class="story-sequence">${renderStory()}</div>
-      <section id="technology" class="technology-section" aria-labelledby="technology-title">
-        <p class="section-label">前沿科技</p><h2 id="technology-title">技术驱动，每一次出发</h2>
-        <p class="section-intro">从高压平台到智能座舱，核心技术被组织成可感知、可探索的驾驶体验。</p>
-        <div class="technology-grid">
-          <article class="technology-card"><img src="${techPlatform}" alt="小米 SU7 800V 高压平台" loading="lazy"><div><h3>800V 高压平台</h3><p>高效补能与稳定输出，为纯电旅程提供充沛底气。</p></div></article>
-          <article class="technology-card"><img src="${techDrive}" alt="小米 SU7 高性能电驱" loading="lazy"><div><h3>高性能电驱</h3><p>迅速响应每一次加速指令，释放持续而线性的动力。</p></div></article>
-          <article class="technology-card"><img src="${techCabin}" alt="小米 SU7 HyperOS 智能座舱" loading="lazy"><div><h3>HyperOS 智能座舱</h3><p>车机与移动设备自然协同，信息始终跟随你的节奏。</p></div></article>
-        </div>
-      </section>
-      <section id="film" class="brand-film" aria-label="新一代小米 SU7 品牌影像"><img src="${gallerySu7}" alt="新一代小米 SU7 驰骋在开阔天地" loading="lazy"></section>
-      <section class="closing-cta"><div><p>沉浸体验</p><h2>回到车身舞台，继续探索配色、开门与智能座舱。</h2></div><a href="#vehicle-stage">返回车辆舞台</a></section>
-    </main>
+    </section>
+    <section id="technology" class="technology-section" aria-labelledby="technology-title">
+      <p class="section-label">前沿科技</p><h2 id="technology-title">技术驱动，每一次出发</h2>
+      <p class="section-intro">从高压平台到智能座舱，核心技术被组织成可感知、可探索的驾驶体验。</p>
+      <div class="technology-grid">
+        <article class="technology-card"><img src="${techPlatform}" alt="小米 SU7 800V 高压平台" loading="lazy" width="1296" height="1050"><div><h3>800V 高压平台</h3><p>高效补能与稳定输出，为纯电旅程提供充沛底气。</p></div></article>
+        <article class="technology-card"><img src="${techDrive}" alt="小米 SU7 高性能电驱" loading="lazy" width="1296" height="1050"><div><h3>高性能电驱</h3><p>迅速响应每一次加速指令，释放持续而线性的动力。</p></div></article>
+        <article class="technology-card"><img src="${techCabin}" alt="小米 SU7 HyperOS 智能座舱" loading="lazy" width="1296" height="1050"><div><h3>HyperOS 智能座舱</h3><p>车机与移动设备自然协同，信息始终跟随你的节奏。</p></div></article>
+      </div>
+    </section>
+    <section id="film" class="brand-film" aria-label="新一代小米 SU7 品牌影像"><img src="${gallerySu7}" alt="新一代小米 SU7 驰骋在开阔天地" loading="lazy" width="3840" height="1920"></section>
+    <section class="closing-cta"><div><p>沉浸体验</p><h2>回到车身舞台，继续探索配色、开门与智能座舱。</h2></div><a href="#vehicle-stage">返回车辆舞台</a></section>
     <footer><span>Xiaomi SU7 交互体验</span><span>为热爱驾驶的人而造</span></footer>`;
 
   const canvas = root.querySelector<HTMLCanvasElement>('canvas');

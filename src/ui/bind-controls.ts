@@ -8,8 +8,23 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     cleanups.push(() => element.removeEventListener('click', handler));
   };
 
-  elements.modeButtons.forEach((button) => {
+  elements.modeButtons.forEach((button, index) => {
     listen(button, () => store.actions.setMode(button.dataset.mode === 'cabin' ? 'cabin' : 'exterior'));
+    const onKeyDown = (event: KeyboardEvent) => {
+      const lastIndex = elements.modeButtons.length - 1;
+      let nextIndex: number | undefined;
+      if (event.key === 'ArrowRight') nextIndex = index === lastIndex ? 0 : index + 1;
+      if (event.key === 'ArrowLeft') nextIndex = index === 0 ? lastIndex : index - 1;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = lastIndex;
+      if (nextIndex === undefined) return;
+      event.preventDefault();
+      const nextButton = elements.modeButtons[nextIndex];
+      nextButton.focus();
+      store.actions.setMode(nextButton.dataset.mode === 'cabin' ? 'cabin' : 'exterior');
+    };
+    button.addEventListener('keydown', onKeyDown);
+    cleanups.push(() => button.removeEventListener('keydown', onKeyDown));
   });
   elements.colorButtons.forEach((button) => {
     listen(button, () => {
@@ -31,6 +46,9 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       const selected = button.dataset.mode === state.mode;
       button.setAttribute('aria-selected', String(selected));
       button.tabIndex = selected ? 0 : -1;
+      const panelId = button.getAttribute('aria-controls');
+      const panel = panelId ? button.ownerDocument.getElementById(panelId) : null;
+      if (panel) panel.hidden = !selected;
     });
     elements.colorButtons.forEach((button) => {
       const selected = button.dataset.paint === state.paint || button.dataset.interior === state.interior;

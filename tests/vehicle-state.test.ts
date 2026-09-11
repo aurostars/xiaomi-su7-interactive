@@ -117,4 +117,18 @@ describe('vehicle state', () => {
 
     expect(observedPaints).toEqual(['pearl-white']);
   });
+
+  it('does not notify subscribers when the active story hotspot is unchanged', () => {
+    const store = createVehicleStore({ hotspot: 'aero' });
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.actions.setHotspot('aero');
+    store.actions.setHotspot('aero');
+
+    expect(notifications).toBe(0);
+    expect(store.getState().hotspot).toBe('aero');
+  });
 });

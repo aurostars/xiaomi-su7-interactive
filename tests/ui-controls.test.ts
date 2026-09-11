@@ -53,4 +53,53 @@ describe('high fidelity page shell', () => {
 
     unbind();
   });
+
+  it('keeps one sticky vehicle visual alongside every story section and ends before technology', () => {
+    const elements = renderShell(document.body);
+    const experience = document.querySelector('.driving-experience');
+    const visual = experience?.querySelector(':scope > .vehicle-visual');
+    const story = experience?.querySelector(':scope > .story-sequence');
+    const technology = document.querySelector('.technology-section');
+
+    expect(visual?.contains(elements.canvas)).toBe(true);
+    expect(story?.querySelectorAll('[data-story-view]')).toHaveLength(4);
+    expect(experience?.contains(technology)).toBe(false);
+  });
+
+  it('supports complete keyboard tab navigation and linked tab panels', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const unbind = bindControls(elements, store);
+    const [exterior, cabin] = elements.modeButtons;
+
+    expect(exterior.getAttribute('aria-controls')).toBe('exterior-controls');
+    expect(cabin.getAttribute('aria-controls')).toBe('cabin-controls');
+    expect(document.querySelector('#exterior-controls')?.getAttribute('role')).toBe('tabpanel');
+    expect(document.querySelector('#cabin-controls')?.getAttribute('aria-labelledby')).toBe(cabin.id);
+
+    exterior.focus();
+    exterior.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(cabin);
+    expect(store.getState().mode).toBe('cabin');
+
+    cabin.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(document.activeElement).toBe(exterior);
+    exterior.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    expect(document.activeElement).toBe(cabin);
+    cabin.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(document.activeElement).toBe(exterior);
+
+    unbind();
+  });
+
+  it('groups core controls in a horizontally scrollable mobile rail and reserves image geometry', () => {
+    renderShell(document.body);
+
+    const rail = document.querySelector('[data-mobile-control-rail]');
+    expect(rail?.querySelectorAll('button').length).toBeGreaterThanOrEqual(16);
+    document.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+      expect(Number(image.getAttribute('width'))).toBeGreaterThan(0);
+      expect(Number(image.getAttribute('height'))).toBeGreaterThan(0);
+    });
+  });
 });

@@ -30,4 +30,11 @@ describe('application foundation', () => {
     expect(app?.tagName).toBe('MAIN');
     expect(app?.id).toBe('app');
   });
+
+  it('keeps a single non-nested main landmark', async () => {
+    await import('../src/main');
+
+    expect(document.querySelectorAll('main')).toHaveLength(1);
+    expect(document.querySelector('main main')).toBeNull();
+  });
 });

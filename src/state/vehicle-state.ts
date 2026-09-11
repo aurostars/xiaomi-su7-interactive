@@ -40,6 +40,10 @@ export function createVehicleStore(initial: Partial<VehicleState> = {}): Vehicle
   const listeners = new Set<() => void>();
 
   const update = (fields: Partial<VehicleState>) => {
+    const changed = Object.entries(fields).some(
+      ([key, value]) => !Object.is(state[key as keyof VehicleState], value),
+    );
+    if (!changed) return;
     state = Object.freeze({ ...state, ...fields });
     listeners.forEach((listener) => listener());
   };

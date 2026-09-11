@@ -27,6 +27,11 @@ const pixelRatioCaps: Record<SceneQuality, number> = {
   high: 2,
 };
 
+export function bindSceneResize(resize: () => void): () => void {
+  window.addEventListener('resize', resize);
+  return () => window.removeEventListener('resize', resize);
+}
+
 export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): SceneRuntime {
   const scene = new Scene();
   scene.background = new Color(0x05090f);
@@ -67,6 +72,8 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
     camera.updateProjectionMatrix();
   };
 
+  const unbindResize = bindSceneResize(resize);
+
   const render = () => {
     if (!running) return;
     renderer.render(scene, camera);
@@ -87,6 +94,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
     dispose() {
       running = false;
       cancelAnimationFrame(animationFrame);
+      unbindResize();
       renderer.dispose();
     },
   };
