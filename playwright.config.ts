@@ -21,7 +21,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `VITE_E2E_DIAGNOSTICS=1 corepack pnpm build && corepack pnpm exec vite preview --host 127.0.0.1 --port ${e2ePort}`,
+    command: `VITE_E2E_DIAGNOSTICS=1 corepack pnpm build && corepack pnpm exec vite preview --outDir dist-e2e --host 127.0.0.1 --port ${e2ePort}`,
     url: `${e2eOrigin}/xiaomi-su7-interactive/`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
