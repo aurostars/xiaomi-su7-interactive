@@ -20,9 +20,16 @@ export interface CameraPreset {
   vehicleYaw: number;
 }
 
+export interface CameraDiagnostics {
+  view: CameraView;
+  position: [number, number, number];
+  target: [number, number, number];
+}
+
 export interface CameraController {
   setTarget(view: CameraView): void;
   update(delta: number): void;
+  getDiagnostics(): CameraDiagnostics;
 }
 
 export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
@@ -42,9 +49,11 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
   const targetPosition = camera.position.clone();
   const targetLook = lookTarget.clone();
   let targetFov = camera.fov;
+  let currentView: CameraView = 'aero';
 
   return {
     setTarget(view) {
+      currentView = view;
       const preset = CAMERA_PRESETS[view];
       targetPosition.fromArray(preset.position);
       targetLook.fromArray(preset.target);
@@ -57,6 +66,14 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       camera.fov = MathUtils.lerp(camera.fov, targetFov, alpha);
       camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
+    },
+    getDiagnostics() {
+      const preset = CAMERA_PRESETS[currentView];
+      return {
+        view: currentView,
+        position: [...preset.position],
+        target: [...preset.target],
+      };
     },
   };
 }

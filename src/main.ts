@@ -6,7 +6,11 @@ import {
   createStageFeedback,
   detectCapabilities,
 } from './performance/capabilities';
-import { createCameraController, type CameraView } from './scene/camera-controller';
+import {
+  createCameraController,
+  type CameraController,
+  type CameraView,
+} from './scene/camera-controller';
 import { createScene } from './scene/create-scene';
 import {
   loadVehicle,
@@ -33,6 +37,25 @@ const elements = renderShell(app);
 const store = createVehicleStore();
 const unbindControls = bindControls(elements, store);
 const disposers: Array<() => void> = [unbindControls];
+let diagnosticCamera: CameraController | undefined;
+let diagnosticVehicle: VehicleController | undefined;
+
+if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
+  Object.defineProperty(window, '__SU7_E2E_READ_DIAGNOSTICS__', {
+    value: () => {
+      const vehicle = diagnosticVehicle?.getDiagnostics();
+      return {
+        modelReady: Boolean(vehicle),
+        paint: vehicle?.paint ?? null,
+        doorAngles: vehicle?.doorAngles ?? { left: null, right: null },
+        camera: diagnosticCamera?.getDiagnostics() ?? null,
+        vehicleYaw: vehicle?.yaw ?? null,
+        hotspot: store.getState().hotspot,
+      };
+    },
+  });
+}
+
 const capabilities = detectCapabilities();
 const visual = elements.canvas.parentElement ?? app;
 document.documentElement.dataset.quality = capabilities.quality;
@@ -50,6 +73,7 @@ orchestrator = createExperienceOrchestrator({
   createAttempt() {
     const runtime = createScene(elements.canvas, capabilities.quality === 'high' ? 'high' : 'low');
     const camera = createCameraController(runtime.camera);
+    diagnosticCamera = camera;
     let vehicleController: VehicleController | undefined;
     let vehicleYaw = 0;
     let stopped = false;
@@ -96,6 +120,7 @@ orchestrator = createExperienceOrchestrator({
       activate(vehicle: LoadedVehicle) {
         runtime.scene.add(vehicle.root);
         vehicleController = createVehicleController(vehicle);
+        diagnosticVehicle = vehicleController;
         vehicleController.applyState(store.getState());
       },
       discard(vehicle: LoadedVehicle) {
@@ -109,6 +134,8 @@ orchestrator = createExperienceOrchestrator({
         drag.dispose();
         story.dispose();
         vehicleController?.dispose();
+        if (diagnosticVehicle === vehicleController) diagnosticVehicle = undefined;
+        if (diagnosticCamera === camera) diagnosticCamera = undefined;
         runtime.dispose();
       },
     };

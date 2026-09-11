@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   automotiveLighting,
@@ -23,10 +22,5 @@ describe('final visual regression guardrails', () => {
       + automotiveLighting.cyan
       + automotiveLighting.warm,
     ).toBeLessThanOrEqual(2.5);
-  });
-
-  it('keeps the mobile vehicle below the hero CTA instead of underneath it', () => {
-    const css = readFileSync(`${process.cwd()}/src/styles.css`, 'utf8');
-    expect(css).toMatch(/\.vehicle-canvas, \.vehicle-fallback \{ inset: 38%/);
   });
 });

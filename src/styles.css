@@ -104,7 +104,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .brand b { display: none; }
   .header-cta { padding: 8px 13px; }
   .vehicle-stage { min-height: 100dvh; padding-bottom: 150px; }
-  .vehicle-canvas, .vehicle-fallback { inset: 38% -22% auto 4%; width: 118%; height: 40%; }
+  .vehicle-canvas, .vehicle-fallback { inset: 52% -22% auto 4%; width: 118%; height: 40%; }
   .vehicle-stage-feedback { right: 20px; bottom: 166px; }
   .hero-copy { width: 100%; padding: 108px 20px 20px; }
   .hero-copy h1 { font-size: clamp(64px, 22vw, 88px); }

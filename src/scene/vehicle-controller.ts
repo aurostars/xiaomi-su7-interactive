@@ -7,9 +7,16 @@ import {
 import type { VehicleState } from '../state/vehicle-state';
 import type { LoadedVehicle } from './load-vehicle';
 
+export interface VehicleDiagnostics {
+  paint: string | null;
+  doorAngles: { left: number | null; right: number | null };
+  yaw: number;
+}
+
 export interface VehicleController {
   applyState(state: VehicleState): void;
   setRotation(y: number): void;
+  getDiagnostics(): VehicleDiagnostics;
   dispose(): void;
 }
 
@@ -98,6 +105,17 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
     },
     setRotation(y) {
       if (!disposed) vehicle.root.rotation.y = y;
+    },
+    getDiagnostics() {
+      const paintMaterial = vehicle.bodyMaterials.find(hasColor);
+      return {
+        paint: paintMaterial?.color.getHexString() ?? null,
+        doorAngles: {
+          left: vehicle.doors.left?.rotation.y ?? null,
+          right: vehicle.doors.right?.rotation.y ?? null,
+        },
+        yaw: vehicle.root.rotation.y,
+      };
     },
     dispose() {
       disposed = true;
