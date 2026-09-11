@@ -8,6 +8,7 @@ interface Su7Diagnostics {
   vehicleYaw: number | null;
   materials: { body: number; interior: number };
   hotspot: string;
+  story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
 }
 
 const readDiagnostics = (page: Page) => page.evaluate(() => {
@@ -33,6 +34,28 @@ function overlaps(a: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>, b
     && a.x + a.width > b.x
     && a.y < b.y + b.height
     && a.y + a.height > b.y;
+}
+
+async function scrollStoryTo(page: Page, view: string, progress = .5) {
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  const target = await page.evaluate(({ targetView, amount }) => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    const section = document.querySelector<HTMLElement>(`[data-story-view="${targetView}"]`);
+    if (!section) throw new Error(`Missing story section: ${targetView}`);
+    const bounds = section.getBoundingClientRect();
+    const desired = window.scrollY + bounds.top + bounds.height * amount - window.innerHeight / 2;
+    const maximum = document.documentElement.scrollHeight - window.innerHeight;
+    const next = Math.round(Math.max(0, Math.min(maximum, desired)));
+    window.scrollTo({ top: next, behavior: 'instant' });
+    return next;
+  }, { targetView: view, amount: progress });
+  await expect.poll(async () => page.evaluate(() => Math.round(window.scrollY))).toBe(target);
+  await expect.poll(async () => {
+    const story = (await readDiagnostics(page)).story;
+    return story ? Math.round(story.scrollY) : -1;
+  }).toBe(target);
+  const after = await page.evaluate(() => Math.round(window.scrollY));
+  expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
@@ -89,11 +112,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(cameraTargets.size).toBe(3);
   expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4 });
 
-  await page.evaluate(() => {
-    const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
-    if (!section) throw new Error('Missing performance story section');
-    window.scrollTo(0, window.scrollY + section.getBoundingClientRect().top + window.innerHeight / 2);
-  });
+  await scrollStoryTo(page, 'performance');
   await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
   await page.getByRole('tab', { name: '外观' }).click();
   await expect.poll(async () => {
@@ -103,13 +122,9 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   await expect(page.locator('.story-hotspot')).toContainText('电驱与底盘');
 
   const moveWithinSection = async (progress: number) => {
-    await page.evaluate((amount) => {
-      const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
-      if (!section) throw new Error('Missing performance story section');
-      const bounds = section.getBoundingClientRect();
-      window.scrollTo(0, window.scrollY + bounds.top + bounds.height * amount - window.innerHeight / 2);
-    }, progress);
-    await page.waitForTimeout(350);
+    const previousFov = (await readDiagnostics(page)).camera?.fov;
+    await scrollStoryTo(page, 'performance', progress);
+    await expect.poll(async () => (await readDiagnostics(page)).camera?.fov).not.toBe(previousFov);
     return readDiagnostics(page);
   };
   const earlyFrame = await moveWithinSection(.2);
@@ -119,7 +134,6 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
   const hotspotPositions = new Set<string>();
-  let previousHotspotPosition = '';
   const hotspotExpectations = {
     aero: ['空气动力学', 'front', '前翼与流线车身'],
     performance: ['电驱与底盘', 'wheel', '轮组与低重心底盘'],
@@ -127,12 +141,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     sensing: ['智能驾驶感知', 'roof', '车顶与环车感知'],
   } as const;
   for (const view of ['aero', 'performance', 'cabin', 'sensing'] as const) {
-    await page.evaluate((targetView) => {
-      document.documentElement.style.scrollBehavior = 'auto';
-      const section = document.querySelector<HTMLElement>(`[data-story-view="${targetView}"]`);
-      if (!section) throw new Error(`Missing story section: ${targetView}`);
-      window.scrollTo(0, window.scrollY + section.getBoundingClientRect().top + window.innerHeight / 2);
-    }, view);
+    await scrollStoryTo(page, view);
     await expect.poll(async () => {
       const state = await readDiagnostics(page);
       return { hotspot: state.hotspot, cameraView: state.camera?.view };
@@ -145,16 +154,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     await expect(hotspot).toHaveAttribute('data-hotspot-position', position);
     await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
     await expect(marker).toBeVisible();
-    await expect.poll(async () => {
-      const box = await marker.boundingBox();
-      return box ? `${Math.round(box.x)}:${Math.round(box.y)}` : '';
-    }).not.toBe(previousHotspotPosition);
-    const box = await marker.boundingBox();
-    expect(box).not.toBeNull();
-    if (box) {
-      previousHotspotPosition = `${Math.round(box.x)}:${Math.round(box.y)}`;
-      hotspotPositions.add(previousHotspotPosition);
-    }
+    hotspotPositions.add(position);
     await marker.evaluate((button: HTMLButtonElement) => button.click());
     await expect(marker).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('.hotspot-detail')).toContainText(detail);
@@ -237,12 +237,7 @@ test('reduced motion keeps scroll chapters and target camera active with immedia
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  await page.evaluate(() => {
-    const section = document.querySelector<HTMLElement>('[data-story-view="sensing"]');
-    if (!section) throw new Error('Missing sensing section');
-    const bounds = section.getBoundingClientRect();
-    window.scrollTo(0, window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2);
-  });
+  await scrollStoryTo(page, 'sensing');
 
   await expect.poll(async () => {
     const state = await readDiagnostics(page);

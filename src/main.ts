@@ -45,8 +45,10 @@ applyVehicleCapabilities(elements, {
 const disposers: Array<() => void> = [unbindControls];
 let diagnosticCamera: CameraController | undefined;
 let diagnosticVehicle: VehicleController | undefined;
+let diagnosticStory: { view: CameraView; progress: number; scrollY: number; updatedAt: number } | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
+  document.documentElement.classList.add('e2e-diagnostics');
   Object.defineProperty(window, '__SU7_E2E_READ_DIAGNOSTICS__', {
     value: () => {
       const vehicle = diagnosticVehicle?.getDiagnostics();
@@ -58,6 +60,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         vehicleYaw: vehicle?.yaw ?? null,
         materials: vehicle?.materials ?? { body: 0, interior: 0 },
         hotspot: store.getState().hotspot,
+        story: diagnosticStory ?? null,
       };
     },
   });
@@ -97,12 +100,14 @@ orchestrator = createExperienceOrchestrator({
       })),
       (view, progress) => {
         storyFrame = { view, progress };
+        diagnosticStory = { view, progress, scrollY: window.scrollY, updatedAt: performance.now() };
         store.actions.setHotspot(view);
         if (store.getState().mode !== 'exterior') return;
         const frame = camera.setStoryProgress(view, progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
       },
+      () => store.getState().autoCameraSuspendedUntil,
     );
     const drag = createDragController(elements.canvas, {
       rotateBy(deltaYaw) {
@@ -136,7 +141,6 @@ orchestrator = createExperienceOrchestrator({
       if (stopped) return;
       const delta = Math.min(.05, (now - previous) / 1000);
       previous = now;
-      story.update(store.getState().autoCameraSuspendedUntil);
       camera.update(delta, capabilities.reducedMotion);
       frame = requestAnimationFrame(update);
     };
@@ -165,7 +169,10 @@ orchestrator = createExperienceOrchestrator({
         story.dispose();
         vehicleController?.dispose();
         if (diagnosticVehicle === vehicleController) diagnosticVehicle = undefined;
-        if (diagnosticCamera === camera) diagnosticCamera = undefined;
+        if (diagnosticCamera === camera) {
+          diagnosticCamera = undefined;
+          diagnosticStory = undefined;
+        }
         runtime.dispose();
       },
     };

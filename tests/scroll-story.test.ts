@@ -71,6 +71,18 @@ describe('scroll story', () => {
     story.dispose();
   });
 
+  it('updates immediately from scroll input without waiting for the render loop', () => {
+    const fixture = makeSections();
+    const selected: string[] = [];
+    const story = createScrollStory(fixture.sections, (view) => selected.push(view));
+
+    fixture.scrollTo(800);
+    window.dispatchEvent(new Event('scroll'));
+
+    expect(selected).toEqual(['performance']);
+    story.dispose();
+  });
+
   it('does not repeat unchanged frames while the viewport is stationary', () => {
     const fixture = makeSections();
     const frames: Array<{ view: string; progress: number }> = [];
