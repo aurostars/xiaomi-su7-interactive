@@ -206,6 +206,42 @@ describe('experience orchestration', () => {
     expect(resolved.attempts[0].discarded).toEqual([1]);
   });
 
+  it('discards the active loaded value on retry and pagehide disposal', async () => {
+    const retried = setup();
+    retried.attempts[0].request.resolve({ id: 7 });
+    await flush();
+
+    retried.orchestrator.retry();
+    expect(retried.attempts[0].discarded).toEqual([7]);
+
+    retried.attempts[1].request.resolve({ id: 8 });
+    await flush();
+    retried.orchestrator.dispose();
+    expect(retried.attempts[1].discarded).toEqual([8]);
+  });
+
+  it('discards a loaded value when activation throws', async () => {
+    const stage = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    stage.append(canvas);
+    const value = { disposed: false };
+    const feedback = createStageFeedback(stage, canvas, '/fallback.webp', () => undefined);
+    createExperienceOrchestrator({
+      canvas,
+      webgl: true,
+      feedback,
+      createAttempt: () => ({
+        load: async () => value,
+        activate: () => { throw new Error('activate failed'); },
+        discard: (loaded) => { loaded.disposed = true; },
+        dispose: () => undefined,
+      }),
+    });
+
+    await flush();
+    expect(value.disposed).toBe(true);
+  });
+
   it('falls back on context loss and reinitializes after context restoration', () => {
     const { stage, canvas, attempts } = setup();
     const loss = new Event('webglcontextlost', { cancelable: true });

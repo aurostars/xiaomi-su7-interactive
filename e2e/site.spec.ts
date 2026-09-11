@@ -4,8 +4,9 @@ interface Su7Diagnostics {
   modelReady: boolean;
   paint: string | null;
   doorAngles: { left: number | null; right: number | null };
-  camera: { view: string; target: number[]; position: number[] } | null;
+  camera: { view: string; target: number[]; position: number[]; fov: number } | null;
   vehicleYaw: number | null;
+  materials: { body: number; interior: number };
   hotspot: string;
 }
 
@@ -35,17 +36,21 @@ function overlaps(a: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>, b
 }
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const blockingConsoleErrors: string[] = [];
   const failedResources: string[] = [];
 
   page.on('console', (message) => {
     if (message.type() === 'error') blockingConsoleErrors.push(message.text());
   });
+  page.on('requestfailed', (request) => {
+    failedResources.push(`REQUEST_FAILED ${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
   page.on('response', (response) => {
     if (response.status() >= 400) failedResources.push(`${response.status()} ${response.url()}`);
   });
 
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   const response = await page.goto('/xiaomi-su7-interactive/');
   expect(response?.status()).toBe(200);
   await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
@@ -74,14 +79,35 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     cameraTargets.add(JSON.stringify(target));
   }
   expect(cameraTargets.size).toBe(3);
+  expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4 });
 
+  await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
+    if (!section) throw new Error('Missing performance story section');
+    window.scrollTo(0, window.scrollY + section.getBoundingClientRect().top + window.innerHeight / 2);
+  });
+  await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
   await page.getByRole('tab', { name: '外观' }).click();
-  const canvas = page.locator('canvas.vehicle-canvas');
-  const yawBefore = (await readDiagnostics(page)).vehicleYaw;
-  await canvas.dispatchEvent('pointerdown', { pointerId: 1, clientX: 700 });
-  await canvas.dispatchEvent('pointermove', { pointerId: 1, clientX: 560 });
-  await canvas.dispatchEvent('pointerup', { pointerId: 1, clientX: 560 });
-  await expect.poll(async () => (await readDiagnostics(page)).vehicleYaw).not.toBe(yawBefore);
+  await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe('performance');
+  const exteriorCamera = (await readDiagnostics(page)).camera;
+  expect(exteriorCamera?.position[0]).toBeGreaterThan(2);
+  await expect(page.locator('.story-hotspot')).toContainText('电驱与底盘');
+
+  const moveWithinSection = async (progress: number) => {
+    await page.evaluate((amount) => {
+      const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
+      if (!section) throw new Error('Missing performance story section');
+      const bounds = section.getBoundingClientRect();
+      window.scrollTo(0, window.scrollY + bounds.top + bounds.height * amount - window.innerHeight / 2);
+    }, progress);
+    await page.waitForTimeout(350);
+    return readDiagnostics(page);
+  };
+  const earlyFrame = await moveWithinSection(.2);
+  const lateFrame = await moveWithinSection(.7);
+  expect(lateFrame.camera?.position).not.toEqual(earlyFrame.camera?.position);
+  expect(lateFrame.camera?.fov).not.toBe(earlyFrame.camera?.fov);
+  expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
   for (const view of ['aero', 'performance', 'cabin', 'sensing']) {
     await page.evaluate((targetView) => {
@@ -96,6 +122,19 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     }).toEqual({ hotspot: view, cameraView: view });
   }
 
+  const yawBefore = (await readDiagnostics(page)).vehicleYaw;
+  await page.evaluate(() => {
+    const canvas = document.querySelector('canvas.vehicle-canvas');
+    canvas?.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 700, bubbles: true }));
+    canvas?.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 560, bubbles: true }));
+    canvas?.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 560, bubbles: true }));
+  });
+  await expect.poll(async () => (await readDiagnostics(page)).vehicleYaw).not.toBe(yawBefore);
+  const draggedYaw = (await readDiagnostics(page)).vehicleYaw;
+  await page.evaluate(() => window.scrollBy(0, 180));
+  await page.waitForTimeout(250);
+  expect((await readDiagnostics(page)).vehicleYaw).toBe(draggedYaw);
+
   await page.getByRole('link', { name: '返回车辆舞台' }).click();
   await expect(page.locator('#vehicle-stage')).toBeInViewport();
   expect(failedResources).toEqual([]);
@@ -108,17 +147,26 @@ for (const viewport of [
   { width: 390, height: 844 },
 ]) {
   test(`首屏在 ${viewport.width}x${viewport.height} 的关键几何完整`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(viewport);
     await page.goto('/xiaomi-su7-interactive/');
     await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
 
     const heading = page.getByRole('heading', { level: 1, name: /Xiaomi\s*SU7/ });
     const cta = page.getByRole('link', { name: '探索核心科技' });
+    const cabinCta = page.getByRole('button', { name: '进入座舱' });
     const specs = page.locator('.hero-specs');
     const controls = page.locator('.vehicle-controls');
-    for (const element of [heading, cta, specs, controls]) {
+    for (const element of [heading, cta, cabinCta, specs, controls]) {
       await expectFullyInViewport(element, viewport);
     }
+
+    await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.035,
+      timeout: 30_000,
+    });
 
     if (viewport.width === 390) {
       const ctaBox = await cta.boundingBox();
@@ -139,3 +187,21 @@ for (const viewport of [
     }
   });
 }
+
+test('reduced motion keeps scroll chapters and target camera active with immediate transitions', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady).toBe(true);
+
+  await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>('[data-story-view="sensing"]');
+    if (!section) throw new Error('Missing sensing section');
+    const bounds = section.getBoundingClientRect();
+    window.scrollTo(0, window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2);
+  });
+
+  await expect.poll(async () => {
+    const state = await readDiagnostics(page);
+    return { hotspot: state.hotspot, view: state.camera?.view, fov: state.camera?.fov };
+  }).toEqual({ hotspot: 'sensing', view: 'sensing', fov: 34 });
+});

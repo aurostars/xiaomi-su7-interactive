@@ -1,6 +1,7 @@
 import {
   BufferGeometry,
   Group,
+  MeshPhysicalMaterial,
   Texture,
   type Material,
   type Object3D,
@@ -19,6 +20,26 @@ const INTERIOR_MATERIAL_NAMES = [
 ];
 const LEFT_DOOR_NAMES = ['door1'];
 const RIGHT_DOOR_NAMES = ['door3'];
+const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
+
+function tuneAutomotiveMaterial(material: Material) {
+  if (!(material instanceof MeshPhysicalMaterial)) return;
+  const name = normalizeName(material.name);
+  material.envMapIntensity = 1.35;
+  if (name === 'car_body') {
+    material.metalness = .58;
+    material.roughness = .2;
+    material.clearcoat = .9;
+    material.clearcoatRoughness = .12;
+  } else if (WINDOW_MATERIAL_NAMES.has(name)) {
+    material.roughness = .12;
+    material.envMapIntensity = 1.6;
+  } else if (name.includes('body_black') || name.includes('iron')) {
+    material.roughness = Math.max(material.roughness, .16);
+    material.envMapIntensity = 1.15;
+  }
+  material.needsUpdate = true;
+}
 
 export interface VehicleCapabilities {
   bodyColor: boolean;
@@ -129,9 +150,11 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
 
   root.traverse((object) => {
     if (!('isMesh' in object)) return;
-    const mesh = object as Object3D & { castShadow: boolean; receiveShadow: boolean };
+    const mesh = object as Object3D & { castShadow: boolean; receiveShadow: boolean; material?: Material | Material[] };
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
+    materials.forEach(tuneAutomotiveMaterial);
   });
 
   return {

@@ -43,17 +43,24 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .vehicle-stage-feedback button { min-height: 40px; padding: 0 16px; border: 1px solid var(--accent); background: transparent; }
 .vehicle-stage-error { border-color: rgba(255, 90, 50, .55); }
 .stage-atmosphere { position: absolute; inset: auto -10% -15% 28%; z-index: 0; height: 46%; opacity: .42; background: radial-gradient(ellipse, rgba(43, 219, 242, .28), transparent 58%); filter: blur(40px); }
-.hero-copy { position: relative; z-index: 2; width: min(440px, 38vw); padding: clamp(150px, 20vh, 220px) 0 60px max(48px, calc((100vw - 1160px) / 2)); }
+.hero-copy { position: relative; z-index: 2; width: min(440px, 38vw); padding: clamp(108px, 15vh, 136px) 0 60px max(48px, calc((100vw - 1160px) / 2)); }
 .hero-label, .section-label { margin: 0 0 18px; color: var(--cyan); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
 .hero-copy h1 { margin: 0; font-size: clamp(76px, 8vw, 126px); line-height: .82; letter-spacing: -.075em; }
 .hero-copy > p:not(.hero-label) { max-width: 360px; margin: 34px 0 28px; color: #b7bbc1; font-size: 17px; line-height: 1.8; }
-.primary-cta { display: inline-flex; padding: 14px 24px; border-radius: 4px; background: var(--accent); color: #fff; font-weight: 700; transition: transform .2s ease, background .2s ease; }
+.hero-actions { display: flex; align-items: center; gap: 10px; }
+.primary-cta, .secondary-cta { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0 24px; border-radius: 4px; font-weight: 700; white-space: nowrap; }
+.primary-cta { border: 1px solid var(--accent); background: var(--accent); color: #fff; transition: transform .2s ease, background .2s ease; }
+.secondary-cta { border: 1px solid rgba(255, 255, 255, .3); background: rgba(7, 10, 14, .68); color: #eef1f4; }
 .primary-cta:hover { background: #ff6845; transform: translateY(-2px); }
-.primary-cta:active, .closing-cta a:active { transform: scale(.98); }
+.primary-cta:active, .secondary-cta:active, .closing-cta a:active { transform: scale(.98); }
 .hero-specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 38px 0 0; }
 .hero-specs div { padding: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, .045); }
 .hero-specs dt { font-size: 19px; font-weight: 750; }
 .hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
+
+.story-hotspot { position: absolute; z-index: 4; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; display: grid; gap: 4px; min-width: 186px; padding: 12px 14px; border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .72); backdrop-filter: blur(14px); }
+.story-hotspot span { color: #8f969e; font-size: 10px; letter-spacing: .08em; }
+.story-hotspot strong { font-size: 14px; }
 
 .vehicle-controls { position: absolute; z-index: 4; top: 96px; right: max(36px, calc((100vw - 1160px) / 2)); width: 224px; padding: 10px; border: 1px solid var(--line); background: rgba(7, 10, 14, .82); backdrop-filter: blur(18px); }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
@@ -69,6 +76,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .seat-views button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
 .door-button { width: 100%; margin-top: 10px; }
 .door-button[aria-pressed="true"] { border-color: var(--accent); color: #ff8b70; }
+.vehicle-controls button:disabled { cursor: not-allowed; opacity: .32; }
 
 .story-sequence { position: relative; z-index: 1; background: linear-gradient(90deg, #07090c 0 34%, rgba(6, 17, 22, .72) 48%, rgba(6, 17, 22, .08) 74%, transparent 100%); }
 .story-sequence::before { content: ""; position: absolute; left: min(35%, 560px); top: 0; bottom: 0; width: 1px; background: linear-gradient(transparent, rgba(75, 223, 242, .2), transparent); }
@@ -109,6 +117,9 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .hero-copy { width: 100%; padding: 108px 20px 20px; }
   .hero-copy h1 { font-size: clamp(64px, 22vw, 88px); }
   .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
+  .hero-actions { gap: 8px; }
+  .primary-cta, .secondary-cta { min-height: 44px; padding: 0 15px; font-size: 13px; }
+  .story-hotspot { top: 64px; right: 12px; bottom: auto; min-width: 148px; padding: 9px 11px; }
   .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
   .hero-specs div { padding: 10px; }
   .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; overscroll-behavior-inline: contain; border-width: 1px 0 0; }

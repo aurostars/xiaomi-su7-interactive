@@ -32,6 +32,36 @@ describe('camera controller', () => {
     expect(camera.fov).toBeGreaterThan(CAMERA_PRESETS.driver.fov);
   });
 
+  it('interpolates actual position, look target, FOV and vehicle yaw from continuous story progress', () => {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    camera.position.fromArray(CAMERA_PRESETS.aero.position);
+    const controller = createCameraController(camera);
+
+    const frame = controller.setStoryProgress('aero', 0.5);
+    controller.update(0, true);
+    const diagnostics = controller.getDiagnostics();
+
+    expect(frame.vehicleYaw).toBeCloseTo((CAMERA_PRESETS.aero.vehicleYaw + CAMERA_PRESETS.performance.vehicleYaw) / 2);
+    expect(diagnostics.position).toEqual([6, 2, 6.8]);
+    expect(diagnostics.target).toEqual([0.1, 0.625, 0]);
+    expect(diagnostics.fov).toBe(30);
+  });
+
+  it('reports the actual interpolated camera rather than the target preset', () => {
+    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(0, 0, 0);
+    const controller = createCameraController(camera);
+
+    controller.setTarget('driver');
+    controller.update(1 / 60);
+
+    const diagnostics = controller.getDiagnostics();
+    expect(diagnostics.position).toEqual(camera.position.toArray());
+    expect(diagnostics.position).not.toEqual(CAMERA_PRESETS.driver.position);
+    expect(diagnostics.fov).toBe(camera.fov);
+    expect(diagnostics.target).not.toEqual(CAMERA_PRESETS.driver.target);
+  });
+
   it('uses frame-rate independent damping', () => {
     const camera30 = new PerspectiveCamera(50, 1, 0.1, 100);
     const camera120 = new PerspectiveCamera(50, 1, 0.1, 100);

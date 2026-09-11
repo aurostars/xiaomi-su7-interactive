@@ -136,12 +136,15 @@ export function createExperienceOrchestrator<T>({
   createAttempt,
 }: ExperienceOrchestratorOptions<T>): ExperienceOrchestrator {
   let attempt: ExperienceAttempt<T> | undefined;
+  let activeValue: T | undefined;
   let generation = 0;
   let destroyed = false;
   let contextLost = false;
 
   const stopAttempt = () => {
     generation += 1;
+    if (activeValue !== undefined && attempt) attempt.discard(activeValue);
+    activeValue = undefined;
     attempt?.dispose();
     attempt = undefined;
   };
@@ -171,8 +174,10 @@ export function createExperienceOrchestrator<T>({
       }
       try {
         ownAttempt.activate(value);
+        activeValue = value;
         feedback.ready();
       } catch {
+        ownAttempt.discard(value);
         stopAttempt();
         if (!destroyed) feedback.failed('车辆模型启用失败，请重试。');
       }

@@ -4,6 +4,7 @@ import {
   pixelRatioCap,
   pixelRatioFor,
   rendererOptions,
+  automotiveSurface,
 } from '../src/scene/create-scene';
 
 describe('final visual regression guardrails', () => {
@@ -22,5 +23,11 @@ describe('final visual regression guardrails', () => {
       + automotiveLighting.cyan
       + automotiveLighting.warm,
     ).toBeLessThanOrEqual(2.5);
+  });
+
+  it('provides environment reflections and a grounded contact shadow', () => {
+    expect(automotiveSurface.environmentIntensity).toBeGreaterThanOrEqual(1);
+    expect(automotiveSurface.groundOpacity).toBeGreaterThan(0.3);
+    expect(automotiveSurface.groundSize).toBeGreaterThanOrEqual(30);
   });
 });

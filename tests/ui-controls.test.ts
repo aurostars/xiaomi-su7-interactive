@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { bindControls } from '../src/ui/bind-controls';
+import { applyVehicleCapabilities, bindControls } from '../src/ui/bind-controls';
 import { renderShell } from '../src/ui/render-shell';
 import { createVehicleStore } from '../src/state/vehicle-state';
 
@@ -16,6 +16,8 @@ describe('high fidelity page shell', () => {
     expect(elements.colorButtons).toHaveLength(10);
     expect(elements.doorButton.textContent).toContain('开门');
     expect(elements.canvas.getAttribute('aria-label')).toBe('小米 SU7 三维车辆');
+    expect(document.querySelector('.hero-actions')?.textContent).toContain('进入座舱');
+    expect(elements.hotspotLabel.getAttribute('aria-live')).toBe('polite');
   });
 
   it('renders the complete story, technology imagery and return link', () => {
@@ -29,6 +31,7 @@ describe('high fidelity page shell', () => {
       '传感器视角，展示智能驾驶想象力',
     ]);
     expect(document.querySelectorAll('.technology-card')).toHaveLength(3);
+    expect(Array.from(document.querySelectorAll('.technology-card h3'), (node) => node.textContent)).toContain('智能驾驶感知');
     expect(document.querySelector('.brand-film img')).not.toBeNull();
     const returnLink = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href="#vehicle-stage"]'))
       .find((link) => link.textContent?.includes('返回车辆舞台'));
@@ -51,6 +54,32 @@ describe('high fidelity page shell', () => {
     expect(store.getState()).toMatchObject({ doorsOpen: true, mode: 'exterior' });
     expect(elements.doorButton.getAttribute('aria-pressed')).toBe('true');
 
+    unbind();
+  });
+
+  it('disables interactions that the loaded model cannot provide', () => {
+    const elements = renderShell(document.body);
+
+    applyVehicleCapabilities(elements, {
+      bodyColor: true,
+      interiorColor: false,
+      leftDoor: false,
+      rightDoor: false,
+    });
+
+    expect(elements.colorButtons.filter((button) => button.dataset.paint).every((button) => !button.disabled)).toBe(true);
+    expect(elements.colorButtons.filter((button) => button.dataset.interior).every((button) => button.disabled)).toBe(true);
+    expect(elements.doorButton.disabled).toBe(true);
+  });
+
+  it('shows the current story system label to users', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const unbind = bindControls(elements, store);
+
+    store.actions.setHotspot('sensing');
+
+    expect(elements.hotspotLabel.textContent).toContain('智能驾驶感知');
     unbind();
   });
 

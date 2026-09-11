@@ -1,5 +1,21 @@
+import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
 import type { ShellElements } from './render-shell';
+
+const HOTSPOT_LABELS: Record<string, string> = {
+  hero: '车辆总览',
+  aero: '空气动力学',
+  performance: '电驱与底盘',
+  cabin: '智能座舱',
+  sensing: '智能驾驶感知',
+};
+
+export function applyVehicleCapabilities(elements: ShellElements, capabilities: VehicleCapabilities): void {
+  elements.colorButtons.forEach((button) => {
+    button.disabled = button.dataset.paint ? !capabilities.bodyColor : !capabilities.interiorColor;
+  });
+  elements.doorButton.disabled = !capabilities.leftDoor && !capabilities.rightDoor;
+}
 
 export function bindControls(elements: ShellElements, store: VehicleStore): () => void {
   const cleanups: Array<() => void> = [];
@@ -39,6 +55,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     });
   });
   listen(elements.doorButton, () => store.actions.toggleDoors());
+  listen(elements.enterCabinButton, () => store.actions.setMode('cabin'));
 
   const sync = () => {
     const state = store.getState();
@@ -59,6 +76,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     });
     elements.doorButton.setAttribute('aria-pressed', String(state.doorsOpen));
     elements.doorButton.textContent = state.doorsOpen ? '关门' : '开门';
+    elements.hotspotLabel.querySelector('strong')!.textContent = HOTSPOT_LABELS[state.hotspot] ?? '车辆总览';
     document.documentElement.dataset.vehicleMode = state.mode;
   };
 

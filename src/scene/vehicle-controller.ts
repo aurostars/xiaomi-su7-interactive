@@ -11,6 +11,7 @@ export interface VehicleDiagnostics {
   paint: string | null;
   doorAngles: { left: number | null; right: number | null };
   yaw: number;
+  materials: { body: number; interior: number };
 }
 
 export interface VehicleController {
@@ -58,7 +59,7 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
   let targetRight = 0;
 
   const schedule = (callback: (timestamp: number) => void): FrameHandle =>
-    setTimeout(() => callback(lastTimestamp + 16), 16);
+    setTimeout(() => callback(Date.now()), 16);
 
   const cancel = (handle: FrameHandle) => {
     clearTimeout(handle);
@@ -115,6 +116,10 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
           right: vehicle.doors.right?.rotation.y ?? null,
         },
         yaw: vehicle.root.rotation.y,
+        materials: {
+          body: vehicle.bodyMaterials.length,
+          interior: vehicle.interiorMaterials.length,
+        },
       };
     },
     dispose() {

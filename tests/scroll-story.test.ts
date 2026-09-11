@@ -53,6 +53,24 @@ describe('scroll story', () => {
     story.dispose();
   });
 
+  it('reports continuous, geometry-derived progress inside the active section', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 400 });
+    const fixture = makeSections();
+    const frames: Array<{ view: string; progress: number }> = [];
+    const story = createScrollStory(fixture.sections, (view, progress) => frames.push({ view, progress }));
+
+    fixture.scrollTo(200);
+    story.update(0);
+    fixture.scrollTo(600);
+    story.update(0);
+
+    expect(frames).toEqual([
+      { view: 'aero', progress: 0.5 },
+      { view: 'performance', progress: 0 },
+    ]);
+    story.dispose();
+  });
+
   it('does not drive the camera until autoCameraSuspendedUntil has elapsed', () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
@@ -72,7 +90,7 @@ describe('scroll story', () => {
 });
 
 describe('drag controller', () => {
-  it('updates vehicle yaw from pointer deltas and suspends auto camera for 1400ms', () => {
+  it('updates vehicle yaw from pointer deltas and suspends auto camera for 10000ms', () => {
     const element = document.createElement('div');
     let yaw = 0;
     let suspendedFor = 0;
@@ -86,7 +104,7 @@ describe('drag controller', () => {
     element.dispatchEvent(pointer('pointerup', 7, 132));
 
     expect(yaw).toBeCloseTo(0.256);
-    expect(suspendedFor).toBe(1_400);
+    expect(suspendedFor).toBe(10_000);
 
     controller.dispose();
   });

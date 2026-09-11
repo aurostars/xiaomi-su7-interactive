@@ -8,6 +8,8 @@ export interface ShellElements {
   modeButtons: HTMLButtonElement[];
   colorButtons: HTMLButtonElement[];
   doorButton: HTMLButtonElement;
+  enterCabinButton: HTMLButtonElement;
+  hotspotLabel: HTMLElement;
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
 }
@@ -86,13 +88,14 @@ export function renderShell(root: HTMLElement): ShellElements {
       <div class="vehicle-visual">
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
         <div class="stage-atmosphere" aria-hidden="true"></div>
+        <div class="story-hotspot" aria-live="polite"><span>当前系统</span><strong>空气动力学</strong></div>
       </div>
       <div class="vehicle-stage">
         <div class="hero-copy">
           <p class="hero-label">C级高性能生态科技轿车</p>
           <h1>Xiaomi<br>SU7</h1>
           <p>以设计为先，科技为核，性能为驱动。重新定义纯电轿车体验。</p>
-          <a class="primary-cta" href="#story">探索核心科技</a>
+          <div class="hero-actions"><a class="primary-cta" href="#story">探索核心科技</a><button class="secondary-cta" type="button" data-enter-cabin>进入座舱</button></div>
           <dl class="hero-specs"><div><dt>800V</dt><dd>高压平台</dd></div><div><dt>HyperOS</dt><dd>智能座舱</dd></div><div><dt>EV</dt><dd>高性能电驱</dd></div></dl>
         </div>
         <aside class="vehicle-controls" aria-label="车辆个性化控制" data-mobile-control-rail>
@@ -117,7 +120,7 @@ export function renderShell(root: HTMLElement): ShellElements {
       <p class="section-intro">从高压平台到智能座舱，核心技术被组织成可感知、可探索的驾驶体验。</p>
       <div class="technology-grid">
         <article class="technology-card"><img src="${techPlatform}" alt="小米 SU7 800V 高压平台" loading="lazy" width="1296" height="1050"><div><h3>800V 高压平台</h3><p>高效补能与稳定输出，为纯电旅程提供充沛底气。</p></div></article>
-        <article class="technology-card"><img src="${techDrive}" alt="小米 SU7 高性能电驱" loading="lazy" width="1296" height="1050"><div><h3>高性能电驱</h3><p>迅速响应每一次加速指令，释放持续而线性的动力。</p></div></article>
+        <article class="technology-card"><img src="${techDrive}" alt="小米 SU7 智能驾驶感知系统" loading="lazy" width="1296" height="1050"><div><h3>智能驾驶感知</h3><p>融合摄像头与多源传感器，让道路信息成为清晰、及时的驾驶辅助。</p></div></article>
         <article class="technology-card"><img src="${techCabin}" alt="小米 SU7 HyperOS 智能座舱" loading="lazy" width="1296" height="1050"><div><h3>HyperOS 智能座舱</h3><p>车机与移动设备自然协同，信息始终跟随你的节奏。</p></div></article>
       </div>
     </section>
@@ -127,10 +130,14 @@ export function renderShell(root: HTMLElement): ShellElements {
 
   const canvas = root.querySelector<HTMLCanvasElement>('canvas');
   const doorButton = root.querySelector<HTMLButtonElement>('.door-button');
-  if (!canvas || !doorButton) throw new Error('Vehicle shell failed to render');
+  const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
+  const hotspotLabel = root.querySelector<HTMLElement>('.story-hotspot');
+  if (!canvas || !doorButton || !enterCabinButton || !hotspotLabel) throw new Error('Vehicle shell failed to render');
   return {
     canvas,
     doorButton,
+    enterCabinButton,
+    hotspotLabel,
     modeButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')),
     colorButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('.color-swatch')),
     seatButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-seat]')),

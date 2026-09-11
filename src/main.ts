@@ -20,7 +20,7 @@ import {
 } from './scene/load-vehicle';
 import { createVehicleController, type VehicleController } from './scene/vehicle-controller';
 import { createVehicleStore } from './state/vehicle-state';
-import { bindControls } from './ui/bind-controls';
+import { bindControls, applyVehicleCapabilities } from './ui/bind-controls';
 import { renderShell } from './ui/render-shell';
 export { vehicleFallbackUrl, vehicleModelUrl } from './scene/load-vehicle';
 
@@ -36,6 +36,12 @@ if (!app.isConnected) document.body.prepend(app);
 const elements = renderShell(app);
 const store = createVehicleStore();
 const unbindControls = bindControls(elements, store);
+applyVehicleCapabilities(elements, {
+  bodyColor: false,
+  interiorColor: false,
+  leftDoor: false,
+  rightDoor: false,
+});
 const disposers: Array<() => void> = [unbindControls];
 let diagnosticCamera: CameraController | undefined;
 let diagnosticVehicle: VehicleController | undefined;
@@ -50,6 +56,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         doorAngles: vehicle?.doorAngles ?? { left: null, right: null },
         camera: diagnosticCamera?.getDiagnostics() ?? null,
         vehicleYaw: vehicle?.yaw ?? null,
+        materials: vehicle?.materials ?? { body: 0, interior: 0 },
         hotspot: store.getState().hotspot,
       };
     },
@@ -76,6 +83,7 @@ orchestrator = createExperienceOrchestrator({
     diagnosticCamera = camera;
     let vehicleController: VehicleController | undefined;
     let vehicleYaw = 0;
+    let storyFrame: { view: CameraView; progress: number } = { view: 'aero', progress: 0 };
     let stopped = false;
 
     const story = createScrollStory(
@@ -83,9 +91,13 @@ orchestrator = createExperienceOrchestrator({
         element,
         view: element.dataset.storyView as CameraView,
       })),
-      (view) => {
-        camera.setTarget(view);
+      (view, progress) => {
+        storyFrame = { view, progress };
         store.actions.setHotspot(view);
+        if (store.getState().mode !== 'exterior') return;
+        const frame = camera.setStoryProgress(view, progress);
+        vehicleYaw = frame.vehicleYaw;
+        vehicleController?.setRotation(vehicleYaw);
       },
     );
     const drag = createDragController(elements.canvas, {
@@ -95,11 +107,22 @@ orchestrator = createExperienceOrchestrator({
       },
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
+    let lastMode = store.getState().mode;
+    let lastSeatView = store.getState().seatView;
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
       vehicleController?.applyState(state);
+      const cameraIntentChanged = state.mode !== lastMode
+        || (state.mode === 'cabin' && state.seatView !== lastSeatView);
+      lastMode = state.mode;
+      lastSeatView = state.seatView;
+      if (!cameraIntentChanged) return;
       if (state.mode === 'cabin') camera.setTarget(state.seatView);
-      else if (state.hotspot === 'hero') camera.setTarget('aero');
+      else {
+        const frame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
+        vehicleYaw = frame.vehicleYaw;
+        vehicleController?.setRotation(vehicleYaw);
+      }
     });
 
     runtime.start();
@@ -109,8 +132,8 @@ orchestrator = createExperienceOrchestrator({
       if (stopped) return;
       const delta = Math.min(.05, (now - previous) / 1000);
       previous = now;
-      if (!capabilities.reducedMotion) story.update(store.getState().autoCameraSuspendedUntil);
-      camera.update(capabilities.reducedMotion ? 1 : delta);
+      story.update(store.getState().autoCameraSuspendedUntil);
+      camera.update(delta, capabilities.reducedMotion);
       frame = requestAnimationFrame(update);
     };
     frame = requestAnimationFrame(update);
@@ -121,7 +144,9 @@ orchestrator = createExperienceOrchestrator({
         runtime.scene.add(vehicle.root);
         vehicleController = createVehicleController(vehicle);
         diagnosticVehicle = vehicleController;
+        applyVehicleCapabilities(elements, vehicle.capabilities);
         vehicleController.applyState(store.getState());
+        vehicleController.setRotation(vehicleYaw);
       },
       discard(vehicle: LoadedVehicle) {
         vehicle.dispose();

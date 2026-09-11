@@ -24,11 +24,19 @@ export interface CameraDiagnostics {
   view: CameraView;
   position: [number, number, number];
   target: [number, number, number];
+  fov: number;
+}
+
+export interface StoryCameraFrame {
+  view: CameraView;
+  progress: number;
+  vehicleYaw: number;
 }
 
 export interface CameraController {
   setTarget(view: CameraView): void;
-  update(delta: number): void;
+  setStoryProgress(view: CameraView, progress: number): StoryCameraFrame;
+  update(delta: number, immediate?: boolean): void;
   getDiagnostics(): CameraDiagnostics;
 }
 
@@ -42,7 +50,9 @@ export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
   rear: { position: [0, 1.48, 1.58], target: [0, 1.28, -1.15], fov: 47, vehicleYaw: 0 },
 };
 
+const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin', 'sensing'];
 const DAMPING = 5;
+const tuple = (value: Vector3): [number, number, number] => [value.x, value.y, value.z];
 
 export function createCameraController(camera: PerspectiveCamera): CameraController {
   const lookTarget = new Vector3(0, 0.7, 0);
@@ -51,16 +61,35 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
   let targetFov = camera.fov;
   let currentView: CameraView = 'aero';
 
+  const applyPreset = (preset: CameraPreset) => {
+    targetPosition.fromArray(preset.position);
+    targetLook.fromArray(preset.target);
+    targetFov = preset.fov;
+  };
+
   return {
     setTarget(view) {
       currentView = view;
-      const preset = CAMERA_PRESETS[view];
-      targetPosition.fromArray(preset.position);
-      targetLook.fromArray(preset.target);
-      targetFov = preset.fov;
+      applyPreset(CAMERA_PRESETS[view]);
     },
-    update(delta) {
-      const alpha = 1 - Math.exp(-DAMPING * Math.max(0, delta));
+    setStoryProgress(view, progress) {
+      currentView = view;
+      const from = CAMERA_PRESETS[view];
+      const index = STORY_VIEWS.indexOf(view);
+      const nextView = STORY_VIEWS[Math.min(index + 1, STORY_VIEWS.length - 1)] ?? view;
+      const to = CAMERA_PRESETS[nextView];
+      const amount = MathUtils.clamp(progress, 0, 1);
+      targetPosition.fromArray(from.position).lerp(new Vector3(...to.position), amount);
+      targetLook.fromArray(from.target).lerp(new Vector3(...to.target), amount);
+      targetFov = MathUtils.lerp(from.fov, to.fov, amount);
+      return {
+        view,
+        progress: amount,
+        vehicleYaw: MathUtils.lerp(from.vehicleYaw, to.vehicleYaw, amount),
+      };
+    },
+    update(delta, immediate = false) {
+      const alpha = immediate ? 1 : 1 - Math.exp(-DAMPING * Math.max(0, delta));
       camera.position.lerp(targetPosition, alpha);
       lookTarget.lerp(targetLook, alpha);
       camera.fov = MathUtils.lerp(camera.fov, targetFov, alpha);
@@ -68,11 +97,11 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       camera.updateProjectionMatrix();
     },
     getDiagnostics() {
-      const preset = CAMERA_PRESETS[currentView];
       return {
         view: currentView,
-        position: [...preset.position],
-        target: [...preset.target],
+        position: tuple(camera.position),
+        target: tuple(lookTarget),
+        fov: camera.fov,
       };
     },
   };

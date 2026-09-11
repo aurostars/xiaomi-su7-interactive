@@ -8,7 +8,7 @@ export interface DragController {
 }
 
 const YAW_PER_PIXEL = 0.008;
-const AUTO_CAMERA_PAUSE_MS = 1_400;
+const AUTO_CAMERA_PAUSE_MS = 10_000;
 
 export function createDragController(
   element: HTMLElement,
