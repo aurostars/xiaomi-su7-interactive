@@ -1,24 +1,133 @@
 :root {
-  color: #111111;
-  background: #ffffff;
-  font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #f3f5f7;
+  background: #05070a;
+  font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --accent: #ff5a32;
+  --cyan: #4bdff2;
+  --line: rgba(255, 255, 255, .12);
+  --muted: #a5aab2;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+*, *::before, *::after { box-sizing: border-box; }
+html { min-width: 320px; scroll-behavior: smooth; background: #05070a; }
+body { margin: 0; min-width: 320px; min-height: 100%; overflow-x: hidden; background: radial-gradient(circle at 88% 18%, #0b2029 0, transparent 28%), #05070a; }
+button, a { color: inherit; font: inherit; }
+a { text-decoration: none; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.site-header {
+  position: fixed; top: 16px; left: 50%; z-index: 20; transform: translateX(-50%);
+  width: min(1160px, calc(100% - 40px)); height: 64px; padding: 0 18px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  border: 1px solid var(--line); background: rgba(5, 7, 10, .78); backdrop-filter: blur(18px);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.brand span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #fff; background: var(--accent); font-weight: 800; letter-spacing: -2px; }
+.site-header nav { display: flex; align-items: center; gap: 38px; font-size: 13px; color: #c7cbd0; white-space: nowrap; }
+.site-header nav a:hover { color: #fff; }
+.header-cta { justify-self: end; padding: 10px 17px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13px; }
+
+.vehicle-stage { position: relative; min-height: 100dvh; overflow: hidden; isolation: isolate; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
+.vehicle-canvas { position: absolute; inset: 0 0 0 31%; width: 69%; height: 100%; z-index: -1; cursor: grab; touch-action: none; }
+.vehicle-canvas:active { cursor: grabbing; }
+.stage-atmosphere { position: absolute; inset: auto -10% -15% 28%; height: 46%; z-index: -2; opacity: .42; background: radial-gradient(ellipse, rgba(43, 219, 242, .28), transparent 58%); filter: blur(40px); }
+.hero-copy { position: relative; z-index: 2; width: min(440px, 38vw); padding: clamp(150px, 20vh, 220px) 0 60px max(48px, calc((100vw - 1160px) / 2)); }
+.hero-label, .section-label { margin: 0 0 18px; color: var(--cyan); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.hero-copy h1 { margin: 0; font-size: clamp(76px, 8vw, 126px); line-height: .82; letter-spacing: -.075em; }
+.hero-copy > p:not(.hero-label) { max-width: 360px; margin: 34px 0 28px; color: #b7bbc1; font-size: 17px; line-height: 1.8; }
+.primary-cta { display: inline-flex; padding: 14px 24px; border-radius: 4px; background: var(--accent); color: #fff; font-weight: 700; transition: transform .2s ease, background .2s ease; }
+.primary-cta:hover { background: #ff6845; transform: translateY(-2px); }
+.primary-cta:active, .closing-cta a:active { transform: scale(.98); }
+.hero-specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 38px 0 0; }
+.hero-specs div { padding: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, .045); }
+.hero-specs dt { font-size: 19px; font-weight: 750; }
+.hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
+
+.vehicle-controls { position: absolute; z-index: 4; top: 96px; right: max(36px, calc((100vw - 1160px) / 2)); width: 224px; padding: 10px; border: 1px solid var(--line); background: rgba(7, 10, 14, .82); backdrop-filter: blur(18px); }
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.mode-tabs button, .seat-views button, .door-button { min-height: 36px; border: 1px solid var(--line); background: transparent; font-size: 12px; }
+.mode-tabs button[aria-selected="true"] { color: #080a0c; background: #f1f3f5; }
+.control-group { margin-top: 10px; }
+.control-group > span { display: block; margin-bottom: 7px; color: #b9bdc3; font-size: 11px; }
+.control-group > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.color-swatch { width: 24px; height: 24px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); }
+.color-swatch[aria-pressed="true"] { border-color: #fff; outline: 1px solid var(--accent); outline-offset: 2px; }
+.seat-views { display: none; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+[data-vehicle-mode="cabin"] .seat-views { display: grid; }
+[data-vehicle-mode="cabin"] .paint-group { display: none; }
+[data-vehicle-mode="exterior"] .interior-group { display: none; }
+.seat-views button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.door-button { width: 100%; margin-top: 10px; }
+.door-button[aria-pressed="true"] { border-color: var(--accent); color: #ff8b70; }
+
+.story-sequence { position: relative; background: linear-gradient(90deg, #07090c 0 34%, #061116 100%); }
+.story-sequence::before { content: ""; position: absolute; left: min(35%, 560px); top: 0; bottom: 0; width: 1px; background: linear-gradient(transparent, rgba(75, 223, 242, .2), transparent); }
+.story-section { min-height: 150dvh; display: flex; align-items: center; padding: 120px max(40px, calc((100vw - 1160px) / 2)); }
+.story-copy { width: min(420px, 38vw); }
+.story-copy h2, .technology-section h2, .closing-cta h2 { margin: 0; font-size: clamp(38px, 4.4vw, 68px); line-height: 1.08; letter-spacing: -.045em; }
+.story-copy > p:not(.section-label) { margin: 28px 0; color: var(--muted); line-height: 1.9; }
+.story-copy ul { margin: 0; padding: 0; list-style: none; color: #d7dade; font-size: 14px; line-height: 2.15; }
+.story-copy li::before { content: "→"; margin-right: 10px; color: var(--accent); }
+
+.technology-section { padding: 150px max(40px, calc((100vw - 1160px) / 2)); background: radial-gradient(circle at 0 20%, rgba(255, 90, 50, .14), transparent 30%), #090b0e; }
+.technology-section h2 { max-width: 720px; }
+.section-intro { max-width: 620px; margin: 24px 0 58px; color: var(--muted); line-height: 1.8; }
+.technology-grid { display: grid; grid-template-columns: 1.08fr .92fr; gap: 14px; }
+.technology-card { overflow: hidden; border: 1px solid var(--line); background: #111418; }
+.technology-card:first-child { grid-row: span 2; }
+.technology-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.technology-card:first-child img { height: calc(100% - 122px); aspect-ratio: auto; }
+.technology-card div { min-height: 122px; padding: 24px; }
+.technology-card h3 { margin: 0 0 10px; font-size: 23px; }
+.technology-card p { margin: 0; color: var(--muted); line-height: 1.7; }
+.brand-film { padding: 120px max(7vw, calc((100vw - 1160px) / 2)); background: #05070a; }
+.brand-film img { display: block; width: 100%; max-height: 720px; object-fit: cover; border-radius: 4px; }
+.closing-cta { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 80px; padding: 130px max(40px, calc((100vw - 1160px) / 2)); background: linear-gradient(110deg, #0b1118, #221817); }
+.closing-cta p { color: var(--cyan); }
+.closing-cta h2 { max-width: 860px; }
+.closing-cta a { padding: 15px 22px; border-radius: 4px; background: var(--accent); white-space: nowrap; }
+footer { display: flex; justify-content: space-between; padding: 28px max(40px, calc((100vw - 1160px) / 2)); color: #777d85; font-size: 11px; background: #030507; }
+
+@media (max-width: 767px) {
+  .site-header { top: 0; width: 100%; height: 58px; border-width: 0 0 1px; grid-template-columns: 1fr auto; }
+  .site-header nav { display: none; }
+  .brand b { display: none; }
+  .header-cta { padding: 8px 13px; }
+  .vehicle-stage { min-height: 100dvh; padding-bottom: 150px; }
+  .vehicle-canvas { inset: 20% -22% auto 4%; width: 118%; height: 56%; }
+  .hero-copy { width: 100%; padding: 108px 20px 20px; }
+  .hero-copy h1 { font-size: clamp(64px, 22vw, 88px); }
+  .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
+  .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
+  .hero-specs div { padding: 10px; }
+  .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 10px 14px max(10px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; border-width: 1px 0 0; }
+  .mode-tabs { min-width: 142px; }
+  .control-group { min-width: max-content; margin: 0; }
+  .control-group > span { margin-bottom: 3px; }
+  .control-group > div { flex-wrap: nowrap; }
+  .seat-views { min-width: 180px; margin: 0; }
+  .door-button { flex: 0 0 64px; width: 64px; margin: 0; }
+  .story-sequence::before { display: none; }
+  .story-section { min-height: 105dvh; padding: 100px 20px; align-items: flex-end; background: linear-gradient(0deg, rgba(75, 223, 242, .045), transparent 50%); }
+  .story-copy { width: 100%; }
+  .story-copy h2, .technology-section h2, .closing-cta h2 { font-size: clamp(34px, 10vw, 48px); }
+  .technology-section, .brand-film, .closing-cta { padding: 90px 20px; }
+  .technology-grid { grid-template-columns: 1fr; }
+  .technology-card:first-child { grid-row: auto; }
+  .technology-card:first-child img { height: auto; aspect-ratio: 16 / 9; }
+  .closing-cta { grid-template-columns: 1fr; gap: 36px; align-items: start; }
+  .closing-cta a { justify-self: start; }
+  footer { padding: 24px 20px 100px; flex-direction: column; gap: 8px; }
 }
 
-html,
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100%;
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
-body {
-  min-height: 100vh;
+@media (prefers-reduced-transparency: reduce) {
+  .site-header, .vehicle-controls { background: #080b0f; backdrop-filter: none; }
 }

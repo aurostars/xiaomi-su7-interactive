@@ -1,4 +1,13 @@
 import './styles.css';
+import { createDragController } from './interaction/drag-controller';
+import { createScrollStory } from './interaction/scroll-story';
+import { createCameraController, type CameraView } from './scene/camera-controller';
+import { createScene } from './scene/create-scene';
+import { loadVehicle, vehicleModelUrl } from './scene/load-vehicle';
+import { createVehicleController, type VehicleController } from './scene/vehicle-controller';
+import { createVehicleStore } from './state/vehicle-state';
+import { bindControls } from './ui/bind-controls';
+import { renderShell } from './ui/render-shell';
 export { vehicleFallbackUrl, vehicleModelUrl } from './scene/load-vehicle';
 
 export function assetUrl(relativePath: string): string {
@@ -6,6 +15,82 @@ export function assetUrl(relativePath: string): string {
   return new URL(relativePath, baseUrl).pathname;
 }
 
-const app = document.createElement('main');
+const app = document.querySelector<HTMLElement>('#app') ?? document.createElement('main');
 app.id = 'app';
-document.body.prepend(app);
+if (!app.isConnected) document.body.prepend(app);
+
+const elements = renderShell(app);
+const store = createVehicleStore();
+const unbindControls = bindControls(elements, store);
+const disposers: Array<() => void> = [unbindControls];
+
+async function startExperience() {
+  const runtime = createScene(elements.canvas, window.devicePixelRatio > 1.5 ? 'high' : 'medium');
+  const camera = createCameraController(runtime.camera);
+  let vehicleController: VehicleController | undefined;
+  let vehicleYaw = 0;
+  let stopped = false;
+
+  const story = createScrollStory(
+    elements.storySections.map((element) => ({
+      element,
+      view: element.dataset.storyView as CameraView,
+    })),
+    (view) => {
+      camera.setTarget(view);
+      store.actions.setHotspot(view);
+    },
+  );
+  const drag = createDragController(elements.canvas, {
+    rotateBy(deltaYaw) {
+      vehicleYaw += deltaYaw;
+      vehicleController?.setRotation(vehicleYaw);
+    },
+    suspendAutoCamera: store.actions.suspendAutoCamera,
+  });
+  const unsubscribe = store.subscribe(() => {
+    const state = store.getState();
+    vehicleController?.applyState(state);
+    if (state.mode === 'cabin') camera.setTarget(state.seatView);
+    else if (state.hotspot === 'hero') camera.setTarget('aero');
+  });
+
+  runtime.start();
+  let frame = 0;
+  let previous = performance.now();
+  const update = (now: number) => {
+    if (stopped) return;
+    const delta = Math.min(.05, (now - previous) / 1000);
+    previous = now;
+    story.update(store.getState().autoCameraSuspendedUntil);
+    camera.update(delta);
+    frame = requestAnimationFrame(update);
+  };
+  frame = requestAnimationFrame(update);
+
+  disposers.push(() => {
+    stopped = true;
+    cancelAnimationFrame(frame);
+    unsubscribe();
+    drag.dispose();
+    story.dispose();
+    vehicleController?.dispose();
+    runtime.dispose();
+  });
+
+  const vehicle = await loadVehicle(vehicleModelUrl);
+  if (stopped) {
+    vehicle.dispose();
+    return;
+  }
+  runtime.scene.add(vehicle.root);
+  vehicleController = createVehicleController(vehicle);
+  vehicleController.applyState(store.getState());
+}
+
+if (typeof WebGLRenderingContext !== 'undefined') void startExperience();
+
+const dispose = () => {
+  while (disposers.length) disposers.pop()?.();
+};
+window.addEventListener('pagehide', dispose, { once: true });
