@@ -12,7 +12,7 @@ export interface VehicleState {
 }
 
 export interface VehicleStore {
-  getState(): VehicleState;
+  getState(): Readonly<VehicleState>;
   subscribe(listener: () => void): () => void;
   actions: {
     setMode(mode: VehicleMode): void;
@@ -45,7 +45,7 @@ export function createVehicleStore(initial: Partial<VehicleState> = {}): Vehicle
   };
 
   return {
-    getState: () => state,
+    getState: () => ({ ...state }),
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

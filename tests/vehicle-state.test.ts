@@ -76,6 +76,20 @@ describe('vehicle state', () => {
     expect(store.getState().autoCameraSuspendedUntil).toBe(Date.now() + 2_500);
   });
 
+  it('does not expose internal state to external mutation', () => {
+    const store = createVehicleStore();
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    const exposedState = store.getState() as { paint: string };
+    exposedState.paint = 'unauthorized-red';
+
+    expect(store.getState().paint).toBe('lava-orange');
+    expect(notifications).toBe(0);
+  });
+
   it('notifies subscribers after an action and supports unsubscribe', () => {
     const store = createVehicleStore();
     const observedPaints: string[] = [];
