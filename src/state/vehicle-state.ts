@@ -36,16 +36,16 @@ const defaultState: VehicleState = {
 };
 
 export function createVehicleStore(initial: Partial<VehicleState> = {}): VehicleStore {
-  let state: VehicleState = { ...defaultState, ...initial };
+  let state: Readonly<VehicleState> = Object.freeze({ ...defaultState, ...initial });
   const listeners = new Set<() => void>();
 
   const update = (fields: Partial<VehicleState>) => {
-    state = { ...state, ...fields };
+    state = Object.freeze({ ...state, ...fields });
     listeners.forEach((listener) => listener());
   };
 
   return {
-    getState: () => ({ ...state }),
+    getState: () => state,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
