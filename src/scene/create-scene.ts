@@ -22,10 +22,30 @@ export interface SceneRuntime {
 }
 
 const pixelRatioCaps: Record<SceneQuality, number> = {
-  low: 1,
+  low: 1.5,
   medium: 1.5,
   high: 2,
 };
+
+export function pixelRatioCap(quality: SceneQuality): number {
+  return pixelRatioCaps[quality];
+}
+
+export function pixelRatioFor(quality: SceneQuality, devicePixelRatio: number): number {
+  return Math.min(Math.max(devicePixelRatio || 1, 1.5), pixelRatioCap(quality));
+}
+
+export const automotiveLighting = {
+  exposure: 0.85,
+  ambient: 0.35,
+  key: 1.1,
+  cyan: 0.55,
+  warm: 0.35,
+} as const;
+
+export function rendererOptions(_quality: SceneQuality) {
+  return { antialias: true, alpha: true } as const;
+}
 
 export function bindSceneResize(resize: () => void): () => void {
   window.addEventListener('resize', resize);
@@ -40,23 +60,23 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality): S
   camera.position.set(6.8, 2.8, 7.8);
   camera.lookAt(0, 0.7, 0);
 
-  const renderer = new WebGLRenderer({ canvas, antialias: quality !== 'low', alpha: true });
+  const renderer = new WebGLRenderer({ canvas, ...rendererOptions(quality) });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = automotiveLighting.exposure;
   renderer.shadowMap.enabled = quality !== 'low';
   renderer.shadowMap.type = PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCaps[quality]));
+  renderer.setPixelRatio(pixelRatioFor(quality, window.devicePixelRatio));
 
-  const ambient = new AmbientLight(0xdce8ff, 1.35);
-  const key = new DirectionalLight(0xffffff, 4.2);
+  const ambient = new AmbientLight(0xdce8ff, automotiveLighting.ambient);
+  const key = new DirectionalLight(0xffffff, automotiveLighting.key);
   key.name = 'main-rim-light';
   key.position.set(4, 7, 5);
   key.castShadow = quality !== 'low';
-  const cyan = new DirectionalLight(0x4de8ff, 3.2);
+  const cyan = new DirectionalLight(0x4de8ff, automotiveLighting.cyan);
   cyan.name = 'cool-cyan-side-light';
   cyan.position.set(-5, 2.4, 1.5);
-  const warm = new DirectionalLight(0xff8050, 2.1);
+  const warm = new DirectionalLight(0xff8050, automotiveLighting.warm);
   warm.name = 'warm-fill-light';
   warm.position.set(2, 1.2, -5);
   scene.add(ambient, key, cyan, warm);

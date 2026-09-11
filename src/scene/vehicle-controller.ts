@@ -49,7 +49,6 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
   let fromRight = 0;
   let targetLeft = 0;
   let targetRight = 0;
-  const colorTransitions: Array<{ material: ColorMaterial; from: Color; to: Color }> = [];
 
   const schedule = (callback: (timestamp: number) => void): FrameHandle =>
     setTimeout(() => callback(lastTimestamp + 16), 16);
@@ -65,10 +64,6 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
     const progress = Math.min(1, (timestamp - startedAt) / TRANSITION_MS);
     const eased = 1 - Math.pow(1 - progress, 3);
 
-    colorTransitions.forEach(({ material, from, to }) => {
-      material.color.copy(from).lerp(to, eased);
-      material.needsUpdate = true;
-    });
     if (vehicle.doors.left) {
       vehicle.doors.left.rotation.y = MathUtils.lerp(fromLeft, targetLeft, eased);
     }
@@ -86,12 +81,13 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
       if (frame !== undefined) cancel(frame);
       const bodyTarget = new Color(PAINT_COLORS[state.paint] ?? state.paint);
       const interiorTarget = new Color(INTERIOR_COLORS[state.interior] ?? state.interior);
-      colorTransitions.length = 0;
       vehicle.bodyMaterials.filter(hasColor).forEach((material) => {
-        colorTransitions.push({ material, from: material.color.clone(), to: bodyTarget });
+        material.color.copy(bodyTarget);
+        material.needsUpdate = true;
       });
       vehicle.interiorMaterials.filter(hasColor).forEach((material) => {
-        colorTransitions.push({ material, from: material.color.clone(), to: interiorTarget });
+        material.color.copy(interiorTarget);
+        material.needsUpdate = true;
       });
       fromLeft = vehicle.doors.left?.rotation.y ?? 0;
       fromRight = vehicle.doors.right?.rotation.y ?? 0;
@@ -107,7 +103,6 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
       disposed = true;
       if (frame !== undefined) cancel(frame);
       frame = undefined;
-      colorTransitions.length = 0;
       startedAt = lastTimestamp;
     },
   };

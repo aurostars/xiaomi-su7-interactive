@@ -58,6 +58,8 @@ describe('createVehicleController', () => {
     const controller = createVehicleController(vehicle);
 
     controller.applyState(state());
+    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('ff4b2b');
+    expect(vehicle.interiorMaterials[0].color.getHexString()).toBe('c4a484');
     finishAnimations();
 
     expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('ff4b2b');
@@ -82,6 +84,6 @@ describe('createVehicleController', () => {
     expect(vehicle.root.rotation.y).toBeCloseTo(Math.PI / 3);
     expect(vehicle.doors.left?.rotation.y).toBeCloseTo(-1.05);
     expect(vehicle.doors.right?.rotation.y).toBeCloseTo(1.05);
-    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('ffffff');
+    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('00ff00');
   });
 });
