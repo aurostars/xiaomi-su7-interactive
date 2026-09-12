@@ -1,7 +1,10 @@
 import {
   BufferGeometry,
   Group,
+  Mesh,
   MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  PlaneGeometry,
   Texture,
   type Material,
   type Object3D,
@@ -18,8 +21,12 @@ const INTERIOR_MATERIAL_NAMES = [
   'interior3.001',
   'interior4.001',
 ];
-const LEFT_DOOR_NAMES = ['door1'];
-const RIGHT_DOOR_NAMES = ['door3'];
+const DOOR_DEFINITIONS = {
+  frontLeft: { names: ['door1'], side: 'left', hinge: [-1.04, 0, -0.94] },
+  rearLeft: { names: ['door2'], side: 'left', hinge: [-1.04, 0, 0.78] },
+  frontRight: { names: ['door3'], side: 'right', hinge: [1.04, 0, -0.94] },
+  rearRight: { names: ['door4'], side: 'right', hinge: [1.04, 0, 0.78] },
+} as const;
 const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
 
 function tuneAutomotiveMaterial(material: Material) {
@@ -41,21 +48,22 @@ function tuneAutomotiveMaterial(material: Material) {
   material.needsUpdate = true;
 }
 
+export type DoorId = keyof typeof DOOR_DEFINITIONS;
+export type VehicleDoors = Partial<Record<DoorId, Object3D>>;
+
 export interface VehicleCapabilities {
   bodyColor: boolean;
   interiorColor: boolean;
-  leftDoor: boolean;
-  rightDoor: boolean;
+  screenGlow: boolean;
+  doors: Record<DoorId, boolean>;
 }
 
 export interface LoadedVehicle {
   root: Object3D;
   bodyMaterials: Material[];
   interiorMaterials: Material[];
-  doors: {
-    left?: Object3D;
-    right?: Object3D;
-  };
+  screenMaterials: Material[];
+  doors: VehicleDoors;
   capabilities: VehicleCapabilities;
   /** Releases this vehicle's GPU resources and detaches it. Safe to call repeatedly. */
   dispose(): void;
@@ -92,13 +100,50 @@ function createDoorPivot(
   side: 'left' | 'right',
   hinge: readonly [number, number, number],
 ) {
-  if (!door?.parent) return door;
+  if (!door?.parent) return undefined;
   const pivot = new Group();
   pivot.name = `${door.name}-${side}-hinge`;
   pivot.position.set(...hinge);
   root.add(pivot);
   pivot.attach(door);
   return pivot;
+}
+
+function createCabinDisplays(root: Object3D): Material[] {
+  const definitions = [
+    {
+      name: 'cabin-center-display',
+      size: [0.52, 0.3] as const,
+      position: [0.18, 0.94, -0.2] as const,
+      rotation: [-0.08, 0, 0] as const,
+    },
+    {
+      name: 'cabin-instrument-display',
+      size: [0.32, 0.13] as const,
+      position: [-0.38, 0.91, -0.3] as const,
+      rotation: [-0.08, 0, 0] as const,
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const material = new MeshStandardMaterial({
+      color: 0x07111f,
+      emissive: 0x4bbcff,
+      emissiveIntensity: 1.4,
+      metalness: 0.05,
+      roughness: 0.25,
+    });
+    material.name = `${definition.name}-material`;
+    const display = new Mesh(
+      new PlaneGeometry(definition.size[0], definition.size[1]),
+      material,
+    );
+    display.name = definition.name;
+    display.position.set(...definition.position);
+    display.rotation.set(...definition.rotation);
+    root.add(display);
+    return material;
+  });
 }
 
 function disposeGpuResources(root: Object3D) {
@@ -134,18 +179,20 @@ function disposeGpuResources(root: Object3D) {
 export function createLoadedVehicle(root: Object3D): LoadedVehicle {
   const bodyMaterials = collectMaterials(root, BODY_MATERIAL_NAMES);
   const interiorMaterials = collectMaterials(root, INTERIOR_MATERIAL_NAMES);
-  const leftDoor = createDoorPivot(
-    root,
-    findNode(root, LEFT_DOOR_NAMES),
-    'left',
-    [-1.04, 0, -0.94],
-  );
-  const rightDoor = createDoorPivot(
-    root,
-    findNode(root, RIGHT_DOOR_NAMES),
-    'right',
-    [1.04, 0, -0.94],
-  );
+  const doors: VehicleDoors = {};
+  for (const [id, definition] of Object.entries(DOOR_DEFINITIONS) as [
+    DoorId,
+    (typeof DOOR_DEFINITIONS)[DoorId],
+  ][]) {
+    const pivot = createDoorPivot(
+      root,
+      findNode(root, definition.names),
+      definition.side,
+      definition.hinge,
+    );
+    if (pivot) doors[id] = pivot;
+  }
+  const screenMaterials = createCabinDisplays(root);
   let disposed = false;
 
   root.traverse((object) => {
@@ -161,12 +208,18 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
     root,
     bodyMaterials,
     interiorMaterials,
-    doors: { left: leftDoor, right: rightDoor },
+    screenMaterials,
+    doors,
     capabilities: {
       bodyColor: bodyMaterials.length > 0,
       interiorColor: interiorMaterials.length > 0,
-      leftDoor: Boolean(leftDoor),
-      rightDoor: Boolean(rightDoor),
+      screenGlow: screenMaterials.length > 0,
+      doors: {
+        frontLeft: Boolean(doors.frontLeft),
+        frontRight: Boolean(doors.frontRight),
+        rearLeft: Boolean(doors.rearLeft),
+        rearRight: Boolean(doors.rearRight),
+      },
     },
     dispose() {
       if (disposed) return;
