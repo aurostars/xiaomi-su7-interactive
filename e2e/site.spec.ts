@@ -21,6 +21,7 @@ interface Su7Diagnostics {
   vehicleYaw: number | null;
   materials: { body: number; interior: number; screens: number };
   hotspot: string;
+  autoCameraSuspendedUntil: number;
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
 }
 
@@ -31,6 +32,23 @@ const readDiagnostics = (page: Page) => page.evaluate(() => {
   if (!reader) throw new Error('SU7 read-only E2E diagnostics are unavailable');
   return reader();
 });
+
+function cabinSystems(diagnostics: Su7Diagnostics) {
+  return {
+    lightingEnabled: diagnostics.cabinLighting?.enabled,
+    activeLightsReady: (diagnostics.cabinLighting?.activeLights ?? 0) >= 2,
+    exposure: diagnostics.cabinLighting?.exposure,
+    cameraNearReady: (diagnostics.camera?.near ?? Number.POSITIVE_INFINITY) <= .03,
+    screensReady: diagnostics.materials.screens >= 2,
+  };
+}
+
+async function dispatchScrollAndWaitForFrame(page: Page, deltaY: number) {
+  await page.evaluate((amount) => new Promise<void>((resolve) => {
+    window.addEventListener('scroll', () => requestAnimationFrame(() => resolve()), { once: true });
+    window.scrollBy(0, amount);
+  }), deltaY);
+}
 
 async function expectFullyInViewport(locator: Locator, viewport: { width: number; height: number }) {
   const box = await locator.boundingBox();
@@ -72,6 +90,8 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
 }
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
+  test.setTimeout(120_000);
+  expect(test.info().timeout).toBe(120_000);
   const blockingConsoleErrors: string[] = [];
   const failedResources: string[] = [];
 
@@ -102,13 +122,17 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       mode: diagnostics.mode,
       cameraView: diagnostics.camera?.view,
       allDoorsOpen: angles.every((angle) => angle !== null && Math.abs(angle) > .4),
-      cabinLighting: diagnostics.cabinLighting?.enabled,
+      ...cabinSystems(diagnostics),
     };
   }).toEqual({
     mode: 'cabin',
     cameraView: 'driver',
     allDoorsOpen: true,
-    cabinLighting: true,
+    lightingEnabled: true,
+    activeLightsReady: true,
+    exposure: .72,
+    cameraNearReady: true,
+    screensReady: true,
   });
 
   await page.getByRole('button', { name: '关门' }).click();
@@ -118,8 +142,17 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       cameraView: diagnostics.camera?.view,
       allDoorsClosed: Object.values(diagnostics.doorAngles)
         .every((angle) => angle !== null && Math.abs(angle) < .01),
+      ...cabinSystems(diagnostics),
     };
-  }).toEqual({ cameraView: 'driver', allDoorsClosed: true });
+  }).toEqual({
+    cameraView: 'driver',
+    allDoorsClosed: true,
+    lightingEnabled: true,
+    activeLightsReady: true,
+    exposure: .72,
+    cameraNearReady: true,
+    screensReady: true,
+  });
 
   const cameraTargets = new Set<string>();
   let previousCameraTarget = JSON.stringify((await readDiagnostics(page)).camera?.target);
@@ -133,8 +166,18 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
         targetChanged: JSON.stringify(diagnostics.camera?.target) !== previousCameraTarget,
         allDoorsClosed: Object.values(diagnostics.doorAngles)
           .every((angle) => angle !== null && Math.abs(angle) < .01),
+        ...cabinSystems(diagnostics),
       };
-    }).toEqual({ view: expectedView, targetChanged: true, allDoorsClosed: true });
+    }).toEqual({
+      view: expectedView,
+      targetChanged: true,
+      allDoorsClosed: true,
+      lightingEnabled: true,
+      activeLightsReady: true,
+      exposure: .72,
+      cameraNearReady: true,
+      screensReady: true,
+    });
     const target = (await readDiagnostics(page)).camera?.target;
     expect(target).toBeDefined();
     previousCameraTarget = JSON.stringify(target);
@@ -202,10 +245,28 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     canvas?.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 560, bubbles: true }));
   });
   await expect.poll(async () => (await readDiagnostics(page)).vehicleYaw).not.toBe(yawBefore);
-  const draggedYaw = (await readDiagnostics(page)).vehicleYaw;
-  await page.evaluate(() => window.scrollBy(0, 180));
-  await page.waitForTimeout(250);
+  const draggedState = await readDiagnostics(page);
+  const draggedYaw = draggedState.vehicleYaw;
+  expect(draggedState.autoCameraSuspendedUntil).toBeGreaterThan(Date.now());
+
+  await dispatchScrollAndWaitForFrame(page, 180);
   expect((await readDiagnostics(page)).vehicleYaw).toBe(draggedYaw);
+
+  await expect.poll(async () => {
+    const suspendedUntil = (await readDiagnostics(page)).autoCameraSuspendedUntil;
+    return Number.isFinite(suspendedUntil) && Date.now() >= suspendedUntil;
+  }, { timeout: 12_000 }).toBe(true);
+
+  const storyUpdatedBeforeResume = (await readDiagnostics(page)).story?.updatedAt ?? 0;
+  await dispatchScrollAndWaitForFrame(page, 1);
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      storyUpdated: (diagnostics.story?.updatedAt ?? 0) > storyUpdatedBeforeResume,
+      cameraView: diagnostics.camera?.view,
+      yawRestored: diagnostics.vehicleYaw !== draggedYaw,
+    };
+  }).toEqual({ storyUpdated: true, cameraView: 'sensing', yawRestored: true });
 
   await page.getByRole('link', { name: '返回车辆舞台' }).click();
   await expect(page.locator('#vehicle-stage')).toBeInViewport();

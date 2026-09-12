@@ -78,6 +78,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         vehicleYaw: vehicle?.yaw ?? null,
         materials: vehicle?.materials ?? { body: 0, interior: 0, screens: 0 },
         hotspot: store.getState().hotspot,
+        autoCameraSuspendedUntil: store.getState().autoCameraSuspendedUntil,
         story: diagnosticStory ?? null,
       };
     },
