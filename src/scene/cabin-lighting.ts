@@ -50,12 +50,12 @@ export function createCabinLighting(
   const exteriorExposure = renderer.toneMappingExposure;
   let enabled = false;
   let disposed = false;
-  let animationFrame = 0;
+  let animationFrame: number | null = null;
 
   const cancelTransition = () => {
-    if (!animationFrame) return;
+    if (animationFrame === null) return;
     cancelAnimationFrame(animationFrame);
-    animationFrame = 0;
+    animationFrame = null;
   };
 
   const apply = (intensities: number[], exposure: number) => {
@@ -86,7 +86,7 @@ export function createCabinLighting(
           startExposure + (targetExposure - startExposure) * eased,
         );
         if (progress < 1) animationFrame = requestAnimationFrame(animate);
-        else animationFrame = 0;
+        else animationFrame = null;
       };
       animationFrame = requestAnimationFrame(animate);
     },

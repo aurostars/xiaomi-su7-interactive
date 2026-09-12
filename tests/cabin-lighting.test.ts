@@ -71,6 +71,29 @@ describe('cabin lighting', () => {
     expect(requestFrame).not.toHaveBeenCalled();
   });
 
+  it('cancels RAF handle zero before an immediate state change', () => {
+    let pending: FrameRequestCallback | undefined;
+    let cancelled = false;
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      pending = callback;
+      return 0;
+    });
+    const cancelFrame = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((handle) => {
+      if (handle === 0) cancelled = true;
+    });
+    const scene = new Scene();
+    const renderer = rendererWithExposure();
+    const controller = createCabinLighting(scene, renderer, 'high');
+
+    controller.setEnabled(true);
+    controller.setEnabled(false, true);
+    if (!cancelled) pending?.(performance.now() + 240);
+
+    expect(cancelFrame).toHaveBeenCalledWith(0);
+    expect(renderer.toneMappingExposure).toBe(0.9);
+    expect(rigLights(scene).every((light) => light.intensity === 0)).toBe(true);
+  });
+
   it('cancels animation and removes only its rig on dispose', () => {
     const scene = new Scene();
     const exterior = new DirectionalLight();
