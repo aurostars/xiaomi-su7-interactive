@@ -2,6 +2,24 @@ import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
 import type { ShellElements } from './render-shell';
 
+const CABIN_DETAILS = {
+  driver: {
+    title: '主驾沉浸视野',
+    detail: '方向盘、前挡视野与中控信息围绕驾驶者展开。',
+    tags: ['主驾位置', '方向盘', '前挡视野'],
+  },
+  passenger: {
+    title: '副驾交互空间',
+    detail: '从副驾横向观察中控屏、中央通道与驾驶区域。',
+    tags: ['副驾位置', '侧窗', '中控屏'],
+  },
+  rear: {
+    title: '后排空间关系',
+    detail: '从后排中央观察前排座椅、中控与中央扶手。',
+    tags: ['后排中央', '前排座椅', '中央扶手'],
+  },
+} as const;
+
 const HOTSPOTS = {
   hero: {
     view: 'aero', label: '空气动力学', position: 'front',
@@ -85,6 +103,10 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     hotspotDetail.hidden = expanded;
   });
   let activeHotspot = '';
+  const cabinTitle = elements.cabinDetail.querySelector<HTMLElement>('h2');
+  const cabinDescription = elements.cabinDetail.querySelector<HTMLElement>('[data-cabin-description]');
+  const cabinTags = elements.cabinDetail.querySelector<HTMLUListElement>('ul');
+  if (!cabinTitle || !cabinDescription || !cabinTags) throw new Error('Cabin detail failed to render');
 
   const sync = () => {
     const state = store.getState();
@@ -105,6 +127,15 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     });
     elements.doorButton.setAttribute('aria-pressed', String(state.doorsOpen));
     elements.doorButton.textContent = state.doorsOpen ? '关门' : '开门';
+    const cabinDetail = CABIN_DETAILS[state.seatView];
+    elements.cabinDetail.hidden = state.mode !== 'cabin';
+    cabinTitle.textContent = cabinDetail.title;
+    cabinDescription.textContent = cabinDetail.detail;
+    cabinTags.replaceChildren(...cabinDetail.tags.map((tag) => {
+      const item = cabinTags.ownerDocument.createElement('li');
+      item.textContent = tag;
+      return item;
+    }));
     const hotspot = HOTSPOTS[state.hotspot as keyof typeof HOTSPOTS] ?? HOTSPOTS.hero;
     if (activeHotspot !== hotspot.view) {
       activeHotspot = hotspot.view;

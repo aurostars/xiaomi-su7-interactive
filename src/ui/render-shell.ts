@@ -9,6 +9,7 @@ export interface ShellElements {
   colorButtons: HTMLButtonElement[];
   doorButton: HTMLButtonElement;
   enterCabinButton: HTMLButtonElement;
+  cabinDetail: HTMLElement;
   hotspotLabel: HTMLElement;
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
@@ -117,6 +118,12 @@ export function renderShell(root: HTMLElement): ShellElements {
           </div>
           <button class="door-button" type="button" aria-pressed="false">开门</button>
         </aside>
+        <aside class="cabin-detail" aria-live="polite" hidden>
+          <p>当前座舱</p>
+          <h2></h2>
+          <p data-cabin-description></p>
+          <ul aria-label="当前座舱细节"></ul>
+        </aside>
       </div>
       <div id="story" class="story-sequence">${renderStory()}</div>
     </section>
@@ -136,12 +143,14 @@ export function renderShell(root: HTMLElement): ShellElements {
   const canvas = root.querySelector<HTMLCanvasElement>('canvas');
   const doorButton = root.querySelector<HTMLButtonElement>('.door-button');
   const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
+  const cabinDetail = root.querySelector<HTMLElement>('.cabin-detail');
   const hotspotLabel = root.querySelector<HTMLElement>('.story-hotspot');
-  if (!canvas || !doorButton || !enterCabinButton || !hotspotLabel) throw new Error('Vehicle shell failed to render');
+  if (!canvas || !doorButton || !enterCabinButton || !cabinDetail || !hotspotLabel) throw new Error('Vehicle shell failed to render');
   return {
     canvas,
     doorButton,
     enterCabinButton,
+    cabinDetail,
     hotspotLabel,
     modeButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')),
     colorButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('.color-swatch')),

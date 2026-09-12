@@ -20,6 +20,55 @@ describe('high fidelity page shell', () => {
     expect(elements.hotspotLabel.getAttribute('aria-live')).toBe('polite');
   });
 
+  it('shows an accessible cabin detail card and keeps it synced while doors close and seats change', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const unbind = bindControls(elements, store);
+
+    expect(elements.cabinDetail.getAttribute('aria-live')).toBe('polite');
+    expect(elements.cabinDetail.querySelector('ul')?.getAttribute('aria-label')).toBe('当前座舱细节');
+    expect(elements.cabinDetail.hidden).toBe(true);
+
+    elements.enterCabinButton.click();
+    expect(store.getState().mode).toBe('cabin');
+    expect(elements.cabinDetail.hidden).toBe(false);
+    expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe('主驾沉浸视野');
+    expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual([
+      '主驾位置', '方向盘', '前挡视野',
+    ]);
+    expect(elements.doorButton.textContent).toBe('关门');
+
+    elements.doorButton.click();
+    expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: false });
+    expect(elements.doorButton.textContent).toBe('开门');
+
+    elements.seatButtons.find((button) => button.dataset.seat === 'passenger')?.click();
+    expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe('副驾交互空间');
+    expect(elements.cabinDetail.querySelector('[data-cabin-description]')?.textContent)
+      .toBe('从副驾横向观察中控屏、中央通道与驾驶区域。');
+    expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual([
+      '副驾位置', '侧窗', '中控屏',
+    ]);
+    expect(elements.hotspotLabel.classList.contains('cabin-detail')).toBe(false);
+
+    unbind();
+  });
+
+  it('enables the unified door control for any single available door capability', () => {
+    const elements = renderShell(document.body);
+    const doors = ['frontLeft', 'frontRight', 'rearLeft', 'rearRight'] as const;
+
+    doors.forEach((availableDoor) => {
+      applyVehicleCapabilities(elements, {
+        bodyColor: true,
+        interiorColor: true,
+        screenGlow: true,
+        doors: Object.fromEntries(doors.map((door) => [door, door === availableDoor])) as Record<typeof doors[number], boolean>,
+      });
+      expect(elements.doorButton.disabled, availableDoor).toBe(false);
+    });
+  });
+
   it('renders the complete story, technology imagery and return link', () => {
     renderShell(document.body);
 
