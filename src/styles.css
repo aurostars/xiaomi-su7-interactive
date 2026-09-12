@@ -164,7 +164,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .seat-views { min-width: 180px; margin: 0; }
   .door-button { flex: 0 0 64px; width: 64px; margin: 0; }
   .cabin-detail {
-    position: absolute; right: 14px; bottom: calc(72px + env(safe-area-inset-bottom)); left: 14px; z-index: 24;
+    position: absolute; top: calc(52dvh - min(180px, 24dvh) - 12px); right: 14px; left: 14px; z-index: 24;
     width: auto; max-height: min(180px, 24dvh); padding: 14px 16px; overflow-y: auto;
     overscroll-behavior: contain;
   }
