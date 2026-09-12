@@ -149,6 +149,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       hotspotDetail.hidden = true;
     }
     document.documentElement.dataset.vehicleMode = state.mode;
+    elements.stage.dataset.mode = state.mode;
   };
 
   const unsubscribe = store.subscribe(sync);

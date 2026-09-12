@@ -34,10 +34,10 @@ describe('final visual regression guardrails', () => {
 
     expect(cabinRule).toContain('position: absolute');
     expect(cabinRule).not.toContain('position: fixed');
-    expect(cabinRule).toMatch(/max-height:\s*min\(180px, 24dvh\)/);
-    expect(cabinRule).toContain('overflow-y: auto');
-    expect(cabinRule).toContain('top: calc(52dvh - min(180px, 24dvh) - 12px)');
-    expect(cabinRule).not.toMatch(/\bbottom:/);
+    expect(cabinRule).toContain('top: 108px');
+    expect(cabinRule).toContain('bottom: auto');
+    expect(cabinRule).toContain('max-height: calc(52dvh - 120px)');
+    expect(mobileRules).toMatch(/\.vehicle-stage\[data-mode=['"]cabin['"]\]\s+\.hero-copy\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/);
   });
 
   it('provides environment reflections and a grounded contact shadow', () => {

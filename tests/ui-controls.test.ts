@@ -28,9 +28,11 @@ describe('high fidelity page shell', () => {
     expect(elements.cabinDetail.getAttribute('aria-live')).toBe('polite');
     expect(elements.cabinDetail.querySelector('ul')?.getAttribute('aria-label')).toBe('当前座舱细节');
     expect(elements.cabinDetail.hidden).toBe(true);
+    expect(elements.stage.dataset.mode).toBe('exterior');
 
     elements.enterCabinButton.click();
     expect(store.getState().mode).toBe('cabin');
+    expect(elements.stage.dataset.mode).toBe('cabin');
     expect(elements.cabinDetail.hidden).toBe(false);
     expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe('主驾沉浸视野');
     expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual([
@@ -50,6 +52,9 @@ describe('high fidelity page shell', () => {
       '副驾位置', '侧窗', '中控屏',
     ]);
     expect(elements.hotspotLabel.classList.contains('cabin-detail')).toBe(false);
+
+    elements.modeButtons.find((button) => button.dataset.mode === 'exterior')?.click();
+    expect(elements.stage.dataset.mode).toBe('exterior');
 
     unbind();
   });

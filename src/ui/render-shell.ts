@@ -4,6 +4,7 @@ import techCabin from '../assets/images/tech-cabin.webp';
 import gallerySu7 from '../assets/images/gallery-su7.webp';
 
 export interface ShellElements {
+  stage: HTMLElement;
   canvas: HTMLCanvasElement;
   modeButtons: HTMLButtonElement[];
   colorButtons: HTMLButtonElement[];
@@ -140,13 +141,15 @@ export function renderShell(root: HTMLElement): ShellElements {
     <section class="closing-cta"><div><p>沉浸体验</p><h2>回到车身舞台，继续探索配色、开门与智能座舱。</h2></div><a href="#vehicle-stage">返回车辆舞台</a></section>
     <footer><span>Xiaomi SU7 交互体验</span><span>为热爱驾驶的人而造</span></footer>`;
 
+  const stage = root.querySelector<HTMLElement>('.vehicle-stage');
   const canvas = root.querySelector<HTMLCanvasElement>('canvas');
   const doorButton = root.querySelector<HTMLButtonElement>('.door-button');
   const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
   const cabinDetail = root.querySelector<HTMLElement>('.cabin-detail');
   const hotspotLabel = root.querySelector<HTMLElement>('.story-hotspot');
-  if (!canvas || !doorButton || !enterCabinButton || !cabinDetail || !hotspotLabel) throw new Error('Vehicle shell failed to render');
+  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !hotspotLabel) throw new Error('Vehicle shell failed to render');
   return {
+    stage,
     canvas,
     doorButton,
     enterCabinButton,
