@@ -15,6 +15,7 @@ import {
   type WebGLRenderTarget,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { createCabinLighting } from './cabin-lighting';
 
 export type SceneQuality = 'low' | 'medium' | 'high';
 
@@ -25,6 +26,8 @@ export interface SceneRuntime {
   resize(): void;
   render(): void;
   start(): void;
+  setCabinMode(enabled: boolean, immediate?: boolean): void;
+  getCabinLightingDiagnostics(): { enabled: boolean; exposure: number; activeLights: number };
   dispose(): void;
 }
 
@@ -87,6 +90,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, mi
   renderer.shadowMap.enabled = quality !== 'low';
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.setPixelRatio(pixelRatioFor(quality, window.devicePixelRatio));
+  const cabinLighting = createCabinLighting(scene, renderer, quality);
 
   const pmrem = new PMREMGenerator(renderer);
   const room = new RoomEnvironment();
@@ -156,6 +160,12 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, mi
       resize();
       animationFrame = requestAnimationFrame(render);
     },
+    setCabinMode(enabled, immediate) {
+      cabinLighting.setEnabled(enabled, immediate);
+    },
+    getCabinLightingDiagnostics() {
+      return cabinLighting.getDiagnostics();
+    },
     dispose() {
       running = false;
       cancelAnimationFrame(animationFrame);
@@ -163,6 +173,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, mi
       disposeEnvironment();
       groundGeometry.dispose();
       groundMaterial.dispose();
+      cabinLighting.dispose();
       renderer.dispose();
     },
   };
