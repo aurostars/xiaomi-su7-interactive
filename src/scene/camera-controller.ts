@@ -17,6 +17,7 @@ export interface CameraPreset {
   position: [number, number, number];
   target: [number, number, number];
   fov: number;
+  near: number;
   vehicleYaw: number;
 }
 
@@ -25,6 +26,7 @@ export interface CameraDiagnostics {
   position: [number, number, number];
   target: [number, number, number];
   fov: number;
+  near: number;
 }
 
 export interface StoryCameraFrame {
@@ -41,13 +43,13 @@ export interface CameraController {
 }
 
 export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
-  aero: { position: [6.8, 2.8, 7.8], target: [0, 0.7, 0], fov: 32, vehicleYaw: -0.18 },
-  performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, vehicleYaw: 0.3 },
-  cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, vehicleYaw: -0.08 },
-  sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, vehicleYaw: 0.48 },
-  driver: { position: [0.48, 1.42, 0.42], target: [0.35, 1.35, -2.1], fov: 44, vehicleYaw: 0 },
-  passenger: { position: [-0.48, 1.42, 0.42], target: [-0.3, 1.32, -2.05], fov: 44, vehicleYaw: 0 },
-  rear: { position: [0, 1.48, 1.58], target: [0, 1.28, -1.15], fov: 47, vehicleYaw: 0 },
+  aero: { position: [6.8, 2.8, 7.8], target: [0, 0.7, 0], fov: 32, near: 0.1, vehicleYaw: -0.18 },
+  performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
+  cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
+  sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, near: 0.1, vehicleYaw: 0.48 },
+  driver: { position: [0.43, 1.34, 0.2], target: [0.2, 1.2, -1.55], fov: 52, near: 0.025, vehicleYaw: 0 },
+  passenger: { position: [-0.43, 1.34, 0.18], target: [0.18, 1.18, -1.35], fov: 50, near: 0.025, vehicleYaw: 0 },
+  rear: { position: [0, 1.38, 1.18], target: [0, 1.16, -0.95], fov: 54, near: 0.025, vehicleYaw: 0 },
 };
 
 const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin', 'sensing'];
@@ -59,12 +61,14 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
   const targetPosition = camera.position.clone();
   const targetLook = lookTarget.clone();
   let targetFov = camera.fov;
+  let targetNear = camera.near;
   let currentView: CameraView = 'aero';
 
   const applyPreset = (preset: CameraPreset) => {
     targetPosition.fromArray(preset.position);
     targetLook.fromArray(preset.target);
     targetFov = preset.fov;
+    targetNear = preset.near;
   };
 
   return {
@@ -82,6 +86,7 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       targetPosition.fromArray(from.position).lerp(new Vector3(...to.position), amount);
       targetLook.fromArray(from.target).lerp(new Vector3(...to.target), amount);
       targetFov = MathUtils.lerp(from.fov, to.fov, amount);
+      targetNear = MathUtils.lerp(from.near, to.near, amount);
       return {
         view,
         progress: amount,
@@ -93,6 +98,7 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       camera.position.lerp(targetPosition, alpha);
       lookTarget.lerp(targetLook, alpha);
       camera.fov = MathUtils.lerp(camera.fov, targetFov, alpha);
+      camera.near = MathUtils.lerp(camera.near, targetNear, alpha);
       camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
     },
@@ -102,6 +108,7 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
         position: tuple(camera.position),
         target: tuple(lookTarget),
         fov: camera.fov,
+        near: camera.near,
       };
     },
   };

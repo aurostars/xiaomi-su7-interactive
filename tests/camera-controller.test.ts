@@ -6,13 +6,42 @@ import {
 } from '../src/scene/camera-controller';
 
 describe('camera controller', () => {
-  it('keeps driver, passenger, and rear viewpoints spatially distinct', () => {
+  it('keeps driver, passenger, and rear viewpoints inside the cabin and spatially distinct', () => {
     const cabinViews = ['driver', 'passenger', 'rear'] as const;
     const positions = cabinViews.map((view) => CAMERA_PRESETS[view].position.join(','));
     const targets = cabinViews.map((view) => CAMERA_PRESETS[view].target.join(','));
 
+    for (const view of cabinViews) {
+      const [x, y, z] = CAMERA_PRESETS[view].position;
+      expect(x).toBeGreaterThanOrEqual(-0.7);
+      expect(x).toBeLessThanOrEqual(0.7);
+      expect(y).toBeGreaterThanOrEqual(1.2);
+      expect(y).toBeLessThanOrEqual(1.5);
+      expect(z).toBeGreaterThanOrEqual(0);
+      expect(z).toBeLessThanOrEqual(1.3);
+      expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.03);
+    }
     expect(new Set(positions).size).toBe(3);
     expect(new Set(targets).size).toBe(3);
+  });
+
+  it('retains the exterior near plane for story presets', () => {
+    for (const view of ['aero', 'performance', 'cabin', 'sensing'] as const) {
+      expect(CAMERA_PRESETS[view].near).toBe(0.1);
+    }
+  });
+
+  it('applies the cabin near plane and updates the projection matrix', () => {
+    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    const projectionBefore = camera.projectionMatrix.clone();
+    const controller = createCameraController(camera);
+
+    controller.setTarget('driver');
+    controller.update(0, true);
+
+    expect(camera.near).toBe(0.025);
+    expect(camera.projectionMatrix.equals(projectionBefore)).toBe(false);
+    expect(controller.getDiagnostics().near).toBe(camera.near);
   });
 
   it('moves toward a preset without jumping directly to it', () => {
@@ -29,7 +58,8 @@ describe('camera controller', () => {
       y: CAMERA_PRESETS.driver.position[1],
       z: CAMERA_PRESETS.driver.position[2],
     })).toBeLessThan(Math.hypot(...CAMERA_PRESETS.driver.position));
-    expect(camera.fov).toBeGreaterThan(CAMERA_PRESETS.driver.fov);
+    expect(camera.fov).toBeGreaterThan(50);
+    expect(camera.fov).toBeLessThan(CAMERA_PRESETS.driver.fov);
   });
 
   it('interpolates actual position, look target, FOV and vehicle yaw from continuous story progress', () => {
