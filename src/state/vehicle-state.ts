@@ -56,7 +56,7 @@ export function createVehicleStore(initial: Partial<VehicleState> = {}): Vehicle
     },
     actions: {
       setMode: (mode) => update(mode === 'cabin'
-        ? { mode, doorsOpen: true }
+        ? { mode, doorsOpen: true, seatView: 'driver' }
         : { mode }),
       setPaint: (paint) => update({ paint }),
       setInterior: (interior) => update({ interior }),

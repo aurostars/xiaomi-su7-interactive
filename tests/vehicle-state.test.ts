@@ -54,16 +54,32 @@ describe('vehicle state', () => {
     expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: true, seatView: 'driver' });
   });
 
+  it('opens all doors and resets to driver when cabin mode is re-entered', () => {
+    const store = createVehicleStore();
+    store.actions.setSeatView('passenger');
+    store.actions.setMode('exterior');
+
+    store.actions.setMode('cabin');
+
+    expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: true, seatView: 'driver' });
+  });
+
   it('keeps manually closed doors closed while changing seats in cabin', () => {
     const store = createVehicleStore({ mode: 'cabin', doorsOpen: false });
     store.actions.setSeatView('passenger');
     expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: false, seatView: 'passenger' });
   });
 
-  it('keeps the last door state when returning to exterior', () => {
+  it('keeps the last open door state when returning to exterior', () => {
     const store = createVehicleStore({ mode: 'cabin', doorsOpen: true });
     store.actions.setMode('exterior');
     expect(store.getState()).toMatchObject({ mode: 'exterior', doorsOpen: true });
+  });
+
+  it('keeps the last closed door state when returning to exterior', () => {
+    const store = createVehicleStore({ mode: 'cabin', doorsOpen: false });
+    store.actions.setMode('exterior');
+    expect(store.getState()).toMatchObject({ mode: 'exterior', doorsOpen: false });
   });
 
   it('updates each independently selectable vehicle field', () => {
