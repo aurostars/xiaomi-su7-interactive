@@ -88,6 +88,24 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.disabled).toBe(true);
   });
 
+  it('keeps the door control disabled when only unsupported rear doors are available', () => {
+    const elements = renderShell(document.body);
+
+    applyVehicleCapabilities(elements, {
+      bodyColor: true,
+      interiorColor: true,
+      screenGlow: true,
+      doors: {
+        frontLeft: false,
+        frontRight: false,
+        rearLeft: true,
+        rearRight: true,
+      },
+    });
+
+    expect(elements.doorButton.disabled).toBe(true);
+  });
+
   it('updates a positioned, expandable hotspot for all four story chapters', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();

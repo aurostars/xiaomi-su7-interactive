@@ -29,7 +29,7 @@ export function applyVehicleCapabilities(elements: ShellElements, capabilities: 
   elements.colorButtons.forEach((button) => {
     button.disabled = button.dataset.paint ? !capabilities.bodyColor : !capabilities.interiorColor;
   });
-  elements.doorButton.disabled = !Object.values(capabilities.doors).some(Boolean);
+  elements.doorButton.disabled = !capabilities.doors.frontLeft && !capabilities.doors.frontRight;
 }
 
 export function bindControls(elements: ShellElements, store: VehicleStore): () => void {
