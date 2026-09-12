@@ -2,11 +2,24 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 interface Su7Diagnostics {
   modelReady: boolean;
+  mode: 'exterior' | 'cabin';
   paint: string | null;
-  doorAngles: { left: number | null; right: number | null };
-  camera: { view: string; target: number[]; position: number[]; fov: number } | null;
+  doorAngles: {
+    frontLeft: number | null;
+    frontRight: number | null;
+    rearLeft: number | null;
+    rearRight: number | null;
+  };
+  camera: {
+    view: string;
+    target: number[];
+    position: number[];
+    fov: number;
+    near: number;
+  } | null;
+  cabinLighting: { enabled: boolean; exposure: number; activeLights: number } | null;
   vehicleYaw: number | null;
-  materials: { body: number; interior: number };
+  materials: { body: number; interior: number; screens: number };
   hotspot: string;
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
 }
@@ -59,7 +72,6 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
 }
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
-  test.setTimeout(300_000);
   const blockingConsoleErrors: string[] = [];
   const failedResources: string[] = [];
 
@@ -82,38 +94,58 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   await gulfBlue.click();
   await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('19b7ff');
 
-  const closedDoorAngles = (await readDiagnostics(page)).doorAngles;
-  await page.getByRole('button', { name: '开门' }).click();
-  await expect.poll(async () => {
-    const angles = (await readDiagnostics(page)).doorAngles;
-    return {
-      leftOpened: angles.left !== null && angles.left < (closedDoorAngles.left ?? 0) - 0.4,
-      rightOpened: angles.right !== null && angles.right > (closedDoorAngles.right ?? 0) + 0.4,
-    };
-  }).toEqual({ leftOpened: true, rightOpened: true });
-
   await page.getByRole('tab', { name: '座舱' }).click();
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    const angles = Object.values(diagnostics.doorAngles);
+    return {
+      mode: diagnostics.mode,
+      cameraView: diagnostics.camera?.view,
+      allDoorsOpen: angles.every((angle) => angle !== null && Math.abs(angle) > .4),
+      cabinLighting: diagnostics.cabinLighting?.enabled,
+    };
+  }).toEqual({
+    mode: 'cabin',
+    cameraView: 'driver',
+    allDoorsOpen: true,
+    cabinLighting: true,
+  });
+
+  await page.getByRole('button', { name: '关门' }).click();
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      cameraView: diagnostics.camera?.view,
+      allDoorsClosed: Object.values(diagnostics.doorAngles)
+        .every((angle) => angle !== null && Math.abs(angle) < .01),
+    };
+  }).toEqual({ cameraView: 'driver', allDoorsClosed: true });
+
   const cameraTargets = new Set<string>();
   let previousCameraTarget = JSON.stringify((await readDiagnostics(page)).camera?.target);
-  for (const [seat, expectedView] of [['主驾', 'driver'], ['副驾', 'passenger'], ['后排', 'rear']] as const) {
+  cameraTargets.add(previousCameraTarget);
+  for (const [seat, expectedView] of [['副驾', 'passenger'], ['后排', 'rear']] as const) {
     await page.getByRole('button', { name: seat }).click();
     await expect.poll(async () => {
-      const camera = (await readDiagnostics(page)).camera;
+      const diagnostics = await readDiagnostics(page);
       return {
-        view: camera?.view,
-        targetChanged: JSON.stringify(camera?.target) !== previousCameraTarget,
+        view: diagnostics.camera?.view,
+        targetChanged: JSON.stringify(diagnostics.camera?.target) !== previousCameraTarget,
+        allDoorsClosed: Object.values(diagnostics.doorAngles)
+          .every((angle) => angle !== null && Math.abs(angle) < .01),
       };
-    }).toEqual({ view: expectedView, targetChanged: true });
+    }).toEqual({ view: expectedView, targetChanged: true, allDoorsClosed: true });
     const target = (await readDiagnostics(page)).camera?.target;
     expect(target).toBeDefined();
     previousCameraTarget = JSON.stringify(target);
     cameraTargets.add(previousCameraTarget);
   }
   expect(cameraTargets.size).toBe(3);
-  expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4 });
+  expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4, screens: 2 });
 
   await scrollStoryTo(page, 'performance');
   await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
+  expect((await readDiagnostics(page)).camera?.view).toBe('rear');
   await page.getByRole('tab', { name: '外观' }).click();
   await expect.poll(async () => {
     const camera = (await readDiagnostics(page)).camera;

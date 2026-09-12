@@ -5,6 +5,7 @@ import {
   createExperienceOrchestrator,
   createStageFeedback,
   detectCapabilities,
+  getCabinExperienceIntent,
 } from './performance/capabilities';
 import {
   createCameraController,
@@ -50,6 +51,11 @@ applyVehicleCapabilities(elements, {
 const disposers: Array<() => void> = [unbindControls];
 let diagnosticCamera: CameraController | undefined;
 let diagnosticVehicle: VehicleController | undefined;
+let diagnosticCabinLighting: (() => {
+  enabled: boolean;
+  exposure: number;
+  activeLights: number;
+}) | undefined;
 let diagnosticStory: { view: CameraView; progress: number; scrollY: number; updatedAt: number } | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
@@ -59,6 +65,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
       const vehicle = diagnosticVehicle?.getDiagnostics();
       return {
         modelReady: Boolean(vehicle),
+        mode: store.getState().mode,
         paint: vehicle?.paint ?? null,
         doorAngles: vehicle?.doorAngles ?? {
           frontLeft: null,
@@ -67,6 +74,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
           rearRight: null,
         },
         camera: diagnosticCamera?.getDiagnostics() ?? null,
+        cabinLighting: diagnosticCabinLighting?.() ?? null,
         vehicleYaw: vehicle?.yaw ?? null,
         materials: vehicle?.materials ?? { body: 0, interior: 0, screens: 0 },
         hotspot: store.getState().hotspot,
@@ -97,7 +105,9 @@ orchestrator = createExperienceOrchestrator({
       renderFrameInterval(import.meta.env.VITE_E2E_DIAGNOSTICS === '1'),
     );
     const camera = createCameraController(runtime.camera);
+    const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
+    diagnosticCabinLighting = readCabinLighting;
     let vehicleController: VehicleController | undefined;
     let vehicleYaw = 0;
     let storyFrame: { view: CameraView; progress: number } = { view: 'aero', progress: 0 };
@@ -126,18 +136,17 @@ orchestrator = createExperienceOrchestrator({
       },
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
-    let lastMode = store.getState().mode;
-    let lastSeatView = store.getState().seatView;
+    let previousExperienceState = store.getState();
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
       vehicleController?.applyState(state);
-      const cameraIntentChanged = state.mode !== lastMode
-        || (state.mode === 'cabin' && state.seatView !== lastSeatView);
-      lastMode = state.mode;
-      lastSeatView = state.seatView;
-      if (!cameraIntentChanged) return;
-      if (state.mode === 'cabin') camera.setTarget(state.seatView);
-      else {
+      const intent = getCabinExperienceIntent(previousExperienceState, state);
+      previousExperienceState = state;
+      if (intent.cabinMode !== undefined) {
+        runtime.setCabinMode(intent.cabinMode, capabilities.reducedMotion);
+      }
+      if (intent.cameraView) camera.setTarget(intent.cameraView);
+      else if (intent.cabinMode === false) {
         const frame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
@@ -165,7 +174,15 @@ orchestrator = createExperienceOrchestrator({
         });
         diagnosticVehicle = vehicleController;
         applyVehicleCapabilities(elements, vehicle.capabilities);
-        vehicleController.applyState(store.getState());
+        const state = store.getState();
+        vehicleController.applyState(state);
+        runtime.setCabinMode(state.mode === 'cabin', true);
+        if (state.mode === 'cabin') camera.setTarget(state.seatView);
+        else {
+          const currentStoryFrame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
+          vehicleYaw = currentStoryFrame.vehicleYaw;
+        }
+        camera.update(0, true);
         vehicleController.setRotation(vehicleYaw);
         runtime.render();
       },
@@ -185,6 +202,7 @@ orchestrator = createExperienceOrchestrator({
           diagnosticCamera = undefined;
           diagnosticStory = undefined;
         }
+        if (diagnosticCabinLighting === readCabinLighting) diagnosticCabinLighting = undefined;
         runtime.dispose();
       },
     };

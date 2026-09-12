@@ -3,6 +3,7 @@ import {
   createExperienceOrchestrator,
   createStageFeedback,
   detectCapabilities,
+  getCabinExperienceIntent,
 } from '../src/performance/capabilities';
 
 describe('detectCapabilities', () => {
@@ -37,6 +38,34 @@ describe('detectCapabilities', () => {
       hardwareConcurrency: 8,
       devicePixelRatio: 2,
     }).quality).toBe('high');
+  });
+});
+
+
+describe('cabin experience intent', () => {
+  const exterior = { mode: 'exterior' as const, seatView: 'driver' as const };
+  const cabinDriver = { mode: 'cabin' as const, seatView: 'driver' as const };
+
+  it('starts cabin lighting and the driver camera only when cabin mode changes', () => {
+    expect(getCabinExperienceIntent(exterior, cabinDriver)).toEqual({
+      cabinMode: true,
+      cameraView: 'driver',
+    });
+  });
+
+  it('changes only the camera when switching seats inside the cabin', () => {
+    expect(getCabinExperienceIntent(cabinDriver, {
+      mode: 'cabin',
+      seatView: 'passenger',
+    })).toEqual({ cameraView: 'passenger' });
+  });
+
+  it('does not restart lighting or camera transitions for unrelated state updates', () => {
+    expect(getCabinExperienceIntent(cabinDriver, cabinDriver)).toEqual({});
+  });
+
+  it('turns cabin lighting off without overriding the story camera on exit', () => {
+    expect(getCabinExperienceIntent(cabinDriver, exterior)).toEqual({ cabinMode: false });
   });
 });
 

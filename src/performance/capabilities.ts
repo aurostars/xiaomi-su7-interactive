@@ -1,3 +1,5 @@
+import type { SeatView, VehicleMode } from '../state/vehicle-state';
+
 export type ExperienceQuality = 'high' | 'balanced' | 'fallback';
 
 export interface Capabilities {
@@ -45,6 +47,30 @@ export function detectCapabilities(environment: CapabilityEnvironment = {}): Cap
     webgl,
     reducedMotion,
     quality: constrained ? 'balanced' : 'high',
+  };
+}
+
+export interface CabinExperienceState {
+  mode: VehicleMode;
+  seatView: SeatView;
+}
+
+export interface CabinExperienceIntent {
+  cabinMode?: boolean;
+  cameraView?: SeatView;
+}
+
+export function getCabinExperienceIntent(
+  previous: CabinExperienceState,
+  next: CabinExperienceState,
+): CabinExperienceIntent {
+  const modeChanged = previous.mode !== next.mode;
+  const seatChangedInCabin = next.mode === 'cabin' && previous.seatView !== next.seatView;
+  return {
+    ...(modeChanged ? { cabinMode: next.mode === 'cabin' } : {}),
+    ...(next.mode === 'cabin' && (modeChanged || seatChangedInCabin)
+      ? { cameraView: next.seatView }
+      : {}),
   };
 }
 
