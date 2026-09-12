@@ -135,7 +135,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .site-header nav { display: none; }
   .brand b { display: none; }
   .header-cta { padding: 8px 13px; }
-  .vehicle-stage { min-height: 100dvh; padding-bottom: 150px; }
+  .vehicle-stage { min-height: calc(100dvh + 220px); padding-bottom: 220px; }
   .vehicle-canvas, .vehicle-fallback { inset: 52% -22% auto 4%; width: 118%; height: 40%; }
   .vehicle-stage-feedback { right: 20px; bottom: 166px; }
   .hero-copy { width: 100%; padding: 108px 20px 20px; }
@@ -164,8 +164,9 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .seat-views { min-width: 180px; margin: 0; }
   .door-button { flex: 0 0 64px; width: 64px; margin: 0; }
   .cabin-detail {
-    position: fixed; right: 14px; bottom: calc(72px + env(safe-area-inset-bottom)); left: 14px; z-index: 24;
-    width: auto; padding: 14px 16px;
+    position: absolute; right: 14px; bottom: calc(72px + env(safe-area-inset-bottom)); left: 14px; z-index: 24;
+    width: auto; max-height: min(180px, 24dvh); padding: 14px 16px; overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .cabin-detail h2 { font-size: 19px; }
   .cabin-detail [data-cabin-description] { margin: 6px 0 10px; line-height: 1.5; }

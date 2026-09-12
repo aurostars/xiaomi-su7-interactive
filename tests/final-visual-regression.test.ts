@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   automotiveLighting,
@@ -24,6 +25,17 @@ describe('final visual regression guardrails', () => {
       + automotiveLighting.cyan
       + automotiveLighting.warm,
     ).toBeLessThanOrEqual(2.5);
+  });
+
+  it('keeps the mobile cabin card inside the stage reserve with bounded short-screen content', () => {
+    const css = readFileSync('src/styles.css', 'utf8');
+    const mobileRules = css.match(/@media \(max-width: 767px\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+    const cabinRule = mobileRules.match(/\.cabin-detail \{([\s\S]*?)\}/)?.[1] ?? '';
+
+    expect(cabinRule).toContain('position: absolute');
+    expect(cabinRule).not.toContain('position: fixed');
+    expect(cabinRule).toMatch(/max-height:\s*min\(/);
+    expect(cabinRule).toContain('overflow-y: auto');
   });
 
   it('provides environment reflections and a grounded contact shadow', () => {
