@@ -42,6 +42,17 @@ describe('high fidelity page shell', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const unbind = bindControls(elements, store);
+    applyVehicleCapabilities(elements, {
+      bodyColor: true,
+      interiorColor: true,
+      screenGlow: true,
+      doors: {
+        frontLeft: true,
+        frontRight: false,
+        rearLeft: false,
+        rearRight: false,
+      },
+    });
 
     elements.modeButtons[1].click();
     expect(store.getState().mode).toBe('cabin');
@@ -51,8 +62,8 @@ describe('high fidelity page shell', () => {
     expect(store.getState().paint).toBe('gulf-blue');
 
     elements.doorButton.click();
-    expect(store.getState()).toMatchObject({ doorsOpen: true, mode: 'exterior' });
-    expect(elements.doorButton.getAttribute('aria-pressed')).toBe('true');
+    expect(store.getState()).toMatchObject({ doorsOpen: false, mode: 'exterior' });
+    expect(elements.doorButton.getAttribute('aria-pressed')).toBe('false');
 
     unbind();
   });
@@ -63,8 +74,13 @@ describe('high fidelity page shell', () => {
     applyVehicleCapabilities(elements, {
       bodyColor: true,
       interiorColor: false,
-      leftDoor: false,
-      rightDoor: false,
+      screenGlow: false,
+      doors: {
+        frontLeft: false,
+        frontRight: false,
+        rearLeft: false,
+        rearRight: false,
+      },
     });
 
     expect(elements.colorButtons.filter((button) => button.dataset.paint).every((button) => !button.disabled)).toBe(true);

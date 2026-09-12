@@ -72,11 +72,11 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
     const progress = Math.min(1, (timestamp - startedAt) / TRANSITION_MS);
     const eased = 1 - Math.pow(1 - progress, 3);
 
-    if (vehicle.doors.left) {
-      vehicle.doors.left.rotation.y = MathUtils.lerp(fromLeft, targetLeft, eased);
+    if (vehicle.doors.frontLeft) {
+      vehicle.doors.frontLeft.rotation.y = MathUtils.lerp(fromLeft, targetLeft, eased);
     }
-    if (vehicle.doors.right) {
-      vehicle.doors.right.rotation.y = MathUtils.lerp(fromRight, targetRight, eased);
+    if (vehicle.doors.frontRight) {
+      vehicle.doors.frontRight.rotation.y = MathUtils.lerp(fromRight, targetRight, eased);
     }
 
     if (progress < 1) frame = schedule(animate);
@@ -97,8 +97,8 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
         material.color.copy(interiorTarget);
         material.needsUpdate = true;
       });
-      fromLeft = vehicle.doors.left?.rotation.y ?? 0;
-      fromRight = vehicle.doors.right?.rotation.y ?? 0;
+      fromLeft = vehicle.doors.frontLeft?.rotation.y ?? 0;
+      fromRight = vehicle.doors.frontRight?.rotation.y ?? 0;
       targetLeft = state.doorsOpen ? -DOOR_OPEN_ANGLE : 0;
       targetRight = state.doorsOpen ? DOOR_OPEN_ANGLE : 0;
       startedAt = 0;
@@ -112,8 +112,8 @@ export function createVehicleController(vehicle: LoadedVehicle): VehicleControll
       return {
         paint: paintMaterial?.color.getHexString() ?? null,
         doorAngles: {
-          left: vehicle.doors.left?.rotation.y ?? null,
-          right: vehicle.doors.right?.rotation.y ?? null,
+          left: vehicle.doors.frontLeft?.rotation.y ?? null,
+          right: vehicle.doors.frontRight?.rotation.y ?? null,
         },
         yaw: vehicle.root.rotation.y,
         materials: {

@@ -39,8 +39,13 @@ const unbindControls = bindControls(elements, store);
 applyVehicleCapabilities(elements, {
   bodyColor: false,
   interiorColor: false,
-  leftDoor: false,
-  rightDoor: false,
+  screenGlow: false,
+  doors: {
+    frontLeft: false,
+    frontRight: false,
+    rearLeft: false,
+    rearRight: false,
+  },
 });
 const disposers: Array<() => void> = [unbindControls];
 let diagnosticCamera: CameraController | undefined;

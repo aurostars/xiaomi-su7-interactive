@@ -139,8 +139,16 @@ function createCabinDisplays(root: Object3D): Material[] {
       material,
     );
     display.name = definition.name;
-    display.position.set(...definition.position);
-    display.rotation.set(...definition.rotation);
+    display.position.set(
+      definition.position[0],
+      definition.position[1],
+      definition.position[2],
+    );
+    display.rotation.set(
+      definition.rotation[0],
+      definition.rotation[1],
+      definition.rotation[2],
+    );
     root.add(display);
     return material;
   });

@@ -20,23 +20,29 @@ const state = (overrides: Partial<VehicleState> = {}): VehicleState => ({
 
 function makeVehicle(): LoadedVehicle & { untouched: MeshStandardMaterial } {
   const root = new Group();
-  const leftDoor = new Group();
-  const rightDoor = new Group();
+  const frontLeftDoor = new Group();
+  const frontRightDoor = new Group();
   const bodyMaterial = new MeshStandardMaterial({ color: '#ffffff' });
   const interiorMaterial = new MeshStandardMaterial({ color: '#111111' });
   const untouched = new MeshStandardMaterial({ color: '#123456' });
-  root.add(leftDoor, rightDoor);
+  root.add(frontLeftDoor, frontRightDoor);
 
   return {
     root,
     bodyMaterials: [bodyMaterial],
     interiorMaterials: [interiorMaterial],
-    doors: { left: leftDoor, right: rightDoor },
+    screenMaterials: [],
+    doors: { frontLeft: frontLeftDoor, frontRight: frontRightDoor },
     capabilities: {
       bodyColor: true,
       interiorColor: true,
-      leftDoor: true,
-      rightDoor: true,
+      screenGlow: false,
+      doors: {
+        frontLeft: true,
+        frontRight: true,
+        rearLeft: false,
+        rearRight: false,
+      },
     },
     dispose: () => undefined,
     untouched,
@@ -65,15 +71,15 @@ describe('createVehicleController', () => {
     expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('ff4b2b');
     expect(vehicle.interiorMaterials[0].color.getHexString()).toBe('c4a484');
     expect(vehicle.untouched.color.getHexString()).toBe('123456');
-    expect(vehicle.doors.left?.rotation.y).toBeCloseTo(-1.05);
-    expect(vehicle.doors.right?.rotation.y).toBeCloseTo(1.05);
+    expect(vehicle.doors.frontLeft?.rotation.y).toBeCloseTo(-1.05);
+    expect(vehicle.doors.frontRight?.rotation.y).toBeCloseTo(1.05);
   });
 
   it('closes doors, rotates the vehicle root, and stops pending animation on dispose', () => {
     vi.useFakeTimers();
     const vehicle = makeVehicle();
-    vehicle.doors.left!.rotation.y = -1.05;
-    vehicle.doors.right!.rotation.y = 1.05;
+    vehicle.doors.frontLeft!.rotation.y = -1.05;
+    vehicle.doors.frontRight!.rotation.y = 1.05;
     const controller = createVehicleController(vehicle);
 
     controller.setRotation(Math.PI / 3);
@@ -82,8 +88,8 @@ describe('createVehicleController', () => {
     finishAnimations();
 
     expect(vehicle.root.rotation.y).toBeCloseTo(Math.PI / 3);
-    expect(vehicle.doors.left?.rotation.y).toBeCloseTo(-1.05);
-    expect(vehicle.doors.right?.rotation.y).toBeCloseTo(1.05);
+    expect(vehicle.doors.frontLeft?.rotation.y).toBeCloseTo(-1.05);
+    expect(vehicle.doors.frontRight?.rotation.y).toBeCloseTo(1.05);
     expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('00ff00');
   });
 });
