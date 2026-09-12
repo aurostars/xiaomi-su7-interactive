@@ -32,6 +32,15 @@ describe('cabin lighting', () => {
       'cabin-footwell-right-light',
     ]);
     expect(lights.every((light) => light.intensity > 0)).toBe(true);
+    expect(lights.slice(0, 2).map((light) => ({
+      color: light.color.getHex(),
+      intensity: light.intensity,
+      distance: light.distance,
+      position: light.position.toArray(),
+    }))).toEqual([
+      { color: 0xffe7cf, intensity: 1.15, distance: 3.2, position: [0, 1.62, 0.2] },
+      { color: 0x72dfff, intensity: 0.68, distance: 2.1, position: [0, 1.12, -0.72] },
+    ]);
     expect(exterior.intensity).toBe(1.08);
     expect(renderer.toneMappingExposure).toBeCloseTo(0.72);
     expect(controller.getDiagnostics()).toEqual({ enabled: true, exposure: 0.72, activeLights: 4 });

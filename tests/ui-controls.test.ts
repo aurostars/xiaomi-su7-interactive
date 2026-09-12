@@ -34,29 +34,30 @@ describe('high fidelity page shell', () => {
     expect(store.getState().mode).toBe('cabin');
     expect(elements.stage.dataset.mode).toBe('cabin');
     expect(elements.cabinDetail.hidden).toBe(false);
-    expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe('主驾沉浸视野');
-    expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual([
-      '主驾位置', '方向盘', '前挡视野',
-    ]);
+    const expectedSeats = {
+      driver: ['主驾沉浸视野', '方向盘、前挡视野与中控信息围绕驾驶者展开。', ['主驾位置', '方向盘', '前挡视野']],
+      passenger: ['副驾交互空间', '从副驾横向观察中控屏、中央通道与驾驶区域。', ['副驾位置', '侧窗', '中控屏']],
+      rear: ['后排空间关系', '从后排中央观察前排座椅、中控与中央扶手。', ['后排中央', '前排座椅', '中央扶手']],
+    } as const;
+    for (const [seat, [title, description, tags]] of Object.entries(expectedSeats)) {
+      elements.seatButtons.find((button) => button.dataset.seat === seat)?.click();
+      expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe(title);
+      expect(elements.cabinDetail.querySelector('[data-cabin-description]')?.textContent).toBe(description);
+      expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual(tags);
+    }
     expect(elements.doorButton.textContent).toBe('关门');
 
     elements.doorButton.click();
     expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: false });
     expect(elements.doorButton.textContent).toBe('开门');
-
-    elements.seatButtons.find((button) => button.dataset.seat === 'passenger')?.click();
-    expect(elements.cabinDetail.querySelector('h2')?.textContent).toBe('副驾交互空间');
-    expect(elements.cabinDetail.querySelector('[data-cabin-description]')?.textContent)
-      .toBe('从副驾横向观察中控屏、中央通道与驾驶区域。');
-    expect(Array.from(elements.cabinDetail.querySelectorAll('li'), (item) => item.textContent)).toEqual([
-      '副驾位置', '侧窗', '中控屏',
-    ]);
     expect(elements.hotspotLabel.classList.contains('cabin-detail')).toBe(false);
 
     elements.modeButtons.find((button) => button.dataset.mode === 'exterior')?.click();
     expect(elements.stage.dataset.mode).toBe('exterior');
 
     unbind();
+    expect(document.documentElement.dataset.vehicleMode).toBeUndefined();
+    expect(elements.stage.dataset.mode).toBeUndefined();
   });
 
   it('enables the unified door control for any single available door capability', () => {

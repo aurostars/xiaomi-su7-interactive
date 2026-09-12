@@ -158,5 +158,6 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     unsubscribe();
     cleanups.forEach((cleanup) => cleanup());
     delete document.documentElement.dataset.vehicleMode;
+    delete elements.stage.dataset.mode;
   };
 }

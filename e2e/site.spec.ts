@@ -67,6 +67,34 @@ function overlaps(a: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>, b
     && a.y + a.height > b.y;
 }
 
+function monitorPageFailures(page: Page) {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const failedResources: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('requestfailed', (request) => {
+    failedResources.push(`REQUEST_FAILED ${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
+  page.on('response', (response) => {
+    if (response.status() >= 400) failedResources.push(`${response.status()} ${response.url()}`);
+  });
+  return () => {
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+    expect(failedResources).toEqual([]);
+  };
+}
+
+async function requiredBox(locator: Locator) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) throw new Error(`Missing layout box for ${await locator.evaluate((element) => element.outerHTML)}`);
+  return box;
+}
+
 async function scrollStoryTo(page: Page, view: string, progress = .5) {
   const before = await page.evaluate(() => Math.round(window.scrollY));
   const target = await page.evaluate(({ targetView, amount }) => {
@@ -324,6 +352,79 @@ for (const viewport of [
     }
   });
 }
+
+test('座舱视觉在主驾、副驾和后排保持完整', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const expectNoPageFailures = monitorPageFailures(page);
+  const response = await page.goto('/xiaomi-su7-interactive/');
+  expect(response?.status()).toBe(200);
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await page.getByRole('button', { name: '进入座舱' }).click();
+
+  const seats = [
+    { key: 'driver', label: '主驾', title: '主驾沉浸视野' },
+    { key: 'passenger', label: '副驾', title: '副驾交互空间' },
+    { key: 'rear', label: '后排', title: '后排空间关系' },
+  ] as const;
+  for (const seat of seats) {
+    const button = page.getByRole('button', { name: seat.label, exact: true });
+    await button.click();
+    await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe(seat.key);
+    await page.waitForTimeout(2_100);
+    const diagnostics = await readDiagnostics(page);
+    expect(Object.values(diagnostics.doorAngles).every((angle) => Number.isFinite(angle))).toBe(true);
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    const card = page.locator('.cabin-detail');
+    await expect(card.getByRole('heading', { name: seat.title })).toBeVisible();
+    await expect(card.locator('li')).toHaveCount(3);
+    for (const tag of await card.locator('li').all()) await expect(tag).toBeVisible();
+    expectNoPageFailures();
+    await expect(page).toHaveScreenshot(`cabin-${seat.key}-1440x900.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.035,
+      timeout: 30_000,
+    });
+  }
+  expectNoPageFailures();
+});
+
+test('移动座舱使用真实几何避让操作区并保持触控尺寸', async ({ page }) => {
+  const viewport = { width: 390, height: 844 };
+  await page.setViewportSize(viewport);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const expectNoPageFailures = monitorPageFailures(page);
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  const actions = page.locator('.hero-actions');
+  const canvas = page.locator('canvas.vehicle-canvas');
+  const actionBox = await requiredBox(actions);
+  const canvasBox = await requiredBox(canvas);
+  expect(overlaps(actionBox, canvasBox), JSON.stringify({ actionBox, canvasBox })).toBe(false);
+
+  await page.getByRole('button', { name: '进入座舱' }).click();
+  await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe('driver');
+  const card = page.locator('.cabin-detail');
+  const rail = page.locator('[data-mobile-control-rail]');
+  const cardBox = await requiredBox(card);
+  const railBox = await requiredBox(rail);
+  expect(overlaps(cardBox, actionBox), JSON.stringify({ cardBox, actionBox })).toBe(false);
+  expect(overlaps(railBox, actionBox), JSON.stringify({ railBox, actionBox })).toBe(false);
+  expect(overlaps(cardBox, canvasBox), JSON.stringify({ cardBox, canvasBox })).toBe(false);
+  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(railBox.y);
+  await expectFullyInViewport(card, viewport);
+  await expectFullyInViewport(rail, viewport);
+
+  const cabinAndDoorButtons = rail.locator('[data-mode="cabin"], [data-interior], [data-seat], .door-button');
+  expect(await cabinAndDoorButtons.count()).toBeGreaterThan(0);
+  for (const button of await cabinAndDoorButtons.all()) {
+    const box = await requiredBox(button);
+    expect(box.height, await button.getAttribute('aria-label') ?? await button.textContent() ?? 'button').toBeGreaterThanOrEqual(44);
+  }
+  expectNoPageFailures();
+});
 
 test('reduced motion keeps scroll chapters and target camera active with immediate transitions', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });

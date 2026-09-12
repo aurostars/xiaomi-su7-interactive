@@ -127,9 +127,9 @@ function createCabinDisplays(root: Object3D): Material[] {
 
   return definitions.map((definition) => {
     const material = new MeshStandardMaterial({
-      color: 0x07111f,
-      emissive: 0x4bbcff,
-      emissiveIntensity: 1.4,
+      color: 0x010305,
+      emissive: 0x0c2633,
+      emissiveIntensity: 0.2,
       metalness: 0.05,
       roughness: 0.25,
     });

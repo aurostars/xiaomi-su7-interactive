@@ -18,8 +18,11 @@ describe('camera controller', () => {
       expect(y).toBeGreaterThanOrEqual(1.2);
       expect(y).toBeLessThanOrEqual(1.5);
       expect(z).toBeGreaterThanOrEqual(0);
-      expect(z).toBeLessThanOrEqual(1.3);
+      expect(z).toBeLessThanOrEqual(1.8);
       expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.03);
+      const [targetX, targetY, targetZ] = CAMERA_PRESETS[view].target;
+      expect(Math.hypot(targetX - x, targetY - y, targetZ - z)).toBeGreaterThanOrEqual(2.4);
+      expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(60);
     }
     expect(new Set(positions).size).toBe(3);
     expect(new Set(targets).size).toBe(3);

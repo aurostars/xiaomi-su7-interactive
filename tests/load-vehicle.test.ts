@@ -90,6 +90,10 @@ describe('createLoadedVehicle', () => {
       instrumentDisplay.material,
     ]);
     expect(vehicle.capabilities.screenGlow).toBe(true);
+    for (const material of vehicle.screenMaterials as MeshStandardMaterial[]) {
+      expect(material.color.getHex()).toBe(0x010305);
+      expect(material.emissiveIntensity).toBeLessThanOrEqual(0.6);
+    }
   });
 });
 
