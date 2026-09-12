@@ -55,11 +55,15 @@ export function createVehicleStore(initial: Partial<VehicleState> = {}): Vehicle
       return () => listeners.delete(listener);
     },
     actions: {
-      setMode: (mode) => update({ mode }),
+      setMode: (mode) => update(mode === 'cabin'
+        ? { mode, doorsOpen: true }
+        : { mode }),
       setPaint: (paint) => update({ paint }),
       setInterior: (interior) => update({ interior }),
       toggleDoors: () => update({ doorsOpen: !state.doorsOpen }),
-      setSeatView: (seatView) => update({ mode: 'cabin', seatView }),
+      setSeatView: (seatView) => update(state.mode === 'cabin'
+        ? { seatView }
+        : { mode: 'cabin', doorsOpen: true, seatView }),
       setHotspot: (hotspot) => update({ hotspot }),
       suspendAutoCamera: (durationMs) =>
         update({ autoCameraSuspendedUntil: Date.now() + durationMs }),

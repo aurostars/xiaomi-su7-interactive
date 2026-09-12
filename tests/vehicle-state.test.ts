@@ -48,6 +48,24 @@ describe('vehicle state', () => {
     expect(store.getState()).toMatchObject({ mode: 'cabin', seatView: 'passenger' });
   });
 
+  it('opens all doors when cabin mode is entered', () => {
+    const store = createVehicleStore();
+    store.actions.setMode('cabin');
+    expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: true, seatView: 'driver' });
+  });
+
+  it('keeps manually closed doors closed while changing seats in cabin', () => {
+    const store = createVehicleStore({ mode: 'cabin', doorsOpen: false });
+    store.actions.setSeatView('passenger');
+    expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: false, seatView: 'passenger' });
+  });
+
+  it('keeps the last door state when returning to exterior', () => {
+    const store = createVehicleStore({ mode: 'cabin', doorsOpen: true });
+    store.actions.setMode('exterior');
+    expect(store.getState()).toMatchObject({ mode: 'exterior', doorsOpen: true });
+  });
+
   it('updates each independently selectable vehicle field', () => {
     const store = createVehicleStore();
 
@@ -61,7 +79,7 @@ describe('vehicle state', () => {
       paint: 'pearl-white',
       interior: 'mist-gray',
       hotspot: 'wheel',
-      doorsOpen: false,
+      doorsOpen: true,
       seatView: 'driver',
     });
   });
