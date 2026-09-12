@@ -60,10 +60,15 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
       return {
         modelReady: Boolean(vehicle),
         paint: vehicle?.paint ?? null,
-        doorAngles: vehicle?.doorAngles ?? { left: null, right: null },
+        doorAngles: vehicle?.doorAngles ?? {
+          frontLeft: null,
+          frontRight: null,
+          rearLeft: null,
+          rearRight: null,
+        },
         camera: diagnosticCamera?.getDiagnostics() ?? null,
         vehicleYaw: vehicle?.yaw ?? null,
-        materials: vehicle?.materials ?? { body: 0, interior: 0 },
+        materials: vehicle?.materials ?? { body: 0, interior: 0, screens: 0 },
         hotspot: store.getState().hotspot,
         story: diagnosticStory ?? null,
       };
@@ -155,7 +160,9 @@ orchestrator = createExperienceOrchestrator({
       load: (onProgress: (progress: number) => void) => loadVehicle(vehicleModelUrl, onProgress),
       activate(vehicle: LoadedVehicle) {
         runtime.scene.add(vehicle.root);
-        vehicleController = createVehicleController(vehicle);
+        vehicleController = createVehicleController(vehicle, {
+          reducedMotion: capabilities.reducedMotion,
+        });
         diagnosticVehicle = vehicleController;
         applyVehicleCapabilities(elements, vehicle.capabilities);
         vehicleController.applyState(store.getState());

@@ -88,7 +88,7 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.disabled).toBe(true);
   });
 
-  it('keeps the door control disabled when only unsupported rear doors are available', () => {
+  it('enables the door control when only rear doors are available', () => {
     const elements = renderShell(document.body);
 
     applyVehicleCapabilities(elements, {
@@ -103,7 +103,7 @@ describe('high fidelity page shell', () => {
       },
     });
 
-    expect(elements.doorButton.disabled).toBe(true);
+    expect(elements.doorButton.disabled).toBe(false);
   });
 
   it('updates a positioned, expandable hotspot for all four story chapters', () => {
