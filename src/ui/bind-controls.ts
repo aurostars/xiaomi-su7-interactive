@@ -101,20 +101,23 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     elements.modeButtons.forEach((button) => {
       const selected = button.dataset.mode === state.mode;
       button.setAttribute('aria-selected', String(selected));
+      button.setAttribute('aria-pressed', String(selected));
       button.tabIndex = selected ? 0 : -1;
-      const panelId = button.getAttribute('aria-controls');
-      const panel = panelId ? button.ownerDocument.getElementById(panelId) : null;
-      if (panel) panel.hidden = !selected;
     });
     elements.colorButtons.forEach((button) => {
       const selected = button.dataset.paint === state.paint || button.dataset.interior === state.interior;
       button.setAttribute('aria-pressed', String(selected));
     });
     elements.seatButtons.forEach((button) => {
+      const enabled = state.mode === 'cabin';
+      button.disabled = !enabled;
+      button.tabIndex = enabled ? 0 : -1;
       button.setAttribute('aria-pressed', String(button.dataset.seat === state.seatView));
     });
     elements.doorButton.setAttribute('aria-pressed', String(state.doorsOpen));
-    elements.doorButton.textContent = state.doorsOpen ? '关门' : '开门';
+    const doorLabel = elements.doorButton.querySelector<HTMLElement>('span');
+    if (!doorLabel) throw new Error('Door control failed to render');
+    doorLabel.textContent = state.doorsOpen ? '关门' : '开门';
     const cabinDetail = CABIN_DETAILS[state.seatView];
     elements.cabinDetail.hidden = state.mode !== 'cabin';
     cabinTitle.textContent = cabinDetail.title;

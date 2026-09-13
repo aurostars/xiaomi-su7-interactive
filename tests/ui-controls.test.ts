@@ -255,11 +255,36 @@ describe('high fidelity page shell', () => {
     unbind();
   });
 
-  it('groups core controls in a horizontally scrollable mobile rail and reserves image geometry', () => {
+  it('keeps both desktop palettes visible and exposes icon control state accessibly', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const unbind = bindControls(elements, store);
+    const palettes = Array.from(document.querySelectorAll<HTMLFieldSetElement>('.control-palette'));
+
+    expect(palettes.map((palette) => palette.dataset.palette)).toEqual(['paint', 'interior']);
+    expect(palettes.every((palette) => !palette.hidden)).toBe(true);
+    expect(elements.modeButtons.every((button) => button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
+    expect(elements.doorButton.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(elements.modeButtons.every((button) => button.hasAttribute('aria-pressed'))).toBe(true);
+    expect(elements.doorButton.hasAttribute('aria-pressed')).toBe(true);
+
+    elements.modeButtons[1].click();
+    expect(palettes.every((palette) => !palette.hidden)).toBe(true);
+    expect(elements.seatButtons.every((button) => !button.disabled && button.tabIndex === 0)).toBe(true);
+
+    elements.modeButtons[0].click();
+    expect(elements.seatButtons.every((button) => button.disabled && button.tabIndex === -1)).toBe(true);
+    unbind();
+  });
+
+  it('marks secondary palettes for mobile mode collapse while preserving 44px primary targets', () => {
     renderShell(document.body);
 
     const rail = document.querySelector('[data-mobile-control-rail]');
-    expect(rail?.querySelectorAll('button').length).toBeGreaterThanOrEqual(16);
+    expect(rail?.classList.contains('mobile-control-rail')).toBe(true);
+    expect(document.querySelector('[data-palette="paint"]')?.classList.contains('secondary-palette')).toBe(true);
+    expect(document.querySelector('[data-palette="interior"]')?.classList.contains('secondary-palette')).toBe(true);
+    expect(Array.from(rail?.querySelectorAll<HTMLElement>('[data-primary-control]') ?? []).map((control) => control.dataset.minTarget)).toEqual(['44', '44', '44']);
     document.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
       expect(Number(image.getAttribute('width'))).toBeGreaterThan(0);
       expect(Number(image.getAttribute('height'))).toBeGreaterThan(0);
