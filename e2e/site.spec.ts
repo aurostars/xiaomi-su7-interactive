@@ -200,6 +200,129 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
+test('simplified chrome keeps four centered links and removes legacy overlays', async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/xiaomi-su7-interactive/');
+
+    const header = page.locator('.site-header');
+    const nav = page.locator('.site-nav');
+    await expect(nav.locator('a')).toHaveText(['SU7', '细节', '科技', '影像']);
+    await expect(nav.locator('a')).toHaveCount(4);
+    const [headerBox, navBox] = await Promise.all([requiredBox(header), requiredBox(nav)]);
+    expect(Math.abs((navBox.x + navBox.width / 2) - (headerBox.x + headerBox.width / 2))).toBeLessThanOrEqual(1);
+    for (const selector of ['.brand', '.header-cta', '.story-hotspot', '.story-hotspots', '.story-detail', '.mobile-story-rail']) {
+      await expect(page.locator(selector), `${selector} at ${viewport.width}x${viewport.height}`).toHaveCount(0);
+    }
+  }
+});
+
+test('official palettes expose exact names and every selection updates rendered material state', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  const paintNames = ['海湾蓝', '雅灰', '橄榄绿', '珍珠白', '钻石黑', '流星蓝', '霞光紫', '熔岩橙', '寒武岩灰'];
+  const paintColors = ['2f6f91', '868987', '59614b', 'ecebe6', '111315', '4d6675', '7a667b', 'c84a20', '44494d'];
+  const interiorNames = ['银河灰', '曜石黑', '暮光红', '迷雾紫'];
+  await expect(page.locator('[data-palette="paint"] .color-swatch')).toHaveCount(paintNames.length);
+  await expect(page.locator('[data-palette="interior"] .color-swatch')).toHaveCount(interiorNames.length);
+  expect(await page.locator('[data-palette="paint"] .color-swatch').evaluateAll(
+    (buttons) => buttons.map((button) => button.getAttribute('aria-label')),
+  )).toEqual(paintNames);
+  expect(await page.locator('[data-palette="interior"] .color-swatch').evaluateAll(
+    (buttons) => buttons.map((button) => button.getAttribute('aria-label')),
+  )).toEqual(interiorNames);
+
+  const initialPaintButton = page.getByRole('button', { name: paintNames.at(-1)!, exact: true });
+  await initialPaintButton.click();
+  await expect.poll(async () => (await readDiagnostics(page)).paint).toBe(paintColors.at(-1));
+  for (let index = 0; index < paintNames.length; index += 1) {
+    const revision = (await readDiagnostics(page)).renderRevision;
+    const button = page.getByRole('button', { name: paintNames[index], exact: true });
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => (await readDiagnostics(page)).paint).toBe(paintColors[index]);
+    await expect.poll(async () => (await readDiagnostics(page)).renderRevision).toBeGreaterThan(revision);
+  }
+
+  await page.getByRole('button', { name: '进入座舱' }).click();
+  await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe('driver');
+  let previousFrame = (await page.locator('canvas.vehicle-canvas').screenshot()).toString('base64');
+  for (const name of interiorNames) {
+    const revision = (await readDiagnostics(page)).renderRevision;
+    const button = page.getByRole('button', { name, exact: true });
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => (await readDiagnostics(page)).renderRevision).toBeGreaterThan(revision);
+    const frame = (await page.locator('canvas.vehicle-canvas').screenshot()).toString('base64');
+    expect(frame, `${name} must change rendered interior pixels`).not.toBe(previousFrame);
+    previousFrame = frame;
+  }
+});
+
+test('story safety keeps copy clear of the vehicle and removes overlays at every viewport', async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/xiaomi-su7-interactive/');
+    await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+    for (const storyId of ['aero', 'performance', 'cabin', 'intelligence']) {
+      await scrollStoryTo(page, storyId);
+      const [copyBox, focusBox] = await Promise.all([
+        requiredBox(page.locator(`[data-story-section="${storyId}"] .story-copy`)),
+        requiredBox(page.locator('[data-vehicle-focus-zone]')),
+      ]);
+      expect(overlaps(copyBox, focusBox), JSON.stringify({ viewport, storyId, copyBox, focusBox })).toBe(false);
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/xiaomi-su7-interactive/');
+  for (const selector of ['.story-hotspot', '.story-hotspots', '.story-detail', '.mobile-story-rail']) {
+    await expect(page.locator(selector), selector).toHaveCount(0);
+  }
+});
+
+test('technology exit fades in the final story tail, hides before technology, and restores upward', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  const visual = page.locator('.vehicle-visual');
+  await scrollStoryTo(page, 'intelligence', .9);
+  await expect(visual).toHaveAttribute('data-stage-visibility', 'fading');
+  const fadingOpacity = Number(await visual.evaluate((element) => getComputedStyle(element).opacity));
+  expect(fadingOpacity).toBeGreaterThan(0);
+  expect(fadingOpacity).toBeLessThan(1);
+
+  await page.evaluate(() => {
+    const technology = document.querySelector<HTMLElement>('#technology');
+    if (!technology) throw new Error('Missing technology section');
+    window.scrollTo({ top: window.scrollY + technology.getBoundingClientRect().top, behavior: 'instant' });
+  });
+  await expect.poll(async () => page.evaluate(() => document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity))
+    .toBeLessThanOrEqual(0);
+  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden');
+  await expect(visual).toHaveCSS('opacity', '0');
+  await expect(visual).toHaveCSS('pointer-events', 'none');
+
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
+    if (!section) throw new Error('Missing performance story');
+    const bounds = section.getBoundingClientRect();
+    window.scrollTo({ top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    requestAnimationFrame(() => resolve());
+  }));
+  await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/);
+  await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
+});
+
 test('scroll story keeps active chapter and rendered camera synchronized', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -48,11 +48,16 @@ describe('final visual regression guardrails', () => {
     const storyCopyRule = css.match(/\.story-copy\s*\{([^}]*)\}/)?.[1] ?? '';
     const focusZoneRule = css.match(/\.vehicle-focus-zone\s*\{([^}]*)\}/)?.[1] ?? '';
     const visualRule = css.match(/\.vehicle-visual\s*\{([^}]*)\}/)?.[1] ?? '';
+    const canvasRule = css.match(/(?:^|\n)\.vehicle-canvas\s*\{([^}]*)\}/)?.[1] ?? '';
+    const technologyRule = css.match(/\.technology-section\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(desktopStoryRule).toContain('grid-template-columns: minmax(0, 40%) minmax(0, 60%)');
     expect(storyCopyRule).toContain('max-width: 420px');
     expect(focusZoneRule).toContain('inset: 20% 4% 16% 40%');
     expect(visualRule).toContain('opacity: calc(1 - var(--stage-exit-progress))');
+    expect(canvasRule).toContain('inset: 0 0 0 40%');
+    expect(canvasRule).toContain('width: 60%');
+    expect(technologyRule).toContain('#090b0e');
     expect(css).toMatch(/\.vehicle-visual\[data-stage-visibility=['"]hidden['"]\]\s*\{[^}]*pointer-events:\s*none;[^}]*z-index:\s*0;/);
   });
 
