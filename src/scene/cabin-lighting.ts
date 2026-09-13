@@ -1,6 +1,8 @@
 import { AmbientLight, Group, PointLight, type Light, type Scene, type WebGLRenderer } from 'three';
 import type { SceneQuality } from './create-scene';
 
+export type Invalidate = () => void;
+
 export interface CabinLightingController {
   setEnabled(enabled: boolean, immediate?: boolean): void;
   getDiagnostics(): { enabled: boolean; exposure: number; activeLights: number };
@@ -14,6 +16,8 @@ export function createCabinLighting(
   scene: Scene,
   renderer: WebGLRenderer,
   quality: SceneQuality,
+  reducedMotion = false,
+  invalidate: Invalidate = () => undefined,
 ): CabinLightingController {
   const rig = new Group();
   rig.name = 'cabin-light-rig';
@@ -74,8 +78,9 @@ export function createCabinLighting(
       enabled = nextEnabled;
       const targets = lights.map(({ enabledIntensity }) => nextEnabled ? enabledIntensity : 0);
       const targetExposure = nextEnabled ? CABIN_EXPOSURE : exteriorExposure;
-      if (immediate) {
+      if (immediate || reducedMotion) {
         apply(targets, targetExposure);
+        invalidate();
         return;
       }
 
@@ -89,6 +94,7 @@ export function createCabinLighting(
           starts.map((start, index) => start + (targets[index] - start) * eased),
           startExposure + (targetExposure - startExposure) * eased,
         );
+        invalidate();
         if (progress < 1) animationFrame = requestAnimationFrame(animate);
         else animationFrame = null;
       };

@@ -16,6 +16,7 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createCabinLighting } from './cabin-lighting';
+import { createRenderScheduler, type RenderReason } from './render-scheduler';
 
 export type SceneQuality = 'low' | 'medium' | 'high';
 
@@ -23,6 +24,11 @@ export interface SceneRuntime {
   scene: Scene;
   camera: PerspectiveCamera;
   renderer: WebGLRenderer;
+  requestRender(): void;
+  beginRenderActivity(reason: RenderReason): void;
+  endRenderActivity(reason: RenderReason): void;
+  isRenderActive(): boolean;
+  getActiveRenderReasons(): readonly RenderReason[];
   resize(): void;
   render(): void;
   start(): void;
@@ -57,10 +63,6 @@ export function rendererOptions(quality: SceneQuality) {
   return { antialias: quality !== 'low', alpha: true } as const;
 }
 
-export function renderFrameInterval(diagnostics: boolean): number {
-  return diagnostics ? Number.POSITIVE_INFINITY : 0;
-}
-
 export function createRenderLifecycle(renderScene: () => void, onRendered: () => void) {
   let beforeRender: ((now: number) => void) | undefined;
   let disposed = false;
@@ -85,6 +87,33 @@ export function createRenderLifecycle(renderScene: () => void, onRendered: () =>
   };
 }
 
+export function createScheduledRenderLifecycle(
+  renderScene: () => void,
+  onRendered: () => void,
+  requestFrame: (callback: FrameRequestCallback) => number = requestAnimationFrame,
+  cancelFrame: (handle: number) => void = cancelAnimationFrame,
+) {
+  const lifecycle = createRenderLifecycle(renderScene, onRendered);
+  const scheduler = createRenderScheduler({
+    requestAnimationFrame: requestFrame,
+    cancelAnimationFrame: cancelFrame,
+    renderFrame: (time) => lifecycle.render(time),
+  });
+
+  return {
+    setBeforeRender: lifecycle.setBeforeRender,
+    requestRender: scheduler.requestFrame,
+    beginRenderActivity: scheduler.begin,
+    endRenderActivity: scheduler.end,
+    isRenderActive: scheduler.isActive,
+    getActiveRenderReasons: scheduler.getActiveReasons,
+    dispose() {
+      scheduler.dispose();
+      lifecycle.dispose();
+    },
+  };
+}
+
 export function bindSceneResize(resize: () => void): () => void {
   window.addEventListener('resize', resize);
   return () => window.removeEventListener('resize', resize);
@@ -104,8 +133,8 @@ export function attachEnvironmentTarget(scene: Scene, target: WebGLRenderTarget)
 export function createScene(
   canvas: HTMLCanvasElement,
   quality: SceneQuality,
-  minimumFrameInterval = 0,
   onRendered: () => void = () => undefined,
+  reducedMotion = false,
 ): SceneRuntime {
   const scene = new Scene();
   scene.background = new Color(0x05090f);
@@ -120,7 +149,6 @@ export function createScene(
   renderer.shadowMap.enabled = quality !== 'low';
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.setPixelRatio(pixelRatioFor(quality, window.devicePixelRatio));
-  const cabinLighting = createCabinLighting(scene, renderer, quality);
 
   const pmrem = new PMREMGenerator(renderer);
   const room = new RoomEnvironment();
@@ -158,42 +186,39 @@ export function createScene(
   warm.position.set(3, 2.5, -5);
   scene.add(ground, ambient, key, cyan, warm);
 
-  let animationFrame = 0;
-  let running = false;
+  const renderLifecycle = createScheduledRenderLifecycle(
+    () => renderer.render(scene, camera),
+    onRendered,
+  );
+  const cabinLighting = createCabinLighting(
+    scene,
+    renderer,
+    quality,
+    reducedMotion,
+    renderLifecycle.requestRender,
+  );
   const resize = () => {
     const width = Math.max(1, canvas.clientWidth);
     const height = Math.max(1, canvas.clientHeight);
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    renderLifecycle.requestRender();
   };
   const unbindResize = bindSceneResize(resize);
-  const renderLifecycle = createRenderLifecycle(
-    () => renderer.render(scene, camera),
-    onRendered,
-  );
-  let lastRenderAt = 0;
-  const render = (now = performance.now()) => {
-    if (!running) return;
-    if (now - lastRenderAt >= minimumFrameInterval) {
-      renderLifecycle.render(now);
-      lastRenderAt = now;
-    }
-    animationFrame = requestAnimationFrame(render);
-  };
+  const onContextRestored = () => renderLifecycle.requestRender();
+  canvas.addEventListener('webglcontextrestored', onContextRestored);
 
   return {
     scene, camera, renderer, resize,
-    render() {
-      const now = performance.now();
-      renderLifecycle.render(now);
-      lastRenderAt = now;
-    },
+    requestRender: renderLifecycle.requestRender,
+    beginRenderActivity: renderLifecycle.beginRenderActivity,
+    endRenderActivity: renderLifecycle.endRenderActivity,
+    isRenderActive: renderLifecycle.isRenderActive,
+    getActiveRenderReasons: renderLifecycle.getActiveRenderReasons,
+    render: renderLifecycle.requestRender,
     start() {
-      if (running) return;
-      running = true;
       resize();
-      animationFrame = requestAnimationFrame(render);
     },
     setBeforeRender(callback) {
       return renderLifecycle.setBeforeRender(callback);
@@ -205,8 +230,7 @@ export function createScene(
       return cabinLighting.getDiagnostics();
     },
     dispose() {
-      running = false;
-      cancelAnimationFrame(animationFrame);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
       renderLifecycle.dispose();
       unbindResize();
       disposeEnvironment();

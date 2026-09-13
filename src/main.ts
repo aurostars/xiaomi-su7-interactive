@@ -13,7 +13,7 @@ import {
   type CameraDiagnostics,
   type CameraView,
 } from './scene/camera-controller';
-import { createScene, renderFrameInterval } from './scene/create-scene';
+import { createScene } from './scene/create-scene';
 import {
   loadVehicle,
   type LoadedVehicle,
@@ -120,13 +120,13 @@ orchestrator = createExperienceOrchestrator({
     const runtime = createScene(
       elements.canvas,
       capabilities.quality === 'high' ? 'high' : 'low',
-      renderFrameInterval(import.meta.env.VITE_E2E_DIAGNOSTICS === '1'),
       () => {
         const cameraDiagnostics = camera?.getDiagnostics();
         renderRevision += 1;
         renderedView = cameraDiagnostics?.view ?? null;
         renderedCamera = cameraDiagnostics ?? null;
       },
+      capabilities.reducedMotion,
     );
     camera = createCameraController(runtime.camera);
     let previousRenderAt = performance.now();
@@ -136,6 +136,7 @@ orchestrator = createExperienceOrchestrator({
       previousRenderAt = now;
       camera.update(delta, forceImmediateCameraUpdate || capabilities.reducedMotion);
       forceImmediateCameraUpdate = false;
+      if (camera.isSettled()) runtime.endRenderActivity('camera');
     });
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
@@ -156,10 +157,11 @@ orchestrator = createExperienceOrchestrator({
         diagnosticStory = { view, progress, scrollY: window.scrollY, updatedAt: performance.now() };
         store.actions.setHotspot(view);
         if (store.getState().mode !== 'exterior') return;
+        runtime.beginRenderActivity('camera');
         const frame = camera.setStoryProgress(view, progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
-        if (capabilities.reducedMotion) runtime.render();
+        runtime.requestRender();
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
@@ -167,6 +169,7 @@ orchestrator = createExperienceOrchestrator({
       rotateBy(deltaYaw) {
         vehicleYaw += deltaYaw;
         vehicleController?.setRotation(vehicleYaw);
+        runtime.requestRender();
       },
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
@@ -174,34 +177,44 @@ orchestrator = createExperienceOrchestrator({
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
       vehicleController?.applyState(state);
+      runtime.requestRender();
       const intent = getCabinExperienceIntent(previousExperienceState, state);
       previousExperienceState = state;
       if (intent.cabinMode !== undefined) {
         runtime.setCabinMode(intent.cabinMode, capabilities.reducedMotion);
       }
-      if (intent.cameraView) camera.setTarget(intent.cameraView);
-      else if (intent.cabinMode === false) {
+      if (intent.cameraView) {
+        runtime.beginRenderActivity('camera');
+        camera.setTarget(intent.cameraView);
+      } else if (intent.cabinMode === false) {
+        runtime.beginRenderActivity('camera');
         const frame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
       }
-      if (capabilities.reducedMotion && (intent.cabinMode !== undefined || intent.cameraView)) runtime.render();
     });
 
     runtime.start();
+    const onVisibilityChange = () => {
+      if (!document.hidden) runtime.requestRender();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return {
       load: (onProgress: (progress: number) => void) => loadVehicle(vehicleModelUrl, onProgress),
       activate(vehicle: LoadedVehicle) {
         runtime.scene.add(vehicle.root);
-        vehicleController = createVehicleController(vehicle, {
-          reducedMotion: capabilities.reducedMotion,
-        });
+        vehicleController = createVehicleController(
+          vehicle,
+          capabilities.reducedMotion,
+          runtime.requestRender,
+        );
         diagnosticVehicle = vehicleController;
         applyVehicleCapabilities(elements, vehicle.capabilities);
         const state = store.getState();
         vehicleController.applyState(state);
         runtime.setCabinMode(state.mode === 'cabin', true);
+        runtime.beginRenderActivity('camera');
         if (state.mode === 'cabin') camera.setTarget(state.seatView);
         else {
           const currentStoryFrame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
@@ -221,6 +234,7 @@ orchestrator = createExperienceOrchestrator({
         unsubscribe();
         drag.dispose();
         story.dispose();
+        document.removeEventListener('visibilitychange', onVisibilityChange);
         vehicleController?.dispose();
         if (diagnosticVehicle === vehicleController) diagnosticVehicle = undefined;
         if (diagnosticCamera === camera) {

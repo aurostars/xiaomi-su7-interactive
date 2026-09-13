@@ -143,9 +143,21 @@ describe('createVehicleController', () => {
     expect(schedule).toHaveBeenCalledTimes(2);
   });
 
-  it('applies final door angles synchronously when reduced motion is enabled', () => {
+  it('invalidates every non-reduced door animation update', () => {
     vi.useFakeTimers();
-    const controller = createVehicleController(makeVehicle(), { reducedMotion: true });
+    const invalidate = vi.fn();
+    const controller = createVehicleController(makeVehicle(), false, invalidate);
+
+    controller.applyState(state());
+    vi.advanceTimersByTime(48);
+
+    expect(invalidate).toHaveBeenCalledTimes(3);
+  });
+
+  it('applies final door angles synchronously and invalidates once with reduced motion', () => {
+    vi.useFakeTimers();
+    const invalidate = vi.fn();
+    const controller = createVehicleController(makeVehicle(), true, invalidate);
 
     controller.applyState(state());
 
@@ -155,13 +167,14 @@ describe('createVehicleController', () => {
       rearLeft: -0.92,
       rearRight: 0.92,
     });
+    expect(invalidate).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
   it('drives emissive mode and intensity on the real generated screen materials', () => {
     vi.useFakeTimers();
     const vehicle = createLoadedVehicle(new Group());
-    const controller = createVehicleController(vehicle, { reducedMotion: true });
+    const controller = createVehicleController(vehicle, true);
 
     expect(vehicle.capabilities.screenGlow).toBe(true);
     for (const material of vehicle.screenMaterials) {

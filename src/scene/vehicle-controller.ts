@@ -13,10 +13,6 @@ export interface DoorAngles {
   rearRight: number | null;
 }
 
-export interface VehicleControllerOptions {
-  reducedMotion?: boolean;
-}
-
 export interface VehicleDiagnostics {
   paint: string | null;
   doorAngles: DoorAngles;
@@ -71,9 +67,12 @@ const hasEmissive = (material: Material): material is EmissiveMaterial =>
   && 'emissiveIntensity' in material
   && typeof material.emissiveIntensity === 'number';
 
+export type Invalidate = () => void;
+
 export function createVehicleController(
   vehicle: LoadedVehicle,
-  options: VehicleControllerOptions = {},
+  reducedMotion = false,
+  invalidate: Invalidate = () => undefined,
 ): VehicleController {
   let frame: FrameHandle | undefined;
   let disposed = false;
@@ -99,6 +98,7 @@ export function createVehicleController(
     if (!startedAt) startedAt = timestamp;
     const progress = Math.min(1, (timestamp - startedAt) / TRANSITION_MS);
     applyDoorProgress(progress);
+    invalidate();
     if (progress < 1) frame = schedule(animate);
     else frame = undefined;
   };
@@ -134,8 +134,10 @@ export function createVehicleController(
           };
         });
         startedAt = 0;
-        if (options.reducedMotion) applyDoorProgress(1);
-        else frame = schedule(animate);
+        if (reducedMotion) {
+          applyDoorProgress(1);
+          invalidate();
+        } else frame = schedule(animate);
       }
     },
     setRotation(y) {

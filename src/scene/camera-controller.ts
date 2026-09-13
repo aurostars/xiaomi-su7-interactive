@@ -39,6 +39,7 @@ export interface CameraController {
   setTarget(view: CameraView): void;
   setStoryProgress(view: CameraView, progress: number): StoryCameraFrame;
   update(delta: number, immediate?: boolean): void;
+  isSettled(): boolean;
   getDiagnostics(): CameraDiagnostics;
 }
 
@@ -70,6 +71,10 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
     targetFov = preset.fov;
     targetNear = preset.near;
   };
+  const isSettled = () => camera.position.distanceToSquared(targetPosition) < 1e-8
+    && lookTarget.distanceToSquared(targetLook) < 1e-8
+    && Math.abs(camera.fov - targetFov) < 1e-4
+    && Math.abs(camera.near - targetNear) < 1e-6;
 
   return {
     setTarget(view) {
@@ -102,6 +107,7 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
     },
+    isSettled,
     getDiagnostics() {
       return {
         view: currentView,

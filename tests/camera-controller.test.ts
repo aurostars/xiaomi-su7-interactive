@@ -52,6 +52,19 @@ describe('camera controller', () => {
     expect(controller.getDiagnostics().near).toBe(camera.near);
   });
 
+  it('reports unsettled target transitions and settles after the terminal update', () => {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    camera.position.fromArray(CAMERA_PRESETS.aero.position);
+    const controller = createCameraController(camera);
+
+    expect(controller.isSettled()).toBe(true);
+    controller.setTarget('driver');
+    expect(controller.isSettled()).toBe(false);
+
+    controller.update(0, true);
+    expect(controller.isSettled()).toBe(true);
+  });
+
   it('moves toward a preset without jumping directly to it', () => {
     const camera = new PerspectiveCamera(50, 1, 0.1, 100);
     camera.position.set(0, 0, 0);

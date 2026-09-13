@@ -1,14 +1,55 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as sceneModule from '../src/scene/create-scene';
 
+function createFrameHarness() {
+  let nextHandle = 1;
+  const pending = new Map<number, FrameRequestCallback>();
+  const renderer = { render: vi.fn() };
+  const lifecycle = sceneModule.createScheduledRenderLifecycle(
+    () => renderer.render(),
+    () => undefined,
+    (callback) => {
+      const handle = nextHandle++;
+      pending.set(handle, callback);
+      return handle;
+    },
+    (handle) => pending.delete(handle),
+  );
+
+  return {
+    lifecycle,
+    renderer,
+    pendingAnimationFrames: () => pending.size,
+    flushAnimationFrame(time: number) {
+      const callbacks = [...pending.values()];
+      pending.clear();
+      callbacks.forEach((callback) => callback(time));
+    },
+  };
+}
+
 describe('scene resize lifecycle', () => {
-  it('keeps diagnostic rendering interaction-driven instead of periodically saturating software WebGL', () => {
-    const renderFrameInterval = (sceneModule as typeof sceneModule & {
-      renderFrameInterval?: (diagnostics: boolean) => number;
-    }).renderFrameInterval;
-    expect(renderFrameInterval).toBeTypeOf('function');
-    expect(renderFrameInterval?.(true)).toBe(Number.POSITIVE_INFINITY);
-    expect(renderFrameInterval?.(false)).toBe(0);
+  it('renders once when invalidated and remains idle afterward', () => {
+    const { lifecycle: runtime, renderer, flushAnimationFrame, pendingAnimationFrames } = createFrameHarness();
+
+    runtime.requestRender();
+    flushAnimationFrame(0);
+
+    expect(renderer.render).toHaveBeenCalledTimes(1);
+    expect(pendingAnimationFrames()).toBe(0);
+  });
+
+  it('keeps rendering only while an activity reason is retained', () => {
+    const { lifecycle: runtime, renderer, flushAnimationFrame, pendingAnimationFrames } = createFrameHarness();
+
+    runtime.beginRenderActivity('camera');
+    flushAnimationFrame(0);
+    flushAnimationFrame(16);
+    expect(renderer.render).toHaveBeenCalledTimes(2);
+
+    runtime.endRenderActivity('camera');
+    flushAnimationFrame(32);
+    expect(pendingAnimationFrames()).toBe(0);
   });
 
   it('orders each frame beforeRender, renderer.render, then onRendered and clears lifecycle callbacks', () => {

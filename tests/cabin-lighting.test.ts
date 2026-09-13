@@ -73,6 +73,32 @@ describe('cabin lighting', () => {
     expect(controller.getDiagnostics()).toEqual({ enabled: false, exposure: 0.9, activeLights: 0 });
   });
 
+  it('invalidates after every animated lighting update', () => {
+    let pending: FrameRequestCallback | undefined;
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      pending = callback;
+      return 1;
+    });
+    const invalidate = vi.fn();
+    const controller = createCabinLighting(new Scene(), rendererWithExposure(), 'high', false, invalidate);
+
+    controller.setEnabled(true);
+    pending?.(performance.now() + 120);
+
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies reduced-motion terminal changes once without scheduling animation work', () => {
+    const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
+    const invalidate = vi.fn();
+    const controller = createCabinLighting(new Scene(), rendererWithExposure(), 'high', true, invalidate);
+
+    controller.setEnabled(true);
+
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(requestFrame).not.toHaveBeenCalled();
+  });
+
   it('applies immediate changes without scheduling animation work', () => {
     const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
     const controller = createCabinLighting(new Scene(), rendererWithExposure(), 'high');
