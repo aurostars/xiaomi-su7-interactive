@@ -64,8 +64,8 @@ function renderStory() {
 
 function renderStoryHotspots() {
   return STORY_CHAPTERS.map(({ id, hotspot }, index) => `
-    <div class="story-hotspot" data-story-id="${id}" aria-current="${index === 0}"${index === 0 ? ' aria-live="polite"' : ''} style="--hotspot-x:${hotspot.x}%;--hotspot-y:${hotspot.y}%">
-      <button class="hotspot-marker" type="button" data-story-id="${id}" aria-label="查看${hotspot.label}部件说明">
+    <div class="story-hotspot" data-story-id="${id}" style="--hotspot-x:${hotspot.x}%;--hotspot-y:${hotspot.y}%">
+      <button class="hotspot-marker" type="button" data-story-id="${id}" aria-current="${index === 0}" aria-label="查看${hotspot.label}部件说明"${index === 0 ? ' aria-live="polite"' : ''}>
         <span class="hotspot-pulse" aria-hidden="true"></span><strong>${hotspot.label}</strong>
       </button>
     </div>`).join('');

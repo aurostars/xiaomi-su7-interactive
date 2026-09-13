@@ -200,9 +200,9 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
-test('targeted locator selects a story hotspot by its own data-story-id', async ({ page }) => {
-  await page.setContent('<div class="story-hotspot" data-story-id="aero"></div>');
-  await expect(page.locator('.story-hotspot[data-story-id="aero"]')).toHaveCount(1);
+test('targeted locator selects the current story hotspot button by its own data-story-id', async ({ page }) => {
+  await page.setContent('<div class="story-hotspot" data-story-id="aero"><button class="hotspot-marker" data-story-id="aero" aria-current="true"></button></div>');
+  await expect(page.locator('.hotspot-marker[data-story-id="aero"][aria-current="true"]')).toHaveCount(1);
 });
 
 test('persistent story keeps hotspots, detail and rendered camera synchronized', async ({ page }) => {
@@ -214,7 +214,7 @@ test('persistent story keeps hotspots, detail and rendered camera synchronized',
   const hotspots = page.locator('.story-hotspot');
   await expect(hotspots).toHaveCount(4);
   for (const hotspot of await hotspots.all()) await expect(hotspot).toBeVisible();
-  await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
+  await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
 
   const chapters = [
     { id: 'aero', title: '低趴轿跑姿态，像风压过车身', view: 'aero' },
@@ -237,8 +237,8 @@ test('persistent story keeps hotspots, detail and rendered camera synchronized',
       renderedView: chapter.view,
       renderedCameraView: chapter.view,
     });
-    await expect(page.locator(`.story-hotspot[data-story-id="${chapter.id}"]`)).toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
+    await expect(page.locator(`.hotspot-marker[data-story-id="${chapter.id}"]`)).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
     await expect(detail).toBeVisible();
     await expect(detail.getByRole('heading', { name: chapter.title })).toBeVisible();
   }
@@ -456,7 +456,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     const camera = (await readDiagnostics(page)).camera;
     return { view: camera?.view, movedOutside: (camera?.position[0] ?? 0) > 2 };
   }, { timeout: 15_000 }).toEqual({ view: 'performance', movedOutside: true });
-  await expect(page.locator('.story-hotspot[aria-current="true"]')).toContainText('电驱与底盘');
+  await expect(page.locator('.hotspot-marker[aria-current="true"]')).toContainText('电驱与底盘');
 
   const moveWithinSection = async (progress: number) => {
     const previousFov = (await readDiagnostics(page)).camera?.fov;
@@ -487,8 +487,8 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     const [label, detail] = hotspotExpectations[view];
     const hotspot = page.locator(`.story-hotspot[data-story-id="${view}"]`);
     const marker = hotspot.locator('.hotspot-marker');
-    await expect(hotspot).toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
+    await expect(marker).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
     await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
     await expect(marker).toBeVisible();
     const markerBox = await requiredBox(marker);
@@ -563,6 +563,11 @@ for (const viewport of [
       const heroActions = page.locator('.hero-actions');
       const storyDetail = page.locator('.story-detail');
       const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls, storyDetail].map(requiredBox));
+      const controlsBox = occupiedBoxes[2];
+      expect(
+        controlsBox.y + controlsBox.height,
+        JSON.stringify({ viewport, controlsBox }),
+      ).toBeLessThanOrEqual(viewport.height * 0.6);
       const desktopHotspots = page.locator('.story-hotspot');
       await expect(desktopHotspots).toHaveCount(4);
       for (const hotspot of await desktopHotspots.all()) {
@@ -581,7 +586,7 @@ for (const viewport of [
     if (viewport.width === 390) {
       const ctaBox = await cta.boundingBox();
       const cabinCtaBox = await cabinCta.boundingBox();
-      const hotspotBox = await page.locator('.story-hotspot[aria-current="true"] .hotspot-marker').boundingBox();
+      const hotspotBox = await page.locator('.hotspot-marker[aria-current="true"]').boundingBox();
       const canvasBox = await page.locator('canvas.vehicle-canvas').boundingBox();
       const specsBox = await specs.boundingBox();
       const controlsBox = await controls.boundingBox();

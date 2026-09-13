@@ -31,6 +31,7 @@ describe('high fidelity page shell', () => {
   afterEach(() => {
     document.body.replaceChildren();
     delete document.documentElement.dataset.vehicleMode;
+    vi.unstubAllGlobals();
   });
 
   it('exposes the vehicle stage and all primary controls with accessible names', () => {
@@ -42,7 +43,7 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.textContent).toContain('开门');
     expect(elements.canvas.getAttribute('aria-label')).toBe('小米 SU7 三维车辆');
     expect(document.querySelector('.hero-actions')?.textContent).toContain('进入座舱');
-    expect(elements.hotspotLabel.getAttribute('aria-live')).toBe('polite');
+    expect(elements.hotspotLabel.querySelector('.hotspot-marker')?.getAttribute('aria-live')).toBe('polite');
   });
 
   it('shows an accessible cabin detail card and keeps it synced while doors close and seats change', () => {
@@ -193,7 +194,8 @@ describe('high fidelity page shell', () => {
     expect(elements.mobileStoryButtons).toHaveLength(4);
     expect(elements.storyDetail.hidden).toBe(false);
     expect(elements.storyDetail.textContent).toContain('低趴轿跑姿态');
-    expect(elements.storyHotspots[0].getAttribute('aria-current')).toBe('true');
+    expect(elements.storyHotspots[0].hasAttribute('aria-current')).toBe(false);
+    expect(elements.storyHotspots[0].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe('true');
     expect(elements.mobileStoryButtons[0].getAttribute('aria-current')).toBe('true');
   });
 
@@ -215,9 +217,11 @@ describe('high fidelity page shell', () => {
     expect(store.getState().activeStoryId).toBe('cabin');
     expect(setActiveStory).toHaveBeenLastCalledWith('cabin');
     expect(cabinScroll).toHaveBeenCalledWith({ behavior: 'smooth' });
-    expect(elements.storyHotspots.filter((hotspot) => hotspot.getAttribute('aria-current') === 'true')).toHaveLength(1);
+    const desktopStoryButtons = elements.storyHotspots.map((hotspot) => hotspot.querySelector<HTMLButtonElement>('.hotspot-marker')!);
+    expect(desktopStoryButtons.filter((button) => button.getAttribute('aria-current') === 'true')).toHaveLength(1);
     expect(elements.mobileStoryButtons.filter((button) => button.getAttribute('aria-current') === 'true')).toHaveLength(1);
-    expect(elements.storyHotspots[2].getAttribute('aria-current')).toBe('true');
+    expect(desktopStoryButtons[2].getAttribute('aria-current')).toBe('true');
+    expect(elements.storyHotspots.every((hotspot) => !hotspot.hasAttribute('aria-current'))).toBe(true);
     expect(elements.mobileStoryButtons[2].getAttribute('aria-current')).toBe('true');
     expect(elements.storyDetail.hidden).toBe(false);
     expect(elements.storyDetail.textContent).toContain('切入座舱');
@@ -226,6 +230,45 @@ describe('high fidelity page shell', () => {
     expect(elements.storyDetail.hidden).toBe(false);
 
     unbind();
+  });
+
+  it('scrolls story hotspot targets without animation for reduced motion', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const performanceScroll = vi.fn();
+    elements.storySections.find(({ dataset }) => dataset.storySection === 'performance')!.scrollIntoView = performanceScroll;
+    const unbind = bindControls(elements, store);
+
+    elements.storyHotspots[1].querySelector<HTMLButtonElement>('.hotspot-marker')!.click();
+
+    expect(performanceScroll).toHaveBeenCalledWith({ behavior: 'auto' });
+    unbind();
+  });
+
+  it('stops click, keydown and store-driven DOM synchronization after unbind', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const setMode = vi.spyOn(store.actions, 'setMode');
+    const unbind = bindControls(elements, store);
+    const initialCabinPressed = elements.modeButtons[1].getAttribute('aria-pressed');
+    const initialStoryCurrent = elements.storyHotspots[0]
+      .querySelector<HTMLButtonElement>('.hotspot-marker')!.getAttribute('aria-current');
+
+    unbind();
+    elements.modeButtons[1].click();
+    elements.modeButtons[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(setMode).not.toHaveBeenCalled();
+    expect(store.getState().mode).toBe('exterior');
+
+    store.actions.setMode('cabin');
+    store.actions.setActiveStory('performance');
+    expect(elements.modeButtons[1].getAttribute('aria-pressed')).toBe(initialCabinPressed);
+    expect(elements.storyHotspots[0].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe(initialStoryCurrent);
+    expect(elements.storyHotspots[1].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe('false');
+    expect(document.documentElement.dataset.vehicleMode).toBeUndefined();
+    expect(elements.stage.dataset.mode).toBeUndefined();
   });
 
   it('ignores an unknown story control id without dispatching or throwing', () => {

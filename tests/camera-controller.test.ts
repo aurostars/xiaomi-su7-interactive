@@ -75,34 +75,27 @@ describe('camera controller', () => {
     expect(aero.fov).toBeLessThanOrEqual(35);
   });
 
-  it('keeps the complete aero vehicle prominent without cropping', () => {
-    const legacyAero: CameraPreset = {
+  it('projects a 10-15% larger complete SU7 than the origin/main aero baseline at desktop sizes', () => {
+    const baselineAero: CameraPreset = {
       position: [6.8, 2.8, 7.8],
       target: [0, 0.7, 0],
       fov: 32,
       near: 0.1,
       vehicleYaw: -0.18,
     };
-    const legacyBounds = projectWorldBoundsToNdc(legacyAero, 1440 / 900, SU7_WORLD_BOUNDS);
-    const currentBounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, 1440 / 900, SU7_WORLD_BOUNDS);
-    const linearScale = Math.sqrt(currentBounds.area / legacyBounds.area);
 
-    expect(linearScale).toBeGreaterThanOrEqual(0.7);
-    expect(linearScale).toBeLessThanOrEqual(0.8);
-    expect(currentBounds.minX).toBeGreaterThanOrEqual(-1);
-    expect(currentBounds.maxX).toBeLessThanOrEqual(1);
-    expect(currentBounds.minY).toBeGreaterThanOrEqual(-1);
-    expect(currentBounds.maxY).toBeLessThanOrEqual(1);
-  });
-
-  it('keeps the complete SU7 inside the real desktop canvas with wheel and roof margin', () => {
     for (const [width, height] of [[1280, 800], [1440, 900]] as const) {
       const canvasAspect = (width * 0.69) / height;
-      const bounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, canvasAspect, SU7_WORLD_BOUNDS);
-      expect(bounds.minX).toBeGreaterThanOrEqual(-0.94);
-      expect(bounds.maxX).toBeLessThanOrEqual(0.94);
-      expect(bounds.minY).toBeGreaterThanOrEqual(-0.94);
-      expect(bounds.maxY).toBeLessThanOrEqual(0.94);
+      const baselineBounds = projectWorldBoundsToNdc(baselineAero, canvasAspect, SU7_WORLD_BOUNDS);
+      const currentBounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, canvasAspect, SU7_WORLD_BOUNDS);
+      const linearScale = Math.sqrt(currentBounds.area / baselineBounds.area);
+
+      expect(linearScale, `${width}x${height}`).toBeGreaterThanOrEqual(1.1);
+      expect(linearScale, `${width}x${height}`).toBeLessThanOrEqual(1.15);
+      expect(currentBounds.minX, `${width}x${height} left`).toBeGreaterThanOrEqual(-0.94);
+      expect(currentBounds.maxX, `${width}x${height} right`).toBeLessThanOrEqual(0.94);
+      expect(currentBounds.minY, `${width}x${height} wheel`).toBeGreaterThanOrEqual(-0.94);
+      expect(currentBounds.maxY, `${width}x${height} roof`).toBeLessThanOrEqual(0.94);
     }
   });
 
@@ -198,11 +191,11 @@ describe('camera controller', () => {
     const diagnostics = controller.getDiagnostics();
 
     expect(frame.vehicleYaw).toBeCloseTo((CAMERA_PRESETS.aero.vehicleYaw + CAMERA_PRESETS.performance.vehicleYaw) / 2);
-    expect(diagnostics.position[0]).toBeCloseTo(6.85);
-    expect(diagnostics.position[1]).toBeCloseTo(1.975);
-    expect(diagnostics.position[2]).toBeCloseTo(7.7);
-    expect(diagnostics.target).toEqual([0.775, 0.675, 0]);
-    expect(diagnostics.fov).toBe(31);
+    expect(diagnostics.position[0]).toBeCloseTo(5.65);
+    expect(diagnostics.position[1]).toBeCloseTo(1.875);
+    expect(diagnostics.position[2]).toBeCloseTo(6.4);
+    expect(diagnostics.target).toEqual([-0.04999999999999999, 0.625, 0]);
+    expect(diagnostics.fov).toBe(30);
   });
 
   it('reports the actual interpolated camera rather than the target preset', () => {

@@ -62,18 +62,18 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .story-hotspot { position: absolute; z-index: 4; left: var(--hotspot-x); top: var(--hotspot-y); pointer-events: auto; transform: translate(-22px, -22px); }
 .hotspot-marker { min-width: 44px; min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px; overflow: hidden; border: 1px solid rgba(75, 223, 242, .42); border-radius: 999px; background: rgba(7, 10, 14, .82); backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); transition: border-color .25s ease, background .25s ease; }
 .hotspot-marker strong { max-width: 0; overflow: hidden; opacity: 0; font-size: 12px; white-space: nowrap; transition: max-width .25s ease, opacity .2s ease; }
-.story-hotspot[aria-current="true"] .hotspot-marker, .hotspot-marker:focus-visible { border-color: var(--cyan); background: rgba(7, 19, 24, .94); }
-.story-hotspot[aria-current="true"] .hotspot-marker strong, .hotspot-marker:focus-visible strong { max-width: 140px; opacity: 1; }
+.hotspot-marker[aria-current="true"], .hotspot-marker:focus-visible { border-color: var(--cyan); background: rgba(7, 19, 24, .94); }
+.hotspot-marker[aria-current="true"] strong, .hotspot-marker:focus-visible strong { max-width: 140px; opacity: 1; }
 .hotspot-pulse { position: relative; width: 27px; height: 27px; flex: 0 0 27px; border: 1px solid var(--cyan); border-radius: 50%; }
 .hotspot-pulse::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--cyan); font-size: 17px; line-height: 1; }
-.story-hotspot[aria-current="true"] .hotspot-pulse::after { content: "−"; }
+.hotspot-marker[aria-current="true"] .hotspot-pulse::after { content: "−"; }
 .story-detail { position: absolute; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; z-index: 4; width: min(310px, calc(100% - 40px)); padding: 18px; border: 1px solid var(--line); border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .92); backdrop-filter: blur(16px); pointer-events: auto; }
 .story-detail > p:first-child { margin: 0 0 7px; color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
 .story-detail h2 { margin: 0; font-size: 19px; line-height: 1.25; }
 .story-detail [data-story-description] { margin: 9px 0 0; color: #afb5bc; font-size: 12px; line-height: 1.65; }
 .mobile-story-rail { display: none; }
 
-.vehicle-controls { position: absolute; z-index: 4; top: 96px; right: 20px; width: 260px; padding: 12px; border: 1px solid rgba(207, 216, 226, .22); background: rgba(38, 45, 54, .58); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 42px rgba(9, 15, 23, .28); }
+.vehicle-controls { position: absolute; z-index: 4; top: 96px; right: 20px; width: 360px; padding: 12px; border: 1px solid rgba(207, 216, 226, .22); background: rgba(38, 45, 54, .58); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 42px rgba(9, 15, 23, .28); }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mode-tabs button, .seat-views button, .door-button { min-height: 44px; border: 1px solid rgba(207, 216, 226, .2); background: rgba(255, 255, 255, .035); font-size: 12px; transition: color 220ms ease, border-color 220ms ease, background 220ms ease, transform 220ms ease; }
 .mode-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
@@ -81,7 +81,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .mode-tabs button[aria-pressed="true"] { color: #080a0c; background: #f1f3f5; }
 .control-palette { min-width: 0; margin: 10px 0 0; padding: 0; border: 0; }
 .control-palette legend { margin-bottom: 7px; padding: 0; color: #c7ccd2; font-size: 11px; }
-.control-palette > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.control-palette > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .color-swatch { position: relative; min-width: 0; min-height: 44px; padding: 0 7px 0 29px; overflow: hidden; border: 1px solid rgba(207, 216, 226, .18); border-radius: 4px; background: rgba(255, 255, 255, .035); color: #d9dde2; font-size: 10px; text-align: left; white-space: nowrap; text-overflow: ellipsis; transition: border-color 220ms ease, background 220ms ease, transform 220ms ease; }
 .color-swatch::before { content: ""; position: absolute; left: 7px; top: 50%; width: 15px; height: 15px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .32), 0 2px 6px rgba(9, 15, 23, .24); transform: translateY(-50%); }
 .color-swatch[aria-pressed="true"] { border-color: #fff; background: rgba(255, 255, 255, .12); }
@@ -149,7 +149,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .hero-actions { gap: 8px; }
   .primary-cta, .secondary-cta { min-height: 44px; padding: 0 15px; font-size: 13px; }
   .story-hotspot { display: none; left: var(--hotspot-x); top: var(--hotspot-y); transform: translate(-22px, -22px); }
-  .story-hotspot[aria-current="true"] { display: block; }
+  .story-hotspot:has(> .hotspot-marker[aria-current="true"]) { display: block; }
   .hotspot-marker { min-width: 44px; min-height: 44px; }
   .story-detail { right: 14px; bottom: 130px; left: 14px; width: auto; padding: 14px 16px; }
   .story-detail h2 { font-size: 17px; }

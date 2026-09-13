@@ -127,7 +127,9 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     }));
     const chapter = STORY_CHAPTERS.find(({ id }) => id === state.activeStoryId)!;
     elements.storyHotspots.forEach((hotspot) => {
-      hotspot.setAttribute('aria-current', String(hotspot.dataset.storyId === chapter.id));
+      const button = hotspot.querySelector<HTMLButtonElement>('.hotspot-marker');
+      if (!button) throw new Error('Story control failed to render');
+      button.setAttribute('aria-current', String(button.dataset.storyId === chapter.id));
     });
     elements.mobileStoryButtons.forEach((button) => {
       button.setAttribute('aria-current', String(button.dataset.storyId === chapter.id));

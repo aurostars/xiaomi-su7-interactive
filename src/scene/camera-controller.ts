@@ -44,7 +44,7 @@ export interface CameraController {
 }
 
 export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
-  aero: { position: [8.5, 2.75, 9.6], target: [1.35, 0.8, 0], fov: 34, near: 0.1, vehicleYaw: -0.18 },
+  aero: { position: [6.1, 2.55, 7], target: [-0.3, 0.7, 0], fov: 32, near: 0.1, vehicleYaw: -0.18 },
   performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
   cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
   sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, near: 0.1, vehicleYaw: 0.48 },
