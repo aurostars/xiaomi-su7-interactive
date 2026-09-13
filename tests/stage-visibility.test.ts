@@ -26,11 +26,18 @@ describe('stage visibility calculation', () => {
     })).toEqual({ phase: 'visible', progress: 0 });
   });
 
-  it('starts fading at exactly 80% story progress even when fade progress is zero', () => {
+  it('starts fading at exactly 80% story progress when technology has not entered', () => {
     expect(calculateStageVisibility({
-      finalStoryTop: -350, finalStoryHeight: 1000, technologyTop: 650,
+      finalStoryTop: -350, finalStoryHeight: 1000, technologyTop: 1900,
       viewportHeight: 900, reducedMotion: false,
-    }).phase).toBe('fading');
+    })).toEqual({ phase: 'fading', progress: 0 });
+  });
+
+  it('lets technology entry override the exact 80% fade boundary', () => {
+    expect(calculateStageVisibility({
+      finalStoryTop: -350, finalStoryHeight: 1000, technologyTop: 900,
+      viewportHeight: 900, reducedMotion: false,
+    })).toEqual({ phase: 'hidden', progress: 1 });
   });
 
   it('hides the stage at the terminal story boundary', () => {
@@ -63,6 +70,7 @@ describe('stage visibility controller', () => {
 
   it('writes CSS, data and accessibility state and only reports changed state', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    const addEventListener = vi.spyOn(window, 'addEventListener');
     const stage = document.createElement('div');
     const finalStory = document.createElement('section');
     const technology = document.createElement('section');
@@ -75,6 +83,7 @@ describe('stage visibility controller', () => {
       onChange: (state) => changes.push(state),
     });
 
+    expect(addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function), { passive: true });
     expect(controller.update()).toEqual({ phase: 'visible', progress: 0 });
     expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('0');
     expect(stage.dataset.stageVisibility).toBe('visible');
@@ -83,7 +92,7 @@ describe('stage visibility controller', () => {
     expect(changes).toEqual([{ phase: 'visible', progress: 0 }]);
 
     finalTop = -800;
-    window.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
     expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('1');
     expect(stage.dataset.stageVisibility).toBe('hidden');
     expect(stage.getAttribute('aria-hidden')).toBe('true');
@@ -96,7 +105,8 @@ describe('stage visibility controller', () => {
     const stage = document.createElement('div');
     const finalStory = document.createElement('section');
     const technology = document.createElement('section');
-    vi.spyOn(finalStory, 'getBoundingClientRect').mockReturnValue(rect(900, 1000));
+    let finalTop = 900;
+    vi.spyOn(finalStory, 'getBoundingClientRect').mockImplementation(() => rect(finalTop, 1000));
     vi.spyOn(technology, 'getBoundingClientRect').mockReturnValue(rect(1900, 600));
     const onChange = vi.fn();
     const controller = createStageVisibilityController({
@@ -105,10 +115,18 @@ describe('stage visibility controller', () => {
     controller.update();
     controller.dispose();
     onChange.mockClear();
+    finalTop = -800;
 
     window.dispatchEvent(new Event('scroll'));
-    window.dispatchEvent(new Event('resize'));
-
     expect(onChange).not.toHaveBeenCalled();
+    expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('0');
+    expect(stage.dataset.stageVisibility).toBe('visible');
+    expect(stage.getAttribute('aria-hidden')).toBe('false');
+
+    window.dispatchEvent(new Event('resize'));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('0');
+    expect(stage.dataset.stageVisibility).toBe('visible');
+    expect(stage.getAttribute('aria-hidden')).toBe('false');
   });
 });
