@@ -3,7 +3,7 @@ import {
   Group,
   Mesh,
   MeshPhysicalMaterial,
-  MeshBasicMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   Texture,
   type Material,
@@ -23,9 +23,9 @@ const INTERIOR_MATERIAL_NAMES = [
 ];
 const DOOR_DEFINITIONS = {
   frontLeft: { names: ['door1'], side: 'left', hinge: [-1.04, 0, -0.94] },
-  rearLeft: { names: ['door2'], side: 'left', hinge: [-1.04, 0, 0.78] },
+  rearLeft: { names: ['door2'], side: 'left', hinge: [-1.04, 0, 0.18] },
   frontRight: { names: ['door3'], side: 'right', hinge: [1.04, 0, -0.94] },
-  rearRight: { names: ['door4'], side: 'right', hinge: [1.04, 0, 0.78] },
+  rearRight: { names: ['door4'], side: 'right', hinge: [1.04, 0, 0.18] },
 } as const;
 const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
 
@@ -70,6 +70,8 @@ export interface LoadedVehicle {
 }
 
 const normalizeName = (name: string) => name.trim().toLowerCase();
+const supportsEmissive = (material: Material) =>
+  'emissive' in material && 'emissiveIntensity' in material;
 
 function collectMaterials(root: Object3D, acceptedNames: readonly string[]): Material[] {
   const accepted = new Set(acceptedNames);
@@ -126,10 +128,12 @@ function createCabinDisplays(root: Object3D): Material[] {
   ];
 
   return definitions.map((definition) => {
-    const material = new MeshBasicMaterial({
+    const material = new MeshStandardMaterial({
       color: 0x050608,
+      emissive: 0x000000,
+      emissiveIntensity: 0,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.35,
       toneMapped: false,
     });
     material.name = `${definition.name}-material`;
@@ -220,7 +224,7 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
     capabilities: {
       bodyColor: bodyMaterials.length > 0,
       interiorColor: interiorMaterials.length > 0,
-      screenGlow: screenMaterials.length > 0,
+      screenGlow: screenMaterials.some(supportsEmissive),
       doors: {
         frontLeft: Boolean(doors.frontLeft),
         frontRight: Boolean(doors.frontRight),

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BoxGeometry,
   BufferGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
   Scene,
@@ -61,6 +61,37 @@ describe('createLoadedVehicle', () => {
     }
   });
 
+  it('rotates rear doors around the model front edge instead of their center', () => {
+    const root = new Group();
+    for (const [name, x] of [['DOOR2', -1], ['DOOR4', 1]] as const) {
+      const door = new Mesh(new BoxGeometry(0.2, 1, 1.134), new MeshStandardMaterial());
+      door.name = name;
+      door.position.set(x, 0.7, 0.73);
+      root.add(door);
+    }
+    root.updateMatrixWorld(true);
+    const vehicle = createLoadedVehicle(root);
+
+    for (const [id, x, angle] of [
+      ['rearLeft', -1, -0.92],
+      ['rearRight', 1, 0.92],
+    ] as const) {
+      const pivot = vehicle.doors[id]!;
+      const door = pivot.getObjectByName(id === 'rearLeft' ? 'DOOR2' : 'DOOR4') as Mesh;
+      const hingeEdge = door.localToWorld(new Vector3(0, 0, -0.567));
+      const rearEdgeBefore = door.localToWorld(new Vector3(0, 0, 0.567));
+
+      pivot.rotation.y = angle;
+      root.updateMatrixWorld(true);
+
+      const hingeEdgeAfter = door.localToWorld(new Vector3(0, 0, -0.567));
+      const rearEdgeAfter = door.localToWorld(new Vector3(0, 0, 0.567));
+      expect(hingeEdgeAfter.distanceTo(hingeEdge), `${id} hinge edge drift`).toBeLessThan(0.08);
+      expect(rearEdgeAfter.distanceTo(rearEdgeBefore), `${id} rear edge travel`).toBeGreaterThan(0.8);
+      expect(Math.abs(pivot.position.x - x)).toBeLessThan(0.06);
+    }
+  });
+
   it('reports unavailable doors without throwing for a partial model', () => {
     const root = new Group();
     const door = new Group();
@@ -95,12 +126,15 @@ describe('createLoadedVehicle', () => {
       instrumentDisplay.material,
     ]);
     expect(vehicle.capabilities.screenGlow).toBe(true);
-    for (const material of vehicle.screenMaterials as MeshBasicMaterial[]) {
-      expect(material).toBeInstanceOf(MeshBasicMaterial);
+    for (const material of vehicle.screenMaterials as MeshStandardMaterial[]) {
+      expect(material).toBeInstanceOf(MeshStandardMaterial);
       expect(material.color.getHex()).toBe(0x050608);
+      expect(material.emissive.getHex()).toBe(0x000000);
+      expect(material.emissiveIntensity).toBe(0);
       expect(material.map).toBeNull();
       expect(material.transparent).toBe(true);
-      expect(material.opacity).toBe(0.18);
+      expect(material.opacity).toBeGreaterThan(0.2);
+      expect(material.opacity).toBeLessThan(0.6);
       expect(material.toneMapped).toBe(false);
     }
   });

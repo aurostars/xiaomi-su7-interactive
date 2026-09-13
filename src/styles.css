@@ -192,7 +192,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .stage-atmosphere { filter: none; opacity: .2; }
 }
 
-.e2e-diagnostics, .e2e-diagnostics *, .e2e-diagnostics *::before, .e2e-diagnostics *::after {
+.no-transitions, .no-transitions *, .no-transitions *::before, .no-transitions *::after {
   scroll-behavior: auto !important;
   transition: none !important;
   animation: none !important;

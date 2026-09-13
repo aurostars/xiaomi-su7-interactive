@@ -6,7 +6,7 @@ import {
 } from 'three';
 import type { VehicleState } from '../src/state/vehicle-state';
 import { createVehicleController } from '../src/scene/vehicle-controller';
-import type { LoadedVehicle } from '../src/scene/load-vehicle';
+import { createLoadedVehicle, type LoadedVehicle } from '../src/scene/load-vehicle';
 
 const state = (overrides: Partial<VehicleState> = {}): VehicleState => ({
   mode: 'exterior',
@@ -108,6 +108,41 @@ describe('createVehicleController', () => {
     });
   });
 
+  it.each([
+    ['seatView', { seatView: 'passenger' }],
+    ['paint', { paint: 'gulf-blue' }],
+    ['hotspot', { hotspot: 'performance' }],
+  ] as const)('does not restart door motion for a %s-only update', (_field, update) => {
+    vi.useFakeTimers();
+    const schedule = vi.spyOn(globalThis, 'setTimeout');
+    const controller = createVehicleController(makeVehicle());
+
+    controller.applyState(state());
+    expect(schedule).toHaveBeenCalledTimes(1);
+    controller.applyState(state(update));
+
+    expect(schedule).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(400);
+    expect(controller.getDiagnostics().doorAngles).toEqual({
+      frontLeft: -1.05,
+      frontRight: 1.05,
+      rearLeft: -0.92,
+      rearRight: 0.92,
+    });
+  });
+
+  it('schedules a new motion only when doorsOpen changes', () => {
+    vi.useFakeTimers();
+    const schedule = vi.spyOn(globalThis, 'setTimeout');
+    const controller = createVehicleController(makeVehicle());
+
+    controller.applyState(state({ doorsOpen: false }));
+    expect(schedule).toHaveBeenCalledTimes(1);
+    controller.applyState(state({ doorsOpen: true }));
+
+    expect(schedule).toHaveBeenCalledTimes(2);
+  });
+
   it('applies final door angles synchronously when reduced motion is enabled', () => {
     vi.useFakeTimers();
     const controller = createVehicleController(makeVehicle(), { reducedMotion: true });
@@ -123,18 +158,27 @@ describe('createVehicleController', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('updates screen emissive state without mutating unrelated materials', () => {
+  it('drives emissive mode and intensity on the real generated screen materials', () => {
     vi.useFakeTimers();
-    const vehicle = makeVehicle();
-    const controller = createVehicleController(vehicle);
-    const untouchedColor = vehicle.untouched.color.getHexString();
+    const vehicle = createLoadedVehicle(new Group());
+    const controller = createVehicleController(vehicle, { reducedMotion: true });
 
-    controller.applyState(state({ mode: 'cabin' }));
+    expect(vehicle.capabilities.screenGlow).toBe(true);
+    for (const material of vehicle.screenMaterials) {
+      expect(material).toBeInstanceOf(MeshStandardMaterial);
+    }
 
-    expect(vehicle.screen.emissive.getHexString()).toBe('72dfff');
-    expect(vehicle.screen.emissiveIntensity).toBe(0.7);
-    expect(vehicle.untouched.color.getHexString()).toBe(untouchedColor);
-    expect(controller.getDiagnostics().materials).toEqual({ body: 1, interior: 1, screens: 2 });
+    controller.applyState(state({ mode: 'exterior', doorsOpen: false }));
+    for (const material of vehicle.screenMaterials as MeshStandardMaterial[]) {
+      expect(material.emissive.getHexString()).toBe('72dfff');
+      expect(material.emissiveIntensity).toBe(0.18);
+    }
+
+    controller.applyState(state({ mode: 'cabin', doorsOpen: false }));
+    for (const material of vehicle.screenMaterials as MeshStandardMaterial[]) {
+      expect(material.emissive.getHexString()).toBe('72dfff');
+      expect(material.emissiveIntensity).toBe(0.7);
+    }
   });
 
   it('rotates the vehicle root and stops pending animation on dispose', () => {

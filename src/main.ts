@@ -65,7 +65,7 @@ let diagnosticRendering: (() => {
 }) | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
-  document.documentElement.classList.add('e2e-diagnostics');
+  document.documentElement.classList.add('no-transitions');
   Object.defineProperty(window, '__SU7_E2E_READ_DIAGNOSTICS__', {
     value: () => {
       const vehicle = diagnosticVehicle?.getDiagnostics();

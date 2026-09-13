@@ -126,6 +126,35 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
+test('非 reduced-motion 下中途关门从当前角度连续反向并保持座席', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  await page.getByRole('button', { name: '进入座舱' }).click();
+  await page.getByRole('button', { name: '副驾', exact: true }).click();
+  await expect.poll(async () => {
+    const magnitude = Math.abs((await readDiagnostics(page)).doorAngles.frontLeft ?? 0);
+    return magnitude > 0.1 && magnitude < 0.9;
+  }).toBe(true);
+
+  const closeDoor = page.getByRole('button', { name: '关门' });
+  await closeDoor.evaluate((button: HTMLButtonElement) => button.click());
+  const firstClosingSample = await readDiagnostics(page);
+  expect(Math.abs(firstClosingSample.doorAngles.frontLeft ?? 0)).toBeLessThan(1);
+  expect(Math.abs(firstClosingSample.doorAngles.frontLeft ?? 0)).toBeGreaterThan(0.1);
+  expect(firstClosingSample.camera?.view).toBe('passenger');
+
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      closed: Object.values(diagnostics.doorAngles)
+        .every((angle) => angle !== null && Math.abs(angle) < 0.01),
+      seatView: diagnostics.camera?.view,
+    };
+  }).toEqual({ closed: true, seatView: 'passenger' });
+});
+
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
   test.setTimeout(120_000);
   expect(test.info().timeout).toBe(120_000);
@@ -167,7 +196,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     allDoorsOpen: true,
     lightingEnabled: true,
     activeLightsReady: true,
-    exposure: 1.35,
+    exposure: 0.88,
     cameraNearReady: true,
     screensReady: true,
   });
@@ -186,7 +215,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     allDoorsClosed: true,
     lightingEnabled: true,
     activeLightsReady: true,
-    exposure: 1.35,
+    exposure: 0.88,
     cameraNearReady: true,
     screensReady: true,
   });
@@ -211,7 +240,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       allDoorsClosed: true,
       lightingEnabled: true,
       activeLightsReady: true,
-      exposure: 1.35,
+      exposure: 0.88,
       cameraNearReady: true,
       screensReady: true,
     });

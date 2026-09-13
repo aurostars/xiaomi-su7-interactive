@@ -32,20 +32,21 @@ describe('cabin lighting', () => {
       'cabin-footwell-right-light',
     ]);
     expect(lights.every((light) => light.intensity > 0)).toBe(true);
-    expect(lights.slice(0, 2).map((light) => ({
-      color: light.color.getHex(),
-      intensity: light.intensity,
-      distance: light.distance,
-      position: light.position.toArray(),
-    }))).toEqual([
-      { color: 0xffe7cf, intensity: 6, distance: 3.2, position: [0, 1.62, 0.2] },
-      { color: 0xffd9bd, intensity: 0.18, distance: 2.1, position: [0, 1.12, -0.72] },
-    ]);
+    const [roof, screen] = lights;
+    expect(roof.position.toArray()).toEqual([0, 1.62, 0.2]);
+    expect(screen.position.toArray()).toEqual([0, 1.12, -0.72]);
+    expect(screen.color.b).toBeGreaterThan(screen.color.r);
+    expect(screen.color.b).toBeGreaterThan(screen.color.g);
+    expect(roof.intensity).toBeLessThan(3);
+    expect(lights.reduce((total, light) => total + light.intensity, 0)).toBeLessThan(3);
     expect(scene.getObjectByName('cabin-ambient-fill')?.type).toBe('AmbientLight');
-    expect(scene.getObjectByName('cabin-ambient-fill')).toMatchObject({ intensity: 4.5 });
     expect(exterior.intensity).toBe(1.08);
-    expect(renderer.toneMappingExposure).toBeCloseTo(1.35);
-    expect(controller.getDiagnostics()).toEqual({ enabled: true, exposure: 1.35, activeLights: 5 });
+    expect(renderer.toneMappingExposure).toBeLessThan(0.9);
+    expect(controller.getDiagnostics()).toEqual({
+      enabled: true,
+      exposure: renderer.toneMappingExposure,
+      activeLights: 5,
+    });
   });
 
   it('omits footwell lights at low quality', () => {

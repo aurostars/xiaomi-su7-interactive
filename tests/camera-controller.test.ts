@@ -22,7 +22,8 @@ describe('camera controller', () => {
       expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.03);
       const [targetX, targetY, targetZ] = CAMERA_PRESETS[view].target;
       expect(Math.hypot(targetX - x, targetY - y, targetZ - z)).toBeGreaterThanOrEqual(2.4);
-      expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(60);
+      expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(50);
+      expect(CAMERA_PRESETS[view].fov).toBeLessThanOrEqual(58);
     }
     expect(CAMERA_PRESETS.driver.position[0]).toBeLessThan(0);
     expect(CAMERA_PRESETS.passenger.position[0]).toBeGreaterThan(0);

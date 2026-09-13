@@ -78,6 +78,7 @@ export function createVehicleController(
   let frame: FrameHandle | undefined;
   let disposed = false;
   let startedAt = 0;
+  let appliedDoorsOpen: boolean | undefined;
   const motions = {} as Record<DoorId, DoorMotion>;
 
   const schedule = (callback: (timestamp: number) => void): FrameHandle =>
@@ -105,8 +106,6 @@ export function createVehicleController(
   return {
     applyState(state) {
       if (disposed) return;
-      if (frame !== undefined) cancel(frame);
-      frame = undefined;
 
       const bodyTarget = new Color(PAINT_COLORS[state.paint] ?? state.paint);
       const interiorTarget = new Color(INTERIOR_COLORS[state.interior] ?? state.interior);
@@ -124,15 +123,20 @@ export function createVehicleController(
         material.needsUpdate = true;
       });
 
-      DOOR_IDS.forEach((doorId) => {
-        motions[doorId] = {
-          from: vehicle.doors[doorId]?.rotation.y ?? 0,
-          target: state.doorsOpen ? DOOR_OPEN_ANGLES[doorId] : 0,
-        };
-      });
-      startedAt = 0;
-      if (options.reducedMotion) applyDoorProgress(1);
-      else frame = schedule(animate);
+      if (appliedDoorsOpen !== state.doorsOpen) {
+        if (frame !== undefined) cancel(frame);
+        frame = undefined;
+        appliedDoorsOpen = state.doorsOpen;
+        DOOR_IDS.forEach((doorId) => {
+          motions[doorId] = {
+            from: vehicle.doors[doorId]?.rotation.y ?? 0,
+            target: state.doorsOpen ? DOOR_OPEN_ANGLES[doorId] : 0,
+          };
+        });
+        startedAt = 0;
+        if (options.reducedMotion) applyDoorProgress(1);
+        else frame = schedule(animate);
+      }
     },
     setRotation(y) {
       if (!disposed) vehicle.root.rotation.y = y;
