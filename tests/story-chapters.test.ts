@@ -9,16 +9,14 @@ describe('story chapters', () => {
     expect(new Set(ids).size).toBe(4);
   });
 
-  it('provides complete content and hotspot metadata for every chapter', () => {
+  it('provides complete content and non-empty bullets for every chapter', () => {
     STORY_CHAPTERS.forEach((chapter) => {
+      expect(Object.keys(chapter)).toEqual(['id', 'eyebrow', 'title', 'description', 'bullets']);
       expect(chapter.eyebrow.trim()).not.toBe('');
       expect(chapter.title.trim()).not.toBe('');
       expect(chapter.description.trim()).not.toBe('');
-      expect(chapter.tags.length).toBeGreaterThan(0);
-      expect(chapter.tags.every((tag) => tag.trim().length > 0)).toBe(true);
-      expect(chapter.hotspot.label.trim()).not.toBe('');
-      expect(Number.isFinite(chapter.hotspot.x)).toBe(true);
-      expect(Number.isFinite(chapter.hotspot.y)).toBe(true);
+      expect(chapter.bullets.length).toBeGreaterThan(0);
+      expect(chapter.bullets.every((bullet) => bullet.trim().length > 0)).toBe(true);
     });
   });
 });
