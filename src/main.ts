@@ -112,6 +112,34 @@ const capabilities = detectCapabilities();
 document.documentElement.dataset.quality = capabilities.quality;
 document.documentElement.classList.toggle('reduced-motion', capabilities.reducedMotion);
 
+let stageRuntime: Pick<ReturnType<typeof createScene>, 'requestRender' | 'beginRenderActivity' | 'endRenderActivity'> | undefined;
+let stageVisibilityIdleTimer: ReturnType<typeof window.setTimeout> | undefined;
+const clearStageVisibilityActivity = (runtime = stageRuntime) => {
+  if (stageVisibilityIdleTimer === undefined) return;
+  window.clearTimeout(stageVisibilityIdleTimer);
+  stageVisibilityIdleTimer = undefined;
+  runtime?.endRenderActivity('story');
+};
+const stageVisibility = createStageVisibilityController({
+  stage: visual,
+  finalStory,
+  technology,
+  reducedMotion: capabilities.reducedMotion,
+  onChange(state) {
+    const runtime = stageRuntime;
+    runtime?.requestRender();
+    clearStageVisibilityActivity(runtime);
+    if (state.phase === 'fading' && runtime) {
+      runtime.beginRenderActivity('story');
+      stageVisibilityIdleTimer = window.setTimeout(() => {
+        stageVisibilityIdleTimer = undefined;
+        runtime.endRenderActivity('story');
+      }, 250);
+    }
+  },
+});
+stageVisibility.update();
+
 let orchestrator: ReturnType<typeof createExperienceOrchestrator<LoadedVehicle>>;
 const feedback = createStageFeedback(visual, elements.canvas, vehicleFallbackUrl, () => {
   orchestrator.retry();
@@ -144,6 +172,7 @@ orchestrator = createExperienceOrchestrator({
       },
       capabilities.reducedMotion,
     );
+    stageRuntime = runtime;
     camera = createCameraController(runtime.camera);
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
@@ -164,28 +193,6 @@ orchestrator = createExperienceOrchestrator({
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
     const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
-    let stageVisibilityIdleTimer: ReturnType<typeof window.setTimeout> | undefined;
-    const stageVisibility = createStageVisibilityController({
-      stage: visual,
-      finalStory,
-      technology,
-      reducedMotion: capabilities.reducedMotion,
-      onChange(state) {
-        runtime.requestRender();
-        if (stageVisibilityIdleTimer !== undefined) window.clearTimeout(stageVisibilityIdleTimer);
-        if (state.phase === 'fading') {
-          runtime.beginRenderActivity('story');
-          stageVisibilityIdleTimer = window.setTimeout(() => {
-            stageVisibilityIdleTimer = undefined;
-            runtime.endRenderActivity('story');
-          }, 250);
-        } else {
-          stageVisibilityIdleTimer = undefined;
-          runtime.endRenderActivity('story');
-        }
-      },
-    });
-    stageVisibility.update();
 
     const story = createScrollStory(
       elements.storySections.map((element) => ({
@@ -257,9 +264,10 @@ orchestrator = createExperienceOrchestrator({
         if (stopped) return;
         stopped = true;
         clearBeforeRender();
-        if (stageVisibilityIdleTimer !== undefined) window.clearTimeout(stageVisibilityIdleTimer);
-        runtime.endRenderActivity('story');
-        stageVisibility.dispose();
+        if (stageRuntime === runtime) {
+          clearStageVisibilityActivity(runtime);
+          stageRuntime = undefined;
+        }
         unsubscribe();
         drag.dispose();
         story.dispose();
@@ -278,6 +286,11 @@ orchestrator = createExperienceOrchestrator({
   },
 });
 disposers.push(() => orchestrator.dispose());
+disposers.push(() => {
+  clearStageVisibilityActivity();
+  stageRuntime = undefined;
+  stageVisibility.dispose();
+});
 
 const dispose = () => {
   while (disposers.length) disposers.pop()?.();

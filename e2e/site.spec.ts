@@ -509,6 +509,11 @@ for (const viewport of [
         controlsBox.y + controlsBox.height,
         JSON.stringify({ viewport, controlsBox }),
       ).toBeLessThanOrEqual(viewport.height * 0.7);
+      await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.035,
+        timeout: 30_000,
+      });
     }
 
     if (viewport.width === 390) {
@@ -551,6 +556,11 @@ test('visual story aero keeps the vehicle and story copy composed', async ({ pag
     renderedCameraView: 'aero',
   });
   await expect(page.locator('[data-story-section="aero"] .story-copy')).toBeInViewport();
+  await expect(page).toHaveScreenshot('story-aero-1440x900.png', {
+    animations: 'disabled',
+    maxDiffPixelRatio: 0.035,
+    timeout: 30_000,
+  });
 });
 
 test('visual cabin remains complete for driver, passenger and rear seats', async ({ page }) => {
@@ -611,6 +621,11 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     expect(glare.highlightRatio, `${seat.key} upper-cabin highlight ${JSON.stringify(glare)}`)
       .toBeLessThanOrEqual(0.01);
     expectNoPageFailures();
+    await expect(page).toHaveScreenshot(`cabin-${seat.key}-1440x900.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.035,
+      timeout: 30_000,
+    });
   }
   expectNoPageFailures();
 });

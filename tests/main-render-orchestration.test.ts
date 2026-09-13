@@ -131,6 +131,9 @@ describe('main render orchestration', () => {
     expect(requestRender).toHaveBeenCalledTimes(2);
     expect(endRenderActivity).toHaveBeenCalledWith('story');
 
+    disposeAttempt();
+    expect(stageVisibilityDispose).not.toHaveBeenCalled();
+
     window.dispatchEvent(new Event('pagehide'));
     expect(stageVisibilityDispose).toHaveBeenCalledTimes(1);
   });
@@ -139,10 +142,12 @@ describe('main render orchestration', () => {
     vi.resetModules();
     document.body.innerHTML = '<main id="app"></main>';
     const requestRender = vi.fn();
+    let reducedMotion: boolean | undefined;
     let onChange: ((state: { phase: 'hidden'; progress: number }) => void) | undefined;
 
     vi.doMock('../src/interaction/stage-visibility', () => ({
       createStageVisibilityController: vi.fn((options) => {
+        reducedMotion = options.reducedMotion;
         onChange = options.onChange;
         return { update: vi.fn(), dispose: vi.fn() };
       }),
@@ -179,6 +184,7 @@ describe('main render orchestration', () => {
     });
 
     await import('../src/main');
+    expect(reducedMotion).toBe(true);
     onChange?.({ phase: 'hidden', progress: 1 });
     expect(requestRender).toHaveBeenCalledTimes(1);
     window.dispatchEvent(new Event('pagehide'));
