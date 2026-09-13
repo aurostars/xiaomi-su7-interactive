@@ -64,6 +64,14 @@ describe('camera render orchestration', () => {
 });
 
 describe('camera controller', () => {
+  it('uses a low, 30-35 degree aero hero camera', () => {
+    const aero = CAMERA_PRESETS.aero;
+
+    expect(aero.position[1]).toBeLessThan(2.8);
+    expect(aero.fov).toBeGreaterThanOrEqual(30);
+    expect(aero.fov).toBeLessThanOrEqual(35);
+  });
+
   it('keeps driver, passenger, and rear viewpoints inside the cabin and spatially distinct', () => {
     const cabinViews = ['driver', 'passenger', 'rear'] as const;
     const positions = cabinViews.map((view) => CAMERA_PRESETS[view].position.join(','));
@@ -151,7 +159,9 @@ describe('camera controller', () => {
     const diagnostics = controller.getDiagnostics();
 
     expect(frame.vehicleYaw).toBeCloseTo((CAMERA_PRESETS.aero.vehicleYaw + CAMERA_PRESETS.performance.vehicleYaw) / 2);
-    expect(diagnostics.position).toEqual([6, 2, 6.8]);
+    expect(diagnostics.position[0]).toBeCloseTo(5.6);
+    expect(diagnostics.position[1]).toBeCloseTo(1.8);
+    expect(diagnostics.position[2]).toBeCloseTo(6.35);
     expect(diagnostics.target).toEqual([0.1, 0.625, 0]);
     expect(diagnostics.fov).toBe(30);
   });

@@ -1,9 +1,14 @@
 import {
   ACESFilmicToneMapping,
   AmbientLight,
+  type BufferGeometry,
   Color,
   DirectionalLight,
+  GridHelper,
+  Group,
+  type Material,
   Mesh,
+  MeshBasicMaterial,
   PCFSoftShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
@@ -62,6 +67,85 @@ export const automotiveSurface = {
 
 export function rendererOptions(quality: SceneQuality) {
   return { antialias: quality !== 'low', alpha: true } as const;
+}
+
+function createDisplayGround(quality: SceneQuality) {
+  const group = new Group();
+  group.name = 'display-ground';
+
+  const contactMaterial = new ShadowMaterial({
+    color: 0x020407,
+    opacity: automotiveSurface.groundOpacity,
+  });
+  const contactGeometry = new PlaneGeometry(automotiveSurface.groundSize, automotiveSurface.groundSize);
+  const contact = new Mesh(contactGeometry, contactMaterial);
+  contact.name = 'vehicle-contact-ground';
+  contact.rotation.x = -Math.PI / 2;
+  contact.position.y = -.03;
+  contact.renderOrder = -10;
+  contact.receiveShadow = true;
+  group.add(contact);
+
+  const grid = new GridHelper(
+    30,
+    quality === 'low' ? 12 : quality === 'medium' ? 30 : 40,
+    0x27404b,
+    0x182832,
+  );
+  grid.name = 'display-grid';
+  grid.position.y = -.04;
+  grid.renderOrder = -30;
+  const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
+  gridMaterials.forEach((material) => {
+    material.transparent = true;
+    material.opacity = quality === 'low' ? .08 : .14;
+    material.depthWrite = false;
+  });
+  group.add(grid);
+
+  if (quality !== 'low') {
+    const accents = [
+      { name: 'display-accent-cyan', color: 0x36d9ef, x: -2.5, z: .65, rotation: -.16 },
+      { name: 'display-accent-orange', color: 0xff754d, x: 2.35, z: -.55, rotation: .2 },
+    ] as const;
+    accents.forEach(({ name, color, x, z, rotation }) => {
+      const geometry = new PlaneGeometry(6.8, .16);
+      const material = new MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: quality === 'high' ? .2 : .14,
+        depthWrite: false,
+      });
+      const accent = new Mesh(geometry, material);
+      accent.name = name;
+      accent.rotation.set(-Math.PI / 2, 0, rotation);
+      accent.position.set(x, -.035, z);
+      accent.renderOrder = -20;
+      group.add(accent);
+    });
+  }
+
+  const geometries = new Set<BufferGeometry>();
+  const materials = new Set<Material>();
+  group.traverse((object) => {
+    if (!('geometry' in object) || !('material' in object)) return;
+    const renderable = object as { geometry: BufferGeometry; material: Material | Material[] };
+    geometries.add(renderable.geometry);
+    const ownedMaterials = Array.isArray(renderable.material) ? renderable.material : [renderable.material];
+    ownedMaterials.forEach((material) => materials.add(material));
+  });
+  let disposed = false;
+
+  return {
+    group,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      group.removeFromParent();
+      geometries.forEach((geometry) => geometry.dispose());
+      materials.forEach((material) => material.dispose());
+    },
+  };
 }
 
 export function createRenderLifecycle(renderScene: () => void, onRendered: () => void) {
@@ -140,7 +224,7 @@ export function createScene(
   const scene = new Scene();
   scene.background = new Color(0x05090f);
   const camera = new PerspectiveCamera(32, 1, 0.1, 100);
-  camera.position.set(6.8, 2.8, 7.8);
+  camera.position.set(6, 2.4, 6.9);
   camera.lookAt(0, 0.7, 0);
 
   const renderer = new WebGLRenderer({ canvas, ...rendererOptions(quality) });
@@ -158,13 +242,7 @@ export function createScene(
   room.dispose();
   pmrem.dispose();
 
-  const groundMaterial = new ShadowMaterial({ color: 0x020407, opacity: automotiveSurface.groundOpacity });
-  const groundGeometry = new PlaneGeometry(automotiveSurface.groundSize, automotiveSurface.groundSize);
-  const ground = new Mesh(groundGeometry, groundMaterial);
-  ground.name = 'vehicle-contact-ground';
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -.03;
-  ground.receiveShadow = true;
+  const displayGround = createDisplayGround(quality);
 
   const ambient = new AmbientLight(0xdce8ff, automotiveLighting.ambient);
   const key = new DirectionalLight(0xffffff, automotiveLighting.key);
@@ -185,7 +263,7 @@ export function createScene(
   const warm = new DirectionalLight(0xff8050, automotiveLighting.warm);
   warm.name = 'warm-fill-light';
   warm.position.set(3, 2.5, -5);
-  scene.add(ground, ambient, key, cyan, warm);
+  scene.add(displayGround.group, ambient, key, cyan, warm);
 
   const renderLifecycle = createScheduledRenderLifecycle(
     () => renderer.render(scene, camera),
@@ -209,6 +287,7 @@ export function createScene(
   const unbindResize = bindSceneResize(resize);
   const onContextRestored = () => renderLifecycle.requestRender();
   canvas.addEventListener('webglcontextrestored', onContextRestored);
+  let disposed = false;
 
   return {
     scene, camera, renderer, resize,
@@ -231,12 +310,13 @@ export function createScene(
       return cabinLighting.getDiagnostics();
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
       canvas.removeEventListener('webglcontextrestored', onContextRestored);
       renderLifecycle.dispose();
       unbindResize();
       disposeEnvironment();
-      groundGeometry.dispose();
-      groundMaterial.dispose();
+      displayGround.dispose();
       cabinLighting.dispose();
       renderer.dispose();
     },
