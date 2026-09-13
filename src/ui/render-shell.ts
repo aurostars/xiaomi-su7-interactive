@@ -13,6 +13,10 @@ export interface ShellElements {
   enterCabinButton: HTMLButtonElement;
   cabinDetail: HTMLElement;
   hotspotLabel: HTMLElement;
+  storyHotspots: HTMLElement[];
+  storyDetail: HTMLElement;
+  mobileStoryRail: HTMLElement;
+  mobileStoryButtons: HTMLButtonElement[];
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
 }
@@ -39,7 +43,7 @@ function colorButton(value: string, name: string, color: string, type: 'paint' |
 
 function renderStory() {
   return STORY_CHAPTERS.map(({ id, eyebrow, title, description, tags }) => `
-    <section class="story-section" data-story-view="${id}" aria-labelledby="story-${id}">
+    <section class="story-section" data-story-view="${id}" data-story-section="${id}" aria-labelledby="story-${id}">
       <div class="story-copy">
         <p class="section-label">${eyebrow}</p>
         <h2 id="story-${id}">${title}</h2>
@@ -47,6 +51,20 @@ function renderStory() {
         <ul>${tags.map((tag) => `<li>${tag}</li>`).join('')}</ul>
       </div>
     </section>`).join('');
+}
+
+function renderStoryHotspots() {
+  return STORY_CHAPTERS.map(({ id, hotspot }, index) => `
+    <div class="story-hotspot" data-story-id="${id}" aria-current="${index === 0}"${index === 0 ? ' aria-live="polite"' : ''} style="--hotspot-x:${hotspot.x}%;--hotspot-y:${hotspot.y}%">
+      <button class="hotspot-marker" type="button" data-story-id="${id}" aria-label="查看${hotspot.label}部件说明">
+        <span class="hotspot-pulse" aria-hidden="true"></span><strong>${hotspot.label}</strong>
+      </button>
+    </div>`).join('');
+}
+
+function renderMobileStoryRail() {
+  return STORY_CHAPTERS.map(({ id, hotspot }, index) => `
+    <button type="button" data-story-id="${id}" aria-current="${index === 0}" aria-label="查看${hotspot.label}部件说明">${hotspot.label}</button>`).join('');
 }
 
 export function renderShell(root: HTMLElement): ShellElements {
@@ -62,12 +80,11 @@ export function renderShell(root: HTMLElement): ShellElements {
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
         <div class="vehicle-focus-zone" data-vehicle-focus-zone aria-hidden="true"></div>
         <div class="stage-atmosphere" aria-hidden="true"></div>
-        <div class="story-hotspot" data-hotspot-view="${initialChapter.id}" data-hotspot-position="front" aria-live="polite">
-          <button class="hotspot-marker" type="button" aria-expanded="false" aria-controls="story-hotspot-detail" aria-label="查看${initialChapter.hotspot.label}部件说明">
-            <span class="hotspot-pulse" aria-hidden="true"></span><strong>${initialChapter.hotspot.label}</strong>
-          </button>
-          <div id="story-hotspot-detail" class="hotspot-detail" hidden><b>${initialChapter.hotspot.label}</b><p>${initialChapter.description}</p></div>
-        </div>
+        <div class="story-hotspots" aria-label="车辆故事热点">${renderStoryHotspots()}</div>
+        <article id="story-hotspot-detail" class="story-detail" aria-live="polite">
+          <p>${initialChapter.eyebrow}</p><h2>${initialChapter.title}</h2><p data-story-description>${initialChapter.description}</p>
+        </article>
+        <nav class="mobile-story-rail" aria-label="车辆故事章节">${renderMobileStoryRail()}</nav>
       </div>
       <div class="vehicle-stage">
         <div class="hero-copy">
@@ -118,8 +135,12 @@ export function renderShell(root: HTMLElement): ShellElements {
   const doorButton = root.querySelector<HTMLButtonElement>('.door-button');
   const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
   const cabinDetail = root.querySelector<HTMLElement>('.cabin-detail');
-  const hotspotLabel = root.querySelector<HTMLElement>('.story-hotspot');
-  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !hotspotLabel) throw new Error('Vehicle shell failed to render');
+  const storyHotspots = Array.from(root.querySelectorAll<HTMLElement>('.story-hotspot'));
+  const storyDetail = root.querySelector<HTMLElement>('.story-detail');
+  const mobileStoryRail = root.querySelector<HTMLElement>('.mobile-story-rail');
+  const mobileStoryButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.mobile-story-rail [data-story-id]'));
+  const hotspotLabel = storyHotspots[0];
+  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !hotspotLabel || !storyDetail || !mobileStoryRail) throw new Error('Vehicle shell failed to render');
   return {
     stage,
     canvas,
@@ -127,6 +148,10 @@ export function renderShell(root: HTMLElement): ShellElements {
     enterCabinButton,
     cabinDetail,
     hotspotLabel,
+    storyHotspots,
+    storyDetail,
+    mobileStoryRail,
+    mobileStoryButtons,
     modeButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')),
     colorButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('.color-swatch')),
     seatButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-seat]')),

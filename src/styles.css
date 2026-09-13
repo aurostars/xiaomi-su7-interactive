@@ -59,20 +59,19 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .hero-specs dt { font-size: 19px; font-weight: 750; }
 .hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
 
-.story-hotspot { position: absolute; z-index: 4; left: var(--hotspot-x, 72%); top: var(--hotspot-y, 58%); pointer-events: auto; transition: left .45s ease, top .45s ease; }
-.story-hotspot[data-hotspot-position="front"] { --hotspot-x: 76%; --hotspot-y: 57%; }
-.story-hotspot[data-hotspot-position="wheel"] { --hotspot-x: 71%; --hotspot-y: 69%; }
-.story-hotspot[data-hotspot-position="cabin"] { --hotspot-x: 61%; --hotspot-y: 43%; }
-.story-hotspot[data-hotspot-position="roof"] { --hotspot-x: 67%; --hotspot-y: 29%; }
-.hotspot-marker { min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px 13px 8px 8px; border: 1px solid rgba(75, 223, 242, .5); border-radius: 999px; background: rgba(7, 10, 14, .82); backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); }
-.hotspot-marker strong { font-size: 12px; white-space: nowrap; }
+.story-hotspot { position: absolute; z-index: 4; left: var(--hotspot-x); top: var(--hotspot-y); pointer-events: auto; transform: translate(-22px, -22px); }
+.hotspot-marker { min-width: 44px; min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px; overflow: hidden; border: 1px solid rgba(75, 223, 242, .42); border-radius: 999px; background: rgba(7, 10, 14, .82); backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); transition: border-color .25s ease, background .25s ease; }
+.hotspot-marker strong { max-width: 0; overflow: hidden; opacity: 0; font-size: 12px; white-space: nowrap; transition: max-width .25s ease, opacity .2s ease; }
+.story-hotspot[aria-current="true"] .hotspot-marker, .hotspot-marker:focus-visible { border-color: var(--cyan); background: rgba(7, 19, 24, .94); }
+.story-hotspot[aria-current="true"] .hotspot-marker strong, .hotspot-marker:focus-visible strong { max-width: 140px; opacity: 1; }
 .hotspot-pulse { position: relative; width: 27px; height: 27px; flex: 0 0 27px; border: 1px solid var(--cyan); border-radius: 50%; }
 .hotspot-pulse::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--cyan); font-size: 17px; line-height: 1; }
-.hotspot-marker[aria-expanded="true"] .hotspot-pulse::after { content: "−"; }
-.hotspot-detail { position: absolute; top: calc(100% + 9px); right: 0; width: 248px; padding: 15px 16px; border: 1px solid var(--line); border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .94); backdrop-filter: blur(16px); }
-.hotspot-detail[hidden] { display: none; }
-.hotspot-detail b { font-size: 13px; }
-.hotspot-detail p { margin: 7px 0 0; color: #afb5bc; font-size: 12px; line-height: 1.65; }
+.story-hotspot[aria-current="true"] .hotspot-pulse::after { content: "−"; }
+.story-detail { position: absolute; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; z-index: 4; width: min(310px, calc(100% - 40px)); padding: 18px; border: 1px solid var(--line); border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .92); backdrop-filter: blur(16px); pointer-events: auto; }
+.story-detail > p:first-child { margin: 0 0 7px; color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.story-detail h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+.story-detail [data-story-description] { margin: 9px 0 0; color: #afb5bc; font-size: 12px; line-height: 1.65; }
+.mobile-story-rail { display: none; }
 
 .vehicle-controls { position: absolute; z-index: 4; top: 96px; right: max(36px, calc((100vw - 1160px) / 2)); width: 224px; padding: 10px; border: 1px solid var(--line); background: rgba(7, 10, 14, .82); backdrop-filter: blur(18px); }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
@@ -145,13 +144,16 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
   .hero-actions { gap: 8px; }
   .primary-cta, .secondary-cta { min-height: 44px; padding: 0 15px; font-size: 13px; }
-  .story-hotspot { transform: translateX(-50%); }
-  .story-hotspot[data-hotspot-position="front"] { --hotspot-x: 72%; --hotspot-y: 66%; }
-  .story-hotspot[data-hotspot-position="wheel"] { --hotspot-x: 67%; --hotspot-y: 74%; }
-  .story-hotspot[data-hotspot-position="cabin"] { --hotspot-x: 54%; --hotspot-y: 58%; }
-  .story-hotspot[data-hotspot-position="roof"] { --hotspot-x: 62%; --hotspot-y: 53%; }
-  .hotspot-marker { min-width: 44px; padding-right: 10px; }
-  .hotspot-detail { right: auto; left: 50%; width: min(230px, calc(100vw - 32px)); transform: translateX(-50%); }
+  .story-hotspot { display: none; left: var(--hotspot-x); top: var(--hotspot-y); transform: translate(-22px, -22px); }
+  .story-hotspot[aria-current="true"] { display: block; }
+  .hotspot-marker { min-width: 44px; min-height: 44px; }
+  .story-detail { right: 14px; bottom: 130px; left: 14px; width: auto; padding: 14px 16px; }
+  .story-detail h2 { font-size: 17px; }
+  .story-detail [data-story-description] { line-height: 1.5; }
+  .mobile-story-rail { position: absolute; right: 0; bottom: 76px; left: 0; z-index: 5; display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scroll-snap-type: x mandatory; pointer-events: auto; }
+  .mobile-story-rail button { min-width: max-content; min-height: 44px; padding: 0 16px; scroll-snap-align: start; border: 1px solid var(--line); border-radius: 999px; background: rgba(7, 10, 14, .88); }
+  .mobile-story-rail button[aria-current="true"] { border-color: var(--cyan); color: var(--cyan); }
+  html[data-vehicle-mode='cabin'] .story-hotspots, html[data-vehicle-mode='cabin'] .story-detail, html[data-vehicle-mode='cabin'] .mobile-story-rail { visibility: hidden; pointer-events: none; }
   .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
   .hero-specs div { padding: 10px; }
   .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; overscroll-behavior-inline: contain; border-width: 1px 0 0; }

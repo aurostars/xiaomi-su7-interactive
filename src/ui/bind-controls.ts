@@ -21,13 +21,6 @@ const CABIN_DETAILS = {
   },
 } as const;
 
-const HOTSPOT_POSITIONS: Record<StoryId, string> = {
-  aero: 'front',
-  performance: 'wheel',
-  cabin: 'cabin',
-  intelligence: 'roof',
-};
-
 export function applyVehicleCapabilities(elements: ShellElements, capabilities: VehicleCapabilities): void {
   elements.colorButtons.forEach((button) => {
     button.disabled = button.dataset.paint ? !capabilities.bodyColor : !capabilities.interiorColor;
@@ -75,19 +68,25 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   listen(elements.doorButton, () => store.actions.toggleDoors());
   listen(elements.enterCabinButton, () => store.actions.setMode('cabin'));
 
-  const hotspotMarker = elements.hotspotLabel.querySelector<HTMLButtonElement>('.hotspot-marker');
-  const hotspotDetail = elements.hotspotLabel.querySelector<HTMLElement>('.hotspot-detail');
-  const hotspotTitle = hotspotDetail?.querySelector<HTMLElement>('b');
-  const hotspotCopy = hotspotDetail?.querySelector<HTMLElement>('p');
-  if (!hotspotMarker || !hotspotDetail || !hotspotTitle || !hotspotCopy) {
-    throw new Error('Story hotspot failed to render');
-  }
-  listen(hotspotMarker, () => {
-    const expanded = hotspotMarker.getAttribute('aria-expanded') === 'true';
-    hotspotMarker.setAttribute('aria-expanded', String(!expanded));
-    hotspotDetail.hidden = expanded;
+  const storyTitle = elements.storyDetail.querySelector<HTMLElement>('h2');
+  const storyEyebrow = elements.storyDetail.querySelector<HTMLElement>(':scope > p:first-child');
+  const storyDescription = elements.storyDetail.querySelector<HTMLElement>('[data-story-description]');
+  if (!storyTitle || !storyEyebrow || !storyDescription) throw new Error('Story detail failed to render');
+
+  const selectStory = (id: StoryId) => {
+    store.actions.setActiveStory(id);
+    const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.querySelector<HTMLElement>(`[data-story-section="${id}"]`)?.scrollIntoView({ behavior });
+  };
+  const storyControls = [
+    ...elements.storyHotspots.map((hotspot) => hotspot.querySelector<HTMLButtonElement>('button')),
+    ...elements.mobileStoryButtons,
+  ];
+  storyControls.forEach((button) => {
+    if (!button) throw new Error('Story control failed to render');
+    listen(button, () => selectStory(button.dataset.storyId as StoryId));
   });
-  let activeHotspot = '';
+
   const cabinTitle = elements.cabinDetail.querySelector<HTMLElement>('h2');
   const cabinDescription = elements.cabinDetail.querySelector<HTMLElement>('[data-cabin-description]');
   const cabinTags = elements.cabinDetail.querySelector<HTMLUListElement>('ul');
@@ -122,19 +121,15 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       return item;
     }));
     const chapter = STORY_CHAPTERS.find(({ id }) => id === state.activeStoryId)!;
-    if (activeHotspot !== chapter.id) {
-      activeHotspot = chapter.id;
-      elements.hotspotLabel.dataset.hotspotView = chapter.id;
-      elements.hotspotLabel.dataset.hotspotPosition = HOTSPOT_POSITIONS[chapter.id];
-      elements.hotspotLabel.style.setProperty('--hotspot-x', `${chapter.hotspot.x}%`);
-      elements.hotspotLabel.style.setProperty('--hotspot-y', `${chapter.hotspot.y}%`);
-      hotspotMarker.setAttribute('aria-label', `查看${chapter.hotspot.label}部件说明`);
-      hotspotMarker.setAttribute('aria-expanded', 'false');
-      hotspotMarker.querySelector('strong')!.textContent = chapter.hotspot.label;
-      hotspotTitle.textContent = chapter.hotspot.label;
-      hotspotCopy.textContent = chapter.description;
-      hotspotDetail.hidden = true;
-    }
+    elements.storyHotspots.forEach((hotspot) => {
+      hotspot.setAttribute('aria-current', String(hotspot.dataset.storyId === chapter.id));
+    });
+    elements.mobileStoryButtons.forEach((button) => {
+      button.setAttribute('aria-current', String(button.dataset.storyId === chapter.id));
+    });
+    storyEyebrow.textContent = chapter.eyebrow;
+    storyTitle.textContent = chapter.title;
+    storyDescription.textContent = chapter.description;
     document.documentElement.dataset.vehicleMode = state.mode;
     elements.stage.dataset.mode = state.mode;
   };

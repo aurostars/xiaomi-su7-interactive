@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyVehicleCapabilities, bindControls } from '../src/ui/bind-controls';
 import { renderShell } from '../src/ui/render-shell';
 import { createVehicleStore } from '../src/state/vehicle-state';
@@ -161,33 +161,36 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.disabled).toBe(false);
   });
 
-  it('updates a positioned, expandable hotspot for all four story chapters', () => {
+  it('renders persistent story hotspots, mobile rail and detail from the initial story', () => {
+    const elements = renderShell(document.body);
+
+    expect(elements.storyHotspots).toHaveLength(4);
+    expect(elements.mobileStoryButtons).toHaveLength(4);
+    expect(elements.storyDetail.hidden).toBe(false);
+    expect(elements.storyDetail.textContent).toContain('低趴轿跑姿态');
+    expect(elements.storyHotspots[0].getAttribute('aria-current')).toBe('true');
+    expect(elements.mobileStoryButtons[0].getAttribute('aria-current')).toBe('true');
+  });
+
+  it('uses the story store as the single source for hotspot clicks and synchronized current states', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
+    const setActiveStory = vi.spyOn(store.actions, 'setActiveStory');
+    const scrollIntoView = vi.fn();
+    const performanceSection = document.querySelector<HTMLElement>('[data-story-section="performance"]')!;
+    performanceSection.scrollIntoView = scrollIntoView;
     const unbind = bindControls(elements, store);
-    const marker = elements.hotspotLabel.querySelector<HTMLButtonElement>('.hotspot-marker')!;
-    const detail = elements.hotspotLabel.querySelector<HTMLElement>('.hotspot-detail')!;
-    const expected = {
-      aero: ['空气动力学', '流畅车顶弧线', 'front'],
-      performance: ['电驱与底盘', '即时动力响应', 'wheel'],
-      cabin: ['智能座舱', '屏幕、方向盘与座椅', 'cabin'],
-      intelligence: ['智能驾驶感知', '感知硬件持续理解', 'roof'],
-    } as const;
 
-    for (const [view, [label, description, position]] of Object.entries(expected)) {
-      store.actions.setActiveStory(view as keyof typeof expected);
-      expect(elements.hotspotLabel.dataset.hotspotView).toBe(view);
-      expect(elements.hotspotLabel.dataset.hotspotPosition).toBe(position);
-      expect(marker.getAttribute('aria-label')).toBe(`查看${label}部件说明`);
-      expect(marker.textContent).toContain(label);
-      expect(detail.hidden).toBe(true);
+    elements.storyHotspots[1].querySelector<HTMLButtonElement>('button')!.click();
+    expect(setActiveStory).toHaveBeenCalledOnce();
+    expect(setActiveStory).toHaveBeenCalledWith('performance');
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' });
 
-      marker.click();
-      expect(marker.getAttribute('aria-expanded')).toBe('true');
-      expect(detail.hidden).toBe(false);
-      expect(detail.textContent).toContain(description);
-      marker.click();
-    }
+    store.actions.setActiveStory('performance');
+    expect(elements.storyHotspots[1].getAttribute('aria-current')).toBe('true');
+    expect(elements.mobileStoryButtons[1].getAttribute('aria-current')).toBe('true');
+    expect(elements.storyDetail.hidden).toBe(false);
+    expect(elements.storyDetail.textContent).toContain('电驱、轮组与底盘');
 
     unbind();
   });
