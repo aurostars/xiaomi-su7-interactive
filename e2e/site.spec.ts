@@ -641,6 +641,19 @@ for (const viewport of [
         JSON.stringify({ viewport, controlsBox }),
       ).toBeLessThanOrEqual(viewport.height * 0.7);
       expect(overlaps(controlsBox, focusBox), JSON.stringify({ viewport, controlsBox, focusBox })).toBe(false);
+      const swatches = page.locator('.vehicle-controls .color-swatch');
+      await expect(swatches).toHaveCount(13);
+      for (const swatch of await swatches.all()) {
+        const labelGeometry = await swatch.evaluate((button) => ({
+          label: button.textContent?.trim(),
+          clientWidth: button.clientWidth,
+          scrollWidth: button.scrollWidth,
+        }));
+        expect(
+          labelGeometry.scrollWidth,
+          JSON.stringify({ viewport, ...labelGeometry }),
+        ).toBeLessThanOrEqual(labelGeometry.clientWidth);
+      }
       await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
         animations: 'disabled',
         maxDiffPixelRatio: 0.035,
@@ -744,6 +757,16 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     await expect(card.getByRole('heading', { name: seat.title })).toBeVisible();
     await expect(card.locator('li')).toHaveCount(3);
     for (let index = 0; index < 3; index += 1) await expect(card.locator('li').nth(index)).toBeVisible();
+    const cardBox = await requiredBox(card);
+    for (const swatch of await page.locator('.vehicle-controls .color-swatch').all()) {
+      const swatchBox = await requiredBox(swatch);
+      expect(overlaps(cardBox, swatchBox), `${seat.key}: ${await swatch.textContent() ?? ''}`).toBe(false);
+      const labelGeometry = await swatch.evaluate((button) => ({
+        label: button.textContent?.trim(), clientWidth: button.clientWidth, scrollWidth: button.scrollWidth,
+      }));
+      expect(labelGeometry.scrollWidth, `${seat.key}: ${JSON.stringify(labelGeometry)}`)
+        .toBeLessThanOrEqual(labelGeometry.clientWidth);
+    }
     const readable = await readCanvasLuminance(page, seat.readableRegion);
     expect(readable.median, `${seat.key} readable-region luminance ${JSON.stringify(readable)}`)
       .toBeGreaterThanOrEqual(seat.minMedian);
