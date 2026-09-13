@@ -15,6 +15,7 @@ import {
   type WebGLRenderTarget,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import type { SeatView } from '../state/vehicle-state';
 import { createCabinLighting } from './cabin-lighting';
 import { createRenderScheduler, type RenderReason } from './render-scheduler';
 
@@ -33,7 +34,7 @@ export interface SceneRuntime {
   render(): void;
   start(): void;
   setBeforeRender(callback: (now: number) => void): () => void;
-  setCabinMode(enabled: boolean, immediate?: boolean): void;
+  setCabinMode(enabled: boolean, seatView: SeatView, immediate?: boolean): void;
   getCabinLightingDiagnostics(): { enabled: boolean; exposure: number; activeLights: number };
   dispose(): void;
 }
@@ -223,8 +224,8 @@ export function createScene(
     setBeforeRender(callback) {
       return renderLifecycle.setBeforeRender(callback);
     },
-    setCabinMode(enabled, immediate) {
-      cabinLighting.setEnabled(enabled, immediate);
+    setCabinMode(enabled, seatView, immediate) {
+      cabinLighting.apply({ enabled, seatView }, immediate);
     },
     getCabinLightingDiagnostics() {
       return cabinLighting.getDiagnostics();

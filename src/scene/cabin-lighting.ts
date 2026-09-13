@@ -1,9 +1,16 @@
 import { AmbientLight, Group, PointLight, type Light, type Scene, type WebGLRenderer } from 'three';
+import type { SeatView } from '../state/vehicle-state';
 import type { SceneQuality } from './create-scene';
 
 export type Invalidate = () => void;
 
+export interface CabinLightingOptions {
+  enabled: boolean;
+  seatView: SeatView;
+}
+
 export interface CabinLightingController {
+  apply(options: CabinLightingOptions, immediate?: boolean): void;
   setEnabled(enabled: boolean, immediate?: boolean): void;
   getDiagnostics(): { enabled: boolean; exposure: number; activeLights: number };
   dispose(): void;
@@ -11,6 +18,17 @@ export interface CabinLightingController {
 
 const CABIN_EXPOSURE = 0.88;
 const TRANSITION_MS = 240;
+
+type WeightedLight = {
+  light: Light;
+  intensities: Record<SeatView, number>;
+};
+
+const sameIntensity = (intensity: number): Record<SeatView, number> => ({
+  driver: intensity,
+  passenger: intensity,
+  rear: intensity,
+});
 
 export function createCabinLighting(
   scene: Scene,
@@ -33,12 +51,22 @@ export function createCabinLighting(
   const ambient = new AmbientLight(0xb8d9ff, 0);
   ambient.name = 'cabin-ambient-fill';
 
-  const lights: Array<{ light: Light; enabledIntensity: number }> = [
-    { light: ambient, enabledIntensity: 0.45 },
-    { light: roof, enabledIntensity: 1.4 },
-    { light: screen, enabledIntensity: 0.35 },
+  const broadFill = new PointLight(0x8fcfff, 0, 4.8);
+  broadFill.name = 'cabin-broad-fill';
+  broadFill.position.set(0, 1.28, 0.15);
+
+  const rearFill = new PointLight(0xa8d8ff, 0, 2.8);
+  rearFill.name = 'cabin-rear-fill';
+  rearFill.position.set(0, 1.15, 1.05);
+
+  const lights: WeightedLight[] = [
+    { light: ambient, intensities: sameIntensity(0.3) },
+    { light: roof, intensities: { driver: 0.72, passenger: 0.72, rear: 0.58 } },
+    { light: screen, intensities: { driver: 0.3, passenger: 0.3, rear: 0.18 } },
+    { light: broadFill, intensities: { driver: 0.28, passenger: 0.28, rear: 0.36 } },
+    { light: rearFill, intensities: { driver: 0.12, passenger: 0.12, rear: 0.48 } },
   ];
-  rig.add(ambient, roof, screen);
+  rig.add(ambient, roof, screen, broadFill, rearFill);
 
   if (quality !== 'low') {
     const left = new PointLight(0x5aaeff, 0, 1.35);
@@ -49,14 +77,15 @@ export function createCabinLighting(
     right.position.x = 0.55;
     rig.add(left, right);
     lights.push(
-      { light: left, enabledIntensity: 0.18 },
-      { light: right, enabledIntensity: 0.18 },
+      { light: left, intensities: { driver: 0.14, passenger: 0.1, rear: 0.08 } },
+      { light: right, intensities: { driver: 0.1, passenger: 0.14, rear: 0.08 } },
     );
   }
 
   scene.add(rig);
   const exteriorExposure = renderer.toneMappingExposure;
   let enabled = false;
+  let seatView: SeatView = 'driver';
   let disposed = false;
   let animationFrame: number | null = null;
 
@@ -66,39 +95,45 @@ export function createCabinLighting(
     animationFrame = null;
   };
 
-  const apply = (intensities: number[], exposure: number) => {
+  const setValues = (intensities: number[], exposure: number) => {
     lights.forEach(({ light }, index) => { light.intensity = intensities[index]; });
     renderer.toneMappingExposure = exposure;
   };
 
-  return {
-    setEnabled(nextEnabled, immediate = false) {
-      if (disposed) return;
-      cancelTransition();
-      enabled = nextEnabled;
-      const targets = lights.map(({ enabledIntensity }) => nextEnabled ? enabledIntensity : 0);
-      const targetExposure = nextEnabled ? CABIN_EXPOSURE : exteriorExposure;
-      if (immediate || reducedMotion) {
-        apply(targets, targetExposure);
-        invalidate();
-        return;
-      }
+  const transitionTo = (options: CabinLightingOptions, immediate = false) => {
+    if (disposed) return;
+    cancelTransition();
+    enabled = options.enabled;
+    seatView = options.seatView;
+    const targets = lights.map(({ intensities }) => enabled ? intensities[seatView] : 0);
+    const targetExposure = enabled ? CABIN_EXPOSURE : exteriorExposure;
+    if (immediate || reducedMotion) {
+      setValues(targets, targetExposure);
+      invalidate();
+      return;
+    }
 
-      const starts = lights.map(({ light }) => light.intensity);
-      const startExposure = renderer.toneMappingExposure;
-      const startAt = performance.now();
-      const animate = (now: number) => {
-        const progress = Math.min(1, (now - startAt) / TRANSITION_MS);
-        const eased = 1 - (1 - progress) ** 3;
-        apply(
-          starts.map((start, index) => start + (targets[index] - start) * eased),
-          startExposure + (targetExposure - startExposure) * eased,
-        );
-        invalidate();
-        if (progress < 1) animationFrame = requestAnimationFrame(animate);
-        else animationFrame = null;
-      };
-      animationFrame = requestAnimationFrame(animate);
+    const starts = lights.map(({ light }) => light.intensity);
+    const startExposure = renderer.toneMappingExposure;
+    const startAt = performance.now();
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startAt) / TRANSITION_MS);
+      const eased = 1 - (1 - progress) ** 3;
+      setValues(
+        starts.map((start, index) => start + (targets[index] - start) * eased),
+        startExposure + (targetExposure - startExposure) * eased,
+      );
+      invalidate();
+      if (progress < 1) animationFrame = requestAnimationFrame(animate);
+      else animationFrame = null;
+    };
+    animationFrame = requestAnimationFrame(animate);
+  };
+
+  return {
+    apply: transitionTo,
+    setEnabled(nextEnabled, immediate = false) {
+      transitionTo({ enabled: nextEnabled, seatView }, immediate);
     },
     getDiagnostics() {
       return {
@@ -112,7 +147,7 @@ export function createCabinLighting(
       disposed = true;
       cancelTransition();
       enabled = false;
-      apply(lights.map(() => 0), exteriorExposure);
+      setValues(lights.map(() => 0), exteriorExposure);
       rig.removeFromParent();
       rig.clear();
     },

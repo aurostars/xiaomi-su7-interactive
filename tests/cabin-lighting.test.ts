@@ -55,6 +55,8 @@ describe('cabin lighting', () => {
     expect(lights.map((light) => light.name)).toEqual([
       'cabin-roof-light',
       'cabin-screen-light',
+      'cabin-broad-fill',
+      'cabin-rear-fill',
       'cabin-footwell-left-light',
       'cabin-footwell-right-light',
     ]);
@@ -72,8 +74,37 @@ describe('cabin lighting', () => {
     expect(controller.getDiagnostics()).toEqual({
       enabled: true,
       exposure: renderer.toneMappingExposure,
-      activeLights: 5,
+      activeLights: 7,
     });
+  });
+
+  it('reweights one cool cabin rig for each seat without reallocating lights', () => {
+    const scene = new Scene();
+    const renderer = rendererWithExposure();
+    const controller = createCabinLighting(scene, renderer, 'high', true);
+    const rig = scene.getObjectByName('cabin-light-rig');
+    const initialChildren = [...(rig?.children ?? [])];
+
+    controller.apply({ enabled: true, seatView: 'driver' });
+    const roof = scene.getObjectByName('cabin-roof-light') as PointLight;
+    const screen = scene.getObjectByName('cabin-screen-light') as PointLight;
+    const broadFill = scene.getObjectByName('cabin-broad-fill') as PointLight;
+    const rearFill = scene.getObjectByName('cabin-rear-fill') as PointLight;
+    const driverRearIntensity = rearFill.intensity;
+    expect(roof.intensity).toBeGreaterThan(0);
+    expect(screen.intensity).toBeGreaterThan(0);
+    expect(broadFill.color.b).toBeGreaterThan(broadFill.color.r);
+    expect(renderer.toneMappingExposure).toBeLessThanOrEqual(1);
+
+    controller.apply({ enabled: true, seatView: 'passenger' });
+    expect(roof.intensity).toBeGreaterThan(0);
+    expect(screen.intensity).toBeGreaterThan(0);
+    controller.apply({ enabled: true, seatView: 'rear' });
+    expect(rearFill.intensity).toBeGreaterThan(driverRearIntensity);
+    expect(rig?.children).toEqual(initialChildren);
+
+    controller.apply({ enabled: false, seatView: 'rear' });
+    expect(rig?.children.every((child) => (child as PointLight).intensity === 0)).toBe(true);
   });
 
   it('omits footwell lights at low quality', () => {
@@ -85,8 +116,10 @@ describe('cabin lighting', () => {
     expect(rigLights(scene).map((light) => light.name)).toEqual([
       'cabin-roof-light',
       'cabin-screen-light',
+      'cabin-broad-fill',
+      'cabin-rear-fill',
     ]);
-    expect(controller.getDiagnostics().activeLights).toBe(3);
+    expect(controller.getDiagnostics().activeLights).toBe(5);
   });
 
   it('restores the captured exterior exposure when disabled', () => {

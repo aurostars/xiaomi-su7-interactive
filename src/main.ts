@@ -176,8 +176,8 @@ orchestrator = createExperienceOrchestrator({
       runtime.requestRender();
       const intent = getCabinExperienceIntent(previousExperienceState, state);
       previousExperienceState = state;
-      if (intent.cabinMode !== undefined) {
-        runtime.setCabinMode(intent.cabinMode, capabilities.reducedMotion);
+      if (intent.cabinMode !== undefined || intent.cameraView) {
+        runtime.setCabinMode(state.mode === 'cabin', state.seatView, capabilities.reducedMotion);
       }
       if (intent.cameraView) {
         cameraRender.setTarget(intent.cameraView);
@@ -204,7 +204,7 @@ orchestrator = createExperienceOrchestrator({
         applyVehicleCapabilities(elements, vehicle.capabilities);
         const state = store.getState();
         vehicleController.applyState(state);
-        runtime.setCabinMode(state.mode === 'cabin', true);
+        runtime.setCabinMode(state.mode === 'cabin', state.seatView, true);
         if (state.mode === 'cabin') cameraRender.setTarget(state.seatView);
         else {
           const currentStoryFrame = cameraRender.setStoryProgress(storyFrame.view, storyFrame.progress);
