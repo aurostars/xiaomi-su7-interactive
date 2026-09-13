@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import type { InteriorId, PaintId } from '../src/content/vehicle-palettes';
 import { createVehicleStore } from '../src/state/vehicle-state';
 
 describe('vehicle state', () => {
@@ -8,6 +9,17 @@ describe('vehicle state', () => {
 
   it('starts with the vehicle presentation defaults', () => {
     const store = createVehicleStore();
+
+    expectTypeOf(store.getState().paint).toEqualTypeOf<PaintId>();
+    expectTypeOf(store.getState().interior).toEqualTypeOf<InteriorId>();
+    if (false) {
+      store.actions.setPaint('gulf-blue');
+      store.actions.setInterior('obsidian-black');
+      // @ts-expect-error arbitrary strings are rejected after hydration
+      store.actions.setPaint('custom-paint');
+      // @ts-expect-error arbitrary strings are rejected after hydration
+      store.actions.setInterior('custom-interior');
+    }
 
     expect(store.getState()).toEqual({
       mode: 'exterior',
@@ -87,13 +99,13 @@ describe('vehicle state', () => {
 
     store.actions.setMode('cabin');
     store.actions.setPaint('pearl-white');
-    store.actions.setInterior('mist-gray');
+    store.actions.setInterior('mist-purple');
     store.actions.setActiveStory('performance');
 
     expect(store.getState()).toMatchObject({
       mode: 'cabin',
       paint: 'pearl-white',
-      interior: 'mist-gray',
+      interior: 'mist-purple',
       activeStoryId: 'performance',
       doorsOpen: true,
       seatView: 'driver',
@@ -147,7 +159,7 @@ describe('vehicle state', () => {
 
     store.actions.setPaint('pearl-white');
     unsubscribe();
-    store.actions.setPaint('aqua-blue');
+    store.actions.setPaint('elegant-gray');
 
     expect(observedPaints).toEqual(['pearl-white']);
   });

@@ -1,13 +1,18 @@
 import type { StoryId } from '../content/story-chapters';
-import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
+import {
+  getInteriorOption,
+  getPaintOption,
+  type InteriorId,
+  type PaintId,
+} from '../content/vehicle-palettes';
 
 export type VehicleMode = 'exterior' | 'cabin';
 export type SeatView = 'driver' | 'passenger' | 'rear';
 
 export interface VehicleState {
   mode: VehicleMode;
-  paint: string;
-  interior: string;
+  paint: PaintId;
+  interior: InteriorId;
   doorsOpen: boolean;
   seatView: SeatView;
   activeStoryId: StoryId;
@@ -19,8 +24,8 @@ export interface VehicleStore {
   subscribe(listener: () => void): () => void;
   actions: {
     setMode(mode: VehicleMode): void;
-    setPaint(paint: string): void;
-    setInterior(interior: string): void;
+    setPaint(paint: PaintId): void;
+    setInterior(interior: InteriorId): void;
     toggleDoors(): void;
     setSeatView(seatView: SeatView): void;
     setActiveStory(id: StoryId): void;
@@ -38,7 +43,12 @@ const defaultState: VehicleState = {
   autoCameraSuspendedUntil: 0,
 };
 
-export function createVehicleStore(initial: Partial<VehicleState> = {}): VehicleStore {
+export type VehicleStateHydration = Omit<Partial<VehicleState>, 'paint' | 'interior'> & {
+  paint?: string;
+  interior?: string;
+};
+
+export function createVehicleStore(initial: VehicleStateHydration = {}): VehicleStore {
   let state: Readonly<VehicleState> = Object.freeze({
     ...defaultState,
     ...initial,

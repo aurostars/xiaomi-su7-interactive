@@ -27,10 +27,10 @@ export const INTERIOR_OPTIONS = [
 export type PaintId = typeof PAINT_OPTIONS[number]['id'];
 export type InteriorId = typeof INTERIOR_OPTIONS[number]['id'];
 
-export function getPaintOption(id: string): VehiclePaletteOption<string> {
+export function getPaintOption(id: string): typeof PAINT_OPTIONS[number] {
   return PAINT_OPTIONS.find((option) => option.id === id) ?? PAINT_OPTIONS[0];
 }
 
-export function getInteriorOption(id: string): VehiclePaletteOption<string> {
+export function getInteriorOption(id: string): typeof INTERIOR_OPTIONS[number] {
   return INTERIOR_OPTIONS.find((option) => option.id === id) ?? INTERIOR_OPTIONS[1];
 }

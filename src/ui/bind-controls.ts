@@ -1,3 +1,4 @@
+import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
 import { STORY_CHAPTERS } from '../content/story-chapters';
 import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
@@ -55,8 +56,8 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   });
   elements.colorButtons.forEach((button) => {
     listen(button, () => {
-      if (button.dataset.paint) store.actions.setPaint(button.dataset.paint);
-      if (button.dataset.interior) store.actions.setInterior(button.dataset.interior);
+      if (button.dataset.paint) store.actions.setPaint(getPaintOption(button.dataset.paint).id);
+      if (button.dataset.interior) store.actions.setInterior(getInteriorOption(button.dataset.interior).id);
     });
   });
   elements.seatButtons.forEach((button) => {

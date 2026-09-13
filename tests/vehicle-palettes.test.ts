@@ -4,7 +4,16 @@ import {
   getPaintOption,
   INTERIOR_OPTIONS,
   PAINT_OPTIONS,
+  type InteriorId,
+  type PaintId,
 } from '../src/content/vehicle-palettes';
+
+const paintOption: (typeof PAINT_OPTIONS)[number] = getPaintOption('legacy-paint');
+const interiorOption: (typeof INTERIOR_OPTIONS)[number] = getInteriorOption('legacy-interior');
+const paintId: PaintId = paintOption.id;
+const interiorId: InteriorId = interiorOption.id;
+void paintId;
+void interiorId;
 
 describe('official initial-generation SU7 palettes', () => {
   it('exposes the exact official 9+4 colors in display order', () => {
