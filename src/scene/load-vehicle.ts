@@ -1,5 +1,6 @@
 import {
   BufferGeometry,
+  FrontSide,
   Group,
   Mesh,
   MeshPhysicalMaterial,
@@ -32,6 +33,12 @@ const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
 function tuneAutomotiveMaterial(material: Material) {
   if (!(material instanceof MeshPhysicalMaterial)) return;
   const name = normalizeName(material.name);
+  if (name === 'car_body'
+    || WINDOW_MATERIAL_NAMES.has(name)
+    || name.includes('body_black')
+    || name.includes('body_inside')) {
+    material.side = FrontSide;
+  }
   material.envMapIntensity = 1.35;
   if (name === 'car_body') {
     material.metalness = .58;

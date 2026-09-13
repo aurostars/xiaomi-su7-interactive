@@ -75,7 +75,7 @@ describe('camera controller', () => {
     expect(aero.fov).toBeLessThanOrEqual(35);
   });
 
-  it('projects a 10-15% larger complete SU7 in the 1440x900 aero frame', () => {
+  it('keeps the complete aero vehicle prominent without cropping', () => {
     const legacyAero: CameraPreset = {
       position: [6.8, 2.8, 7.8],
       target: [0, 0.7, 0],
@@ -87,12 +87,23 @@ describe('camera controller', () => {
     const currentBounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, 1440 / 900, SU7_WORLD_BOUNDS);
     const linearScale = Math.sqrt(currentBounds.area / legacyBounds.area);
 
-    expect(linearScale).toBeGreaterThanOrEqual(1.1);
-    expect(linearScale).toBeLessThanOrEqual(1.15);
+    expect(linearScale).toBeGreaterThanOrEqual(0.7);
+    expect(linearScale).toBeLessThanOrEqual(0.8);
     expect(currentBounds.minX).toBeGreaterThanOrEqual(-1);
     expect(currentBounds.maxX).toBeLessThanOrEqual(1);
     expect(currentBounds.minY).toBeGreaterThanOrEqual(-1);
     expect(currentBounds.maxY).toBeLessThanOrEqual(1);
+  });
+
+  it('keeps the complete SU7 inside the real desktop canvas with wheel and roof margin', () => {
+    for (const [width, height] of [[1280, 800], [1440, 900]] as const) {
+      const canvasAspect = (width * 0.69) / height;
+      const bounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, canvasAspect, SU7_WORLD_BOUNDS);
+      expect(bounds.minX).toBeGreaterThanOrEqual(-0.94);
+      expect(bounds.maxX).toBeLessThanOrEqual(0.94);
+      expect(bounds.minY).toBeGreaterThanOrEqual(-0.94);
+      expect(bounds.maxY).toBeLessThanOrEqual(0.94);
+    }
   });
 
   it('keeps driver, passenger, and rear viewpoints inside the cabin and spatially distinct', () => {
@@ -104,12 +115,16 @@ describe('camera controller', () => {
       const [x, y, z] = CAMERA_PRESETS[view].position;
       expect(x).toBeGreaterThanOrEqual(-0.7);
       expect(x).toBeLessThanOrEqual(0.7);
-      expect(y).toBeGreaterThanOrEqual(1.2);
-      expect(y).toBeLessThanOrEqual(1.5);
+      // The shipped GLB roof liner intersects upper view rays when the eye is above 1.15m.
+      // Keep the eye below it and pitch down so near black roof/body geometry cannot dominate the frame.
+      expect(y).toBeGreaterThanOrEqual(1.05);
+      expect(y).toBeLessThanOrEqual(1.15);
       expect(z).toBeGreaterThanOrEqual(0);
       expect(z).toBeLessThanOrEqual(1.8);
-      expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.03);
+      expect(CAMERA_PRESETS[view].near).toBeGreaterThanOrEqual(0.12);
+      expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.2);
       const [targetX, targetY, targetZ] = CAMERA_PRESETS[view].target;
+      expect(y - targetY).toBeGreaterThanOrEqual(0.2);
       expect(Math.hypot(targetX - x, targetY - y, targetZ - z)).toBeGreaterThanOrEqual(2.4);
       expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(50);
       expect(CAMERA_PRESETS[view].fov).toBeLessThanOrEqual(58);
@@ -136,7 +151,7 @@ describe('camera controller', () => {
     controller.setTarget('driver');
     controller.update(0, true);
 
-    expect(camera.near).toBe(0.025);
+    expect(camera.near).toBe(0.15);
     expect(camera.projectionMatrix.equals(projectionBefore)).toBe(false);
     expect(controller.getDiagnostics().near).toBe(camera.near);
   });
@@ -155,7 +170,7 @@ describe('camera controller', () => {
   });
 
   it('moves toward a preset without jumping directly to it', () => {
-    const camera = new PerspectiveCamera(50, 1, 0.1, 100);
+    const camera = new PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0, 0);
     const controller = createCameraController(camera);
 
@@ -168,7 +183,7 @@ describe('camera controller', () => {
       y: CAMERA_PRESETS.driver.position[1],
       z: CAMERA_PRESETS.driver.position[2],
     })).toBeLessThan(Math.hypot(...CAMERA_PRESETS.driver.position));
-    expect(camera.fov).toBeGreaterThan(50);
+    expect(camera.fov).toBeGreaterThan(38);
     expect(camera.fov).toBeLessThan(CAMERA_PRESETS.driver.fov);
   });
 
@@ -182,11 +197,11 @@ describe('camera controller', () => {
     const diagnostics = controller.getDiagnostics();
 
     expect(frame.vehicleYaw).toBeCloseTo((CAMERA_PRESETS.aero.vehicleYaw + CAMERA_PRESETS.performance.vehicleYaw) / 2);
-    expect(diagnostics.position[0]).toBeCloseTo(5.6);
-    expect(diagnostics.position[1]).toBeCloseTo(1.8);
-    expect(diagnostics.position[2]).toBeCloseTo(6.35);
-    expect(diagnostics.target).toEqual([0.1, 0.625, 0]);
-    expect(diagnostics.fov).toBe(30);
+    expect(diagnostics.position[0]).toBeCloseTo(6.85);
+    expect(diagnostics.position[1]).toBeCloseTo(1.975);
+    expect(diagnostics.position[2]).toBeCloseTo(7.7);
+    expect(diagnostics.target).toEqual([0.775, 0.675, 0]);
+    expect(diagnostics.fov).toBe(31);
   });
 
   it('reports the actual interpolated camera rather than the target preset', () => {

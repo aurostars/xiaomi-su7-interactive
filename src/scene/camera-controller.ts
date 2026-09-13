@@ -44,13 +44,13 @@ export interface CameraController {
 }
 
 export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
-  aero: { position: [6, 2.4, 6.9], target: [0, 0.7, 0], fov: 32, near: 0.1, vehicleYaw: -0.18 },
+  aero: { position: [8.5, 2.75, 9.6], target: [1.35, 0.8, 0], fov: 34, near: 0.1, vehicleYaw: -0.18 },
   performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
   cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
   sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, near: 0.1, vehicleYaw: 0.48 },
-  driver: { position: [-0.38, 1.26, 0.08], target: [-0.28, 1.06, -2.4], fov: 58, near: 0.025, vehicleYaw: 0 },
-  passenger: { position: [0.38, 1.26, 0.08], target: [-0.25, 1.05, -2.35], fov: 58, near: 0.025, vehicleYaw: 0 },
-  rear: { position: [0, 1.3, 1.28], target: [0, 1.05, -1.6], fov: 58, near: 0.025, vehicleYaw: 0 },
+  driver: { position: [-0.38, 1.1, 0.08], target: [-0.28, 0.8, -2.4], fov: 50, near: 0.15, vehicleYaw: 0 },
+  passenger: { position: [0.38, 1.1, 0.08], target: [-0.25, 0.8, -2.35], fov: 50, near: 0.15, vehicleYaw: 0 },
+  rear: { position: [0, 1.1, 1.28], target: [0, 0.72, -1.6], fov: 50, near: 0.15, vehicleYaw: 0 },
 };
 
 export interface WorldBounds {

@@ -95,9 +95,16 @@ describe('cabin lighting', () => {
     expect(roof.intensity).toBeGreaterThan(0);
     expect(screen.intensity).toBeGreaterThan(0);
     expect(ambientFill.intensity).toBeGreaterThanOrEqual(0.45);
-    expect(broadFill.intensity).toBeGreaterThanOrEqual(0.4);
+    expect(ambientFill.intensity).toBeLessThanOrEqual(0.5);
+    expect(roof.intensity).toBeLessThanOrEqual(0.2);
+    expect(screen.intensity).toBeLessThanOrEqual(0.14);
+    expect(broadFill.intensity).toBeGreaterThan(0);
+    expect(broadFill.intensity).toBeLessThanOrEqual(0.2);
+    expect(rearFill.intensity).toBeLessThanOrEqual(0.24);
+    expect(roof.intensity + screen.intensity + broadFill.intensity + rearFill.intensity)
+      .toBeLessThanOrEqual(0.65);
     expect(broadFill.color.b).toBeGreaterThan(broadFill.color.r);
-    expect(renderer.toneMappingExposure).toBeLessThanOrEqual(1);
+    expect(renderer.toneMappingExposure).toBeLessThanOrEqual(0.88);
 
     controller.apply({ enabled: true, seatView: 'passenger' });
     expect(roof.intensity).toBeGreaterThan(0);
@@ -195,11 +202,11 @@ describe('cabin lighting', () => {
     controller.apply({ enabled: true, seatView: 'rear' });
     frames.flush(120);
     expect(rearFill.intensity).toBeGreaterThan(driverIntensity);
-    expect(rearFill.intensity).toBeLessThan(0.48);
+    expect(rearFill.intensity).toBeLessThan(0.18);
     expect(invalidate).toHaveBeenCalledTimes(1);
 
     frames.flush(240);
-    expect(rearFill.intensity).toBe(0.48);
+    expect(rearFill.intensity).toBe(0.18);
     expect(invalidate).toHaveBeenCalledTimes(2);
     expect(frames.pendingCount()).toBe(0);
   });

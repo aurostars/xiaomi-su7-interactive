@@ -49,7 +49,8 @@ function cabinSystems(diagnostics: Su7Diagnostics) {
     lightingEnabled: diagnostics.cabinLighting?.enabled,
     activeLightsReady: (diagnostics.cabinLighting?.activeLights ?? 0) >= 2,
     exposure: diagnostics.cabinLighting?.exposure,
-    cameraNearReady: (diagnostics.camera?.near ?? Number.POSITIVE_INFINITY) <= .03,
+    cameraNearReady: (diagnostics.camera?.near ?? 0) >= .12
+      && (diagnostics.camera?.near ?? Number.POSITIVE_INFINITY) <= .2,
     screensReady: diagnostics.materials.screens >= 2,
   };
 }
@@ -156,6 +157,11 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
+test('targeted locator selects a story hotspot by its own data-story-id', async ({ page }) => {
+  await page.setContent('<div class="story-hotspot" data-story-id="aero"></div>');
+  await expect(page.locator('.story-hotspot[data-story-id="aero"]')).toHaveCount(1);
+});
+
 test('persistent story keeps hotspots, detail and rendered camera synchronized', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -188,7 +194,7 @@ test('persistent story keeps hotspots, detail and rendered camera synchronized',
       renderedView: chapter.view,
       renderedCameraView: chapter.view,
     });
-    await expect(hotspots.filter({ has: page.locator(`[data-story-id="${chapter.id}"]`) })).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator(`.story-hotspot[data-story-id="${chapter.id}"]`)).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
     await expect(detail).toBeVisible();
     await expect(detail.getByRole('heading', { name: chapter.title })).toBeVisible();
@@ -423,10 +429,10 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   const hotspotPositions = new Set<string>();
   const hotspotExpectations = {
-    aero: ['空气动力学', '76%', '57%', '流畅车顶弧线'],
-    performance: ['电驱与底盘', '71%', '69%', '即时动力响应'],
-    cabin: ['智能座舱', '61%', '43%', '屏幕、方向盘与座椅'],
-    intelligence: ['智能驾驶感知', '67%', '29%', '感知硬件持续理解'],
+    aero: ['空气动力学', '流畅车顶弧线'],
+    performance: ['电驱与底盘', '即时动力响应'],
+    cabin: ['智能座舱', '屏幕、方向盘与座椅'],
+    intelligence: ['智能驾驶感知', '感知硬件持续理解'],
   } as const;
   for (const view of ['aero', 'performance', 'cabin', 'intelligence'] as const) {
     await scrollStoryTo(page, view);
@@ -435,19 +441,15 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       return { activeStoryId: state.activeStoryId, cameraView: state.camera?.view };
     }).toEqual({ activeStoryId: view, cameraView: view === 'intelligence' ? 'sensing' : view });
 
-    const [label, x, y, detail] = hotspotExpectations[view];
+    const [label, detail] = hotspotExpectations[view];
     const hotspot = page.locator(`.story-hotspot[data-story-id="${view}"]`);
     const marker = hotspot.locator('.hotspot-marker');
     await expect(hotspot).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
     await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
     await expect(marker).toBeVisible();
-    const position = await hotspot.evaluate((element) => {
-      const style = (element as HTMLElement).style;
-      return `${style.getPropertyValue('--hotspot-x')},${style.getPropertyValue('--hotspot-y')}`;
-    });
-    expect(position).toBe(`${x},${y}`);
-    hotspotPositions.add(position);
+    const markerBox = await requiredBox(marker);
+    hotspotPositions.add(`${Math.round(markerBox.x)},${Math.round(markerBox.y)}`);
     await marker.evaluate((button: HTMLButtonElement) => button.click());
     await expect(page.locator(`[data-story-section="${view}"]`)).toBeInViewport();
     await expect(page.locator('.story-detail')).toBeVisible();
@@ -514,6 +516,18 @@ for (const viewport of [
     }
 
     if (viewport.width !== 390) {
+      const heroCopy = page.locator('.hero-copy');
+      const heroActions = page.locator('.hero-actions');
+      const storyDetail = page.locator('.story-detail');
+      const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls, storyDetail].map(requiredBox));
+      const desktopHotspots = page.locator('.story-hotspot');
+      await expect(desktopHotspots).toHaveCount(4);
+      for (const hotspot of await desktopHotspots.all()) {
+        const hotspotBox = await requiredBox(hotspot.locator('.hotspot-marker'));
+        for (const occupiedBox of occupiedBoxes) {
+          expect(overlaps(hotspotBox, occupiedBox), JSON.stringify({ viewport, hotspotBox, occupiedBox })).toBe(false);
+        }
+      }
       await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
         animations: 'disabled',
         maxDiffPixelRatio: 0.035,
@@ -583,14 +597,14 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
   await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
   await expectRenderedCamera(page, initialRevision, {
     view: 'driver',
-    position: [-0.38, 1.26, 0.08],
-    near: 0.025,
+    position: [-0.38, 1.1, 0.08],
+    near: 0.15,
   });
 
   const seats = [
-    { key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.26, 0.08] },
-    { key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.3, 1.28] },
-    { key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.26, 0.08] },
+    { key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.1, 0.08] },
+    { key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.1, 1.28] },
+    { key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.1, 0.08] },
   ] as const;
   for (const seat of seats) {
     const button = page.getByRole('button', { name: seat.label, exact: true });
@@ -599,7 +613,7 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     await expectRenderedCamera(page, revisionBeforeClick, {
       view: seat.key,
       position: seat.position,
-      near: 0.025,
+      near: 0.15,
     });
     const diagnostics = await readDiagnostics(page);
     expect(Object.values(diagnostics.doorAngles).every((angle) => Number.isFinite(angle))).toBe(true);

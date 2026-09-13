@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BoxGeometry,
   BufferGeometry,
+  DoubleSide,
+  FrontSide,
   Group,
   Mesh,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
   Scene,
@@ -107,6 +110,25 @@ describe('createLoadedVehicle', () => {
       rearLeft: false,
       rearRight: false,
     });
+  });
+
+  it('culls exterior shell backfaces so cabin cameras are not covered by opaque body geometry', () => {
+    const root = new Group();
+    const exteriorNames = ['Car_body', 'M_BODY_inside.004', 'M_BODY_black.004', 'Car_window'];
+    const exteriorMaterials = exteriorNames.map((name) => {
+      const material = new MeshPhysicalMaterial({ side: DoubleSide });
+      material.name = name;
+      root.add(new Mesh(new BoxGeometry(1, 1, 1), material));
+      return material;
+    });
+    const interior = new MeshPhysicalMaterial({ side: DoubleSide });
+    interior.name = 'interior1.001';
+    root.add(new Mesh(new BoxGeometry(1, 1, 1), interior));
+
+    createLoadedVehicle(root);
+
+    for (const material of exteriorMaterials) expect(material.side).toBe(FrontSide);
+    expect(interior.side).toBe(DoubleSide);
   });
 
   it('adds both cabin display overlays and exposes their materials', () => {
