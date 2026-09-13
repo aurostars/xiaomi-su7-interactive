@@ -34,6 +34,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .vehicle-visual { position: sticky; top: 0; z-index: 2; height: 100dvh; margin-bottom: -100dvh; overflow: hidden; pointer-events: none; }
 .vehicle-stage { position: relative; z-index: 3; min-height: 100dvh; overflow: hidden; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
 .vehicle-canvas { position: absolute; inset: 0 0 0 31%; z-index: 1; width: 69%; height: 100%; cursor: grab; pointer-events: auto; touch-action: none; }
+.vehicle-focus-zone { position: absolute; inset: 20% 4% 16% 31%; z-index: 2; pointer-events: none; }
 .vehicle-canvas:active { cursor: grabbing; }
 .vehicle-canvas[hidden] { display: none; }
 .vehicle-fallback { position: absolute; inset: 0 0 0 31%; z-index: 1; width: 69%; height: 100%; object-fit: cover; object-position: center; }
@@ -90,8 +91,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .vehicle-controls button:disabled { cursor: not-allowed; opacity: .32; }
 
 .cabin-detail {
-  position: absolute; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; z-index: 4;
-  width: min(340px, calc(100% - 40px)); padding: 20px; border: 1px solid rgba(255, 90, 50, .42);
+  position: absolute; top: 96px; right: auto; bottom: auto; left: calc(31% + 24px); z-index: 4;
+  width: min(260px, calc(100% - 40px)); padding: 16px; border: 1px solid rgba(255, 90, 50, .42);
   border-left: 3px solid var(--accent); background: rgba(7, 10, 14, .86); backdrop-filter: blur(18px);
   box-shadow: 0 18px 44px rgba(0, 0, 0, .3);
 }
@@ -137,6 +138,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .header-cta { padding: 8px 13px; }
   .vehicle-stage { min-height: calc(100dvh + 220px); padding-bottom: 220px; }
   .vehicle-canvas, .vehicle-fallback { inset: 52% -22% auto 4%; width: 118%; height: 40%; }
+  .vehicle-focus-zone { inset: 54% 4% auto 4%; height: 28%; }
   .vehicle-stage-feedback { right: 20px; bottom: 166px; }
   .hero-copy { width: 100%; padding: 108px 20px 20px; }
   .hero-copy h1 { font-size: clamp(64px, 22vw, 88px); }

@@ -3,7 +3,9 @@ import {
   BufferGeometry,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
+  PlaneGeometry,
   Scene,
   Texture,
   Vector3,
@@ -84,15 +86,22 @@ describe('createLoadedVehicle', () => {
     const centerDisplay = root.getObjectByName('cabin-center-display') as Mesh;
     const instrumentDisplay = root.getObjectByName('cabin-instrument-display') as Mesh;
     expect(centerDisplay).toBeInstanceOf(Mesh);
+    expect(centerDisplay.position.z).toBeLessThanOrEqual(-0.7);
+    expect((centerDisplay.geometry as PlaneGeometry).parameters).toMatchObject({ width: 0.3, height: 0.17 });
     expect(instrumentDisplay).toBeInstanceOf(Mesh);
+    expect((instrumentDisplay.geometry as PlaneGeometry).parameters).toMatchObject({ width: 0.16, height: 0.07 });
     expect(vehicle.screenMaterials).toEqual([
       centerDisplay.material,
       instrumentDisplay.material,
     ]);
     expect(vehicle.capabilities.screenGlow).toBe(true);
-    for (const material of vehicle.screenMaterials as MeshStandardMaterial[]) {
-      expect(material.color.getHex()).toBe(0x010305);
-      expect(material.emissiveIntensity).toBeLessThanOrEqual(0.6);
+    for (const material of vehicle.screenMaterials as MeshBasicMaterial[]) {
+      expect(material).toBeInstanceOf(MeshBasicMaterial);
+      expect(material.color.getHex()).toBe(0x050608);
+      expect(material.map).toBeNull();
+      expect(material.transparent).toBe(true);
+      expect(material.opacity).toBe(0.18);
+      expect(material.toneMapped).toBe(false);
     }
   });
 });

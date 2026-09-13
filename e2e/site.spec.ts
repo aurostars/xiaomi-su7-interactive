@@ -23,6 +23,8 @@ interface Su7Diagnostics {
   hotspot: string;
   autoCameraSuspendedUntil: number;
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
+  renderRevision: number;
+  renderedView: string | null;
 }
 
 const readDiagnostics = (page: Page) => page.evaluate(() => {
@@ -158,7 +160,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     allDoorsOpen: true,
     lightingEnabled: true,
     activeLightsReady: true,
-    exposure: .72,
+    exposure: 1.35,
     cameraNearReady: true,
     screensReady: true,
   });
@@ -177,7 +179,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     allDoorsClosed: true,
     lightingEnabled: true,
     activeLightsReady: true,
-    exposure: .72,
+    exposure: 1.35,
     cameraNearReady: true,
     screensReady: true,
   });
@@ -202,7 +204,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       allDoorsClosed: true,
       lightingEnabled: true,
       activeLightsReady: true,
-      exposure: .72,
+      exposure: 1.35,
       cameraNearReady: true,
       screensReady: true,
     });
@@ -361,18 +363,32 @@ test('座舱视觉在主驾、副驾和后排保持完整', async ({ page }) => 
   const response = await page.goto('/xiaomi-su7-interactive/');
   expect(response?.status()).toBe(200);
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  const initialRevision = (await readDiagnostics(page)).renderRevision;
   await page.getByRole('button', { name: '进入座舱' }).click();
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      renderedView: diagnostics.renderedView,
+      renderedAfterEntry: diagnostics.renderRevision > initialRevision,
+    };
+  }).toEqual({ renderedView: 'driver', renderedAfterEntry: true });
 
   const seats = [
-    { key: 'driver', label: '主驾', title: '主驾沉浸视野' },
     { key: 'passenger', label: '副驾', title: '副驾交互空间' },
     { key: 'rear', label: '后排', title: '后排空间关系' },
+    { key: 'driver', label: '主驾', title: '主驾沉浸视野' },
   ] as const;
   for (const seat of seats) {
     const button = page.getByRole('button', { name: seat.label, exact: true });
+    const revisionBeforeClick = (await readDiagnostics(page)).renderRevision;
     await button.click();
-    await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe(seat.key);
-    await page.waitForTimeout(2_100);
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return {
+        renderedView: diagnostics.renderedView,
+        revisionIncreased: diagnostics.renderRevision > revisionBeforeClick,
+      };
+    }).toEqual({ renderedView: seat.key, revisionIncreased: true });
     const diagnostics = await readDiagnostics(page);
     expect(Object.values(diagnostics.doorAngles).every((angle) => Number.isFinite(angle))).toBe(true);
     await expect(button).toHaveAttribute('aria-pressed', 'true');
@@ -398,30 +414,43 @@ test('移动座舱使用真实几何避让操作区并保持触控尺寸', async
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  const actions = page.locator('.hero-actions');
-  const canvas = page.locator('canvas.vehicle-canvas');
-  const actionBox = await requiredBox(actions);
-  const canvasBox = await requiredBox(canvas);
-  expect(overlaps(actionBox, canvasBox), JSON.stringify({ actionBox, canvasBox })).toBe(false);
+  const primaryCta = page.getByRole('link', { name: '探索核心科技' });
+  const cabinCta = page.getByRole('button', { name: '进入座舱' });
+  await expect(primaryCta).toBeVisible();
+  await expect(cabinCta).toBeVisible();
+  const primaryCtaBox = await requiredBox(primaryCta);
+  const cabinCtaBox = await requiredBox(cabinCta);
+  expect(overlaps(primaryCtaBox, cabinCtaBox)).toBe(false);
 
-  await page.getByRole('button', { name: '进入座舱' }).click();
+  await cabinCta.click();
   await expect.poll(async () => (await readDiagnostics(page)).camera?.view).toBe('driver');
+  await expect(primaryCta).toBeHidden();
+  await expect(cabinCta).toBeHidden();
+
   const card = page.locator('.cabin-detail');
+  const focusZone = page.locator('[data-vehicle-focus-zone]');
   const rail = page.locator('[data-mobile-control-rail]');
   const cardBox = await requiredBox(card);
+  const focusBox = await requiredBox(focusZone);
   const railBox = await requiredBox(rail);
-  expect(overlaps(cardBox, actionBox), JSON.stringify({ cardBox, actionBox })).toBe(false);
-  expect(overlaps(railBox, actionBox), JSON.stringify({ railBox, actionBox })).toBe(false);
-  expect(overlaps(cardBox, canvasBox), JSON.stringify({ cardBox, canvasBox })).toBe(false);
-  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(railBox.y);
+  expect(overlaps(cardBox, focusBox), JSON.stringify({ cardBox, focusBox })).toBe(false);
+  expect(overlaps(cardBox, railBox), JSON.stringify({ cardBox, railBox })).toBe(false);
+  expect(overlaps(focusBox, railBox), JSON.stringify({ focusBox, railBox })).toBe(false);
   await expectFullyInViewport(card, viewport);
+  await expectFullyInViewport(focusZone, viewport);
   await expectFullyInViewport(rail, viewport);
 
-  const cabinAndDoorButtons = rail.locator('[data-mode="cabin"], [data-interior], [data-seat], .door-button');
-  expect(await cabinAndDoorButtons.count()).toBeGreaterThan(0);
-  for (const button of await cabinAndDoorButtons.all()) {
-    const box = await requiredBox(button);
-    expect(box.height, await button.getAttribute('aria-label') ?? await button.textContent() ?? 'button').toBeGreaterThanOrEqual(44);
+  const buttonGroups = [
+    { name: 'cabin tab', locator: rail.locator('[data-mode="cabin"]'), count: 1 },
+    { name: 'seat', locator: rail.locator('[data-seat]'), count: 3 },
+    { name: 'door', locator: rail.locator('.door-button'), count: 1 },
+  ];
+  for (const group of buttonGroups) {
+    await expect(group.locator, group.name).toHaveCount(group.count);
+    for (const button of await group.locator.all()) {
+      const box = await requiredBox(button);
+      expect(box.height, `${group.name}: ${await button.textContent() ?? ''}`).toBeGreaterThanOrEqual(44);
+    }
   }
   expectNoPageFailures();
 });

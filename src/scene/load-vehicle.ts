@@ -3,7 +3,7 @@ import {
   Group,
   Mesh,
   MeshPhysicalMaterial,
-  MeshStandardMaterial,
+  MeshBasicMaterial,
   PlaneGeometry,
   Texture,
   type Material,
@@ -113,25 +113,24 @@ function createCabinDisplays(root: Object3D): Material[] {
   const definitions = [
     {
       name: 'cabin-center-display',
-      size: [0.52, 0.3] as const,
-      position: [0.18, 0.94, -0.2] as const,
+      size: [0.3, 0.17] as const,
+      position: [0.18, 0.94, -0.72] as const,
       rotation: [-0.08, 0, 0] as const,
     },
     {
       name: 'cabin-instrument-display',
-      size: [0.32, 0.13] as const,
-      position: [-0.38, 0.91, -0.3] as const,
+      size: [0.16, 0.07] as const,
+      position: [-0.38, 0.91, -0.72] as const,
       rotation: [-0.08, 0, 0] as const,
     },
   ];
 
   return definitions.map((definition) => {
-    const material = new MeshStandardMaterial({
-      color: 0x010305,
-      emissive: 0x0c2633,
-      emissiveIntensity: 0.2,
-      metalness: 0.05,
-      roughness: 0.25,
+    const material = new MeshBasicMaterial({
+      color: 0x050608,
+      transparent: true,
+      opacity: 0.18,
+      toneMapped: false,
     });
     material.name = `${definition.name}-material`;
     const display = new Mesh(

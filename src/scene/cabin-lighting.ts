@@ -1,4 +1,4 @@
-import { Group, PointLight, type Scene, type WebGLRenderer } from 'three';
+import { AmbientLight, Group, PointLight, type Light, type Scene, type WebGLRenderer } from 'three';
 import type { SceneQuality } from './create-scene';
 
 export interface CabinLightingController {
@@ -7,7 +7,7 @@ export interface CabinLightingController {
   dispose(): void;
 }
 
-const CABIN_EXPOSURE = 0.72;
+const CABIN_EXPOSURE = 1.35;
 const TRANSITION_MS = 240;
 
 export function createCabinLighting(
@@ -22,15 +22,19 @@ export function createCabinLighting(
   roof.name = 'cabin-roof-light';
   roof.position.set(0, 1.62, 0.2);
 
-  const screen = new PointLight(0x72dfff, 0, 2.1);
+  const screen = new PointLight(0xffd9bd, 0, 2.1);
   screen.name = 'cabin-screen-light';
   screen.position.set(0, 1.12, -0.72);
 
-  const lights: Array<{ light: PointLight; enabledIntensity: number }> = [
-    { light: roof, enabledIntensity: 1.15 },
-    { light: screen, enabledIntensity: 0.68 },
+  const ambient = new AmbientLight(0xffe8d6, 0);
+  ambient.name = 'cabin-ambient-fill';
+
+  const lights: Array<{ light: Light; enabledIntensity: number }> = [
+    { light: ambient, enabledIntensity: 4.5 },
+    { light: roof, enabledIntensity: 6 },
+    { light: screen, enabledIntensity: 0.18 },
   ];
-  rig.add(roof, screen);
+  rig.add(ambient, roof, screen);
 
   if (quality !== 'low') {
     const left = new PointLight(0xffb57a, 0, 1.35);

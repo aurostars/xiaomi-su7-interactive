@@ -38,12 +38,14 @@ describe('cabin lighting', () => {
       distance: light.distance,
       position: light.position.toArray(),
     }))).toEqual([
-      { color: 0xffe7cf, intensity: 1.15, distance: 3.2, position: [0, 1.62, 0.2] },
-      { color: 0x72dfff, intensity: 0.68, distance: 2.1, position: [0, 1.12, -0.72] },
+      { color: 0xffe7cf, intensity: 6, distance: 3.2, position: [0, 1.62, 0.2] },
+      { color: 0xffd9bd, intensity: 0.18, distance: 2.1, position: [0, 1.12, -0.72] },
     ]);
+    expect(scene.getObjectByName('cabin-ambient-fill')?.type).toBe('AmbientLight');
+    expect(scene.getObjectByName('cabin-ambient-fill')).toMatchObject({ intensity: 4.5 });
     expect(exterior.intensity).toBe(1.08);
-    expect(renderer.toneMappingExposure).toBeCloseTo(0.72);
-    expect(controller.getDiagnostics()).toEqual({ enabled: true, exposure: 0.72, activeLights: 4 });
+    expect(renderer.toneMappingExposure).toBeCloseTo(1.35);
+    expect(controller.getDiagnostics()).toEqual({ enabled: true, exposure: 1.35, activeLights: 5 });
   });
 
   it('omits footwell lights at low quality', () => {
@@ -56,7 +58,7 @@ describe('cabin lighting', () => {
       'cabin-roof-light',
       'cabin-screen-light',
     ]);
-    expect(controller.getDiagnostics().activeLights).toBe(2);
+    expect(controller.getDiagnostics().activeLights).toBe(3);
   });
 
   it('restores the captured exterior exposure when disabled', () => {

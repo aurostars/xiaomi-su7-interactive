@@ -76,7 +76,12 @@ export function attachEnvironmentTarget(scene: Scene, target: WebGLRenderTarget)
   };
 }
 
-export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, minimumFrameInterval = 0): SceneRuntime {
+export function createScene(
+  canvas: HTMLCanvasElement,
+  quality: SceneQuality,
+  minimumFrameInterval = 0,
+  onRendered: () => void = () => undefined,
+): SceneRuntime {
   const scene = new Scene();
   scene.background = new Color(0x05090f);
   const camera = new PerspectiveCamera(32, 1, 0.1, 100);
@@ -143,6 +148,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, mi
     if (!running) return;
     if (now - lastRenderAt >= minimumFrameInterval) {
       renderer.render(scene, camera);
+      onRendered();
       lastRenderAt = now;
     }
     animationFrame = requestAnimationFrame(render);
@@ -152,6 +158,7 @@ export function createScene(canvas: HTMLCanvasElement, quality: SceneQuality, mi
     scene, camera, renderer, resize,
     render() {
       renderer.render(scene, camera);
+      onRendered();
       lastRenderAt = performance.now();
     },
     start() {

@@ -47,9 +47,9 @@ export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
   performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
   cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
   sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, near: 0.1, vehicleYaw: 0.48 },
-  driver: { position: [0.43, 1.28, 0.32], target: [0.18, 1.08, -2.2], fov: 70, near: 0.025, vehicleYaw: 0 },
-  passenger: { position: [-0.43, 1.28, 0.3], target: [0.35, 1.06, -2.05], fov: 70, near: 0.025, vehicleYaw: 0 },
-  rear: { position: [0, 1.3, 1.38], target: [0.28, 1.04, -1.5], fov: 72, near: 0.025, vehicleYaw: 0 },
+  driver: { position: [-0.38, 1.26, 0.08], target: [-0.28, 1.06, -2.4], fov: 64, near: 0.025, vehicleYaw: 0 },
+  passenger: { position: [0.38, 1.26, 0.08], target: [-0.25, 1.05, -2.35], fov: 66, near: 0.025, vehicleYaw: 0 },
+  rear: { position: [0, 1.3, 1.28], target: [0, 1.05, -1.6], fov: 68, near: 0.025, vehicleYaw: 0 },
 };
 
 const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin', 'sensing'];

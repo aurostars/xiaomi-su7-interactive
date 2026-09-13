@@ -57,12 +57,14 @@ let diagnosticCabinLighting: (() => {
   activeLights: number;
 }) | undefined;
 let diagnosticStory: { view: CameraView; progress: number; scrollY: number; updatedAt: number } | undefined;
+let diagnosticRendering: (() => { renderRevision: number; renderedView: CameraView | null }) | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
   document.documentElement.classList.add('e2e-diagnostics');
   Object.defineProperty(window, '__SU7_E2E_READ_DIAGNOSTICS__', {
     value: () => {
       const vehicle = diagnosticVehicle?.getDiagnostics();
+      const rendering = diagnosticRendering?.() ?? { renderRevision: 0, renderedView: null };
       return {
         modelReady: Boolean(vehicle),
         mode: store.getState().mode,
@@ -80,6 +82,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         hotspot: store.getState().hotspot,
         autoCameraSuspendedUntil: store.getState().autoCameraSuspendedUntil,
         story: diagnosticStory ?? null,
+        ...rendering,
       };
     },
   });
@@ -100,15 +103,24 @@ orchestrator = createExperienceOrchestrator({
   webgl: capabilities.webgl,
   feedback,
   createAttempt() {
+    let camera!: CameraController;
+    let renderRevision = 0;
+    let renderedView: CameraView | null = null;
+    const readRendering = () => ({ renderRevision, renderedView });
     const runtime = createScene(
       elements.canvas,
       capabilities.quality === 'high' ? 'high' : 'low',
       renderFrameInterval(import.meta.env.VITE_E2E_DIAGNOSTICS === '1'),
+      () => {
+        renderRevision += 1;
+        renderedView = camera?.getDiagnostics().view ?? null;
+      },
     );
-    const camera = createCameraController(runtime.camera);
+    camera = createCameraController(runtime.camera);
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
     diagnosticCabinLighting = readCabinLighting;
+    diagnosticRendering = readRendering;
     let vehicleController: VehicleController | undefined;
     let vehicleYaw = 0;
     let storyFrame: { view: CameraView; progress: number } = { view: 'aero', progress: 0 };
@@ -204,6 +216,7 @@ orchestrator = createExperienceOrchestrator({
           diagnosticStory = undefined;
         }
         if (diagnosticCabinLighting === readCabinLighting) diagnosticCabinLighting = undefined;
+        if (diagnosticRendering === readRendering) diagnosticRendering = undefined;
         runtime.dispose();
       },
     };

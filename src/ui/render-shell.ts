@@ -89,6 +89,7 @@ export function renderShell(root: HTMLElement): ShellElements {
     <section id="vehicle-stage" class="driving-experience" role="region" aria-label="小米 SU7 交互车辆舞台">
       <div class="vehicle-visual">
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
+        <div class="vehicle-focus-zone" data-vehicle-focus-zone aria-hidden="true"></div>
         <div class="stage-atmosphere" aria-hidden="true"></div>
         <div class="story-hotspot" data-hotspot-view="aero" data-hotspot-position="front" aria-live="polite">
           <button class="hotspot-marker" type="button" aria-expanded="false" aria-controls="story-hotspot-detail" aria-label="查看空气动力学部件说明">
