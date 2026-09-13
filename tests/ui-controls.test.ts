@@ -1,11 +1,36 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyVehicleCapabilities, bindControls } from '../src/ui/bind-controls';
 import { renderShell } from '../src/ui/render-shell';
 import { createVehicleStore } from '../src/state/vehicle-state';
 
+const styles = readFileSync('src/styles.css', 'utf8');
+
+function mobileStyle(element: Element, property: string): string {
+  const style = document.createElement('style');
+  style.textContent = styles;
+  document.head.append(style);
+  const sheet = style.sheet;
+  if (!sheet) throw new Error('Stylesheet failed to load');
+  let value = '';
+  Array.from(sheet.cssRules).forEach((rule) => {
+    const mediaRule = rule as CSSMediaRule;
+    if (!mediaRule.media?.mediaText.includes('max-width: 767px')) return;
+    Array.from(mediaRule.cssRules).forEach((nestedRule) => {
+      const styleRule = nestedRule as CSSStyleRule;
+      if (!styleRule.selectorText) return;
+      const matches = styleRule.selectorText.split(',').some((selector) => element.matches(selector.trim()));
+      if (matches && styleRule.style.getPropertyValue(property)) value = styleRule.style.getPropertyValue(property);
+    });
+  });
+  style.remove();
+  return value;
+}
+
 describe('high fidelity page shell', () => {
   afterEach(() => {
     document.body.replaceChildren();
+    delete document.documentElement.dataset.vehicleMode;
   });
 
   it('exposes the vehicle stage and all primary controls with accessible names', () => {
@@ -229,21 +254,23 @@ describe('high fidelity page shell', () => {
     expect(experience?.contains(technology)).toBe(false);
   });
 
-  it('supports complete keyboard tab navigation and linked tab panels', () => {
+  it('supports keyboard navigation in an aria-pressed mode button group', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const unbind = bindControls(elements, store);
     const [exterior, cabin] = elements.modeButtons;
+    const modeGroup = document.querySelector('.mode-tabs');
 
-    expect(exterior.getAttribute('aria-controls')).toBe('exterior-controls');
-    expect(cabin.getAttribute('aria-controls')).toBe('cabin-controls');
-    expect(document.querySelector('#exterior-controls')?.getAttribute('role')).toBe('tabpanel');
-    expect(document.querySelector('#cabin-controls')?.getAttribute('aria-labelledby')).toBe(cabin.id);
+    expect(modeGroup?.getAttribute('role')).toBe('group');
+    expect(elements.modeButtons.every((button) => button.getAttribute('role') !== 'tab')).toBe(true);
+    expect(elements.modeButtons.every((button) => !button.hasAttribute('aria-selected'))).toBe(true);
+    expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(0);
 
     exterior.focus();
     exterior.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(document.activeElement).toBe(cabin);
     expect(store.getState().mode).toBe('cabin');
+    expect(cabin.getAttribute('aria-pressed')).toBe('true');
 
     cabin.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
     expect(document.activeElement).toBe(exterior);
@@ -277,14 +304,25 @@ describe('high fidelity page shell', () => {
     unbind();
   });
 
-  it('marks secondary palettes for mobile mode collapse while preserving 44px primary targets', () => {
-    renderShell(document.body);
+  it('collapses the inactive palette at a narrow viewport and keeps every primary button at least 44px', () => {
+    const elements = renderShell(document.body);
+    const primaryButtons = [...elements.modeButtons, ...elements.seatButtons, elements.doorButton];
 
-    const rail = document.querySelector('[data-mobile-control-rail]');
-    expect(rail?.classList.contains('mobile-control-rail')).toBe(true);
-    expect(document.querySelector('[data-palette="paint"]')?.classList.contains('secondary-palette')).toBe(true);
-    expect(document.querySelector('[data-palette="interior"]')?.classList.contains('secondary-palette')).toBe(true);
-    expect(Array.from(rail?.querySelectorAll<HTMLElement>('[data-primary-control]') ?? []).map((control) => control.dataset.minTarget)).toEqual(['44', '44', '44']);
+    expect(primaryButtons).toHaveLength(6);
+    expect(primaryButtons.every((button) => button.hasAttribute('data-primary-control'))).toBe(true);
+    primaryButtons.forEach((button) => {
+      expect(Number.parseFloat(mobileStyle(button, 'min-height')), button.outerHTML).toBeGreaterThanOrEqual(44);
+    });
+
+    const paintPalette = document.querySelector<HTMLElement>('[data-palette="paint"]')!;
+    const interiorPalette = document.querySelector<HTMLElement>('[data-palette="interior"]')!;
+    document.documentElement.dataset.vehicleMode = 'exterior';
+    expect(mobileStyle(paintPalette, 'display')).not.toBe('none');
+    expect(mobileStyle(interiorPalette, 'display')).toBe('none');
+    document.documentElement.dataset.vehicleMode = 'cabin';
+    expect(mobileStyle(paintPalette, 'display')).toBe('none');
+    expect(mobileStyle(interiorPalette, 'display')).not.toBe('none');
+
     document.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
       expect(Number(image.getAttribute('width'))).toBeGreaterThan(0);
       expect(Number(image.getAttribute('height'))).toBeGreaterThan(0);

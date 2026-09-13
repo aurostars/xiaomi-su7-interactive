@@ -104,18 +104,18 @@ export function renderShell(root: HTMLElement): ShellElements {
           <dl class="hero-specs"><div><dt>800V</dt><dd>高压平台</dd></div><div><dt>HyperOS</dt><dd>智能座舱</dd></div><div><dt>EV</dt><dd>高性能电驱</dd></div></dl>
         </div>
         <aside class="vehicle-controls mobile-control-rail" aria-label="车辆个性化控制" data-mobile-control-rail>
-          <div class="mode-tabs" role="tablist" aria-label="车辆视图" data-primary-control data-min-target="44">
-            <button id="tab-exterior" type="button" role="tab" data-mode="exterior" aria-controls="exterior-controls">${controlIcon('exterior')}<span>外观</span></button>
-            <button id="tab-cabin" type="button" role="tab" data-mode="cabin" aria-controls="cabin-controls">${controlIcon('cabin')}<span>座舱</span></button>
+          <div class="mode-tabs" role="group" aria-label="车辆视图">
+            <button type="button" data-mode="exterior" data-primary-control>${controlIcon('exterior')}<span>外观</span></button>
+            <button type="button" data-mode="cabin" data-primary-control>${controlIcon('cabin')}<span>座舱</span></button>
           </div>
-          <fieldset id="exterior-controls" class="control-palette secondary-palette paint-group" role="tabpanel" aria-labelledby="tab-exterior" data-palette="paint">
+          <fieldset id="exterior-controls" class="control-palette secondary-palette paint-group" data-palette="paint">
             <legend>车漆</legend><div>${paintColors.map(([value, name, color]) => colorButton(value, name, color, 'paint')).join('')}</div>
           </fieldset>
-          <fieldset id="cabin-controls" class="control-palette secondary-palette interior-group" role="tabpanel" aria-labelledby="tab-cabin" data-palette="interior">
+          <fieldset id="cabin-controls" class="control-palette secondary-palette interior-group" data-palette="interior">
             <legend>内饰</legend><div>${interiorColors.map(([value, name, color]) => colorButton(value, name, color, 'interior')).join('')}</div>
           </fieldset>
-          <div class="seat-views" aria-label="座舱座席" data-primary-control data-min-target="44"><button type="button" data-seat="driver">主驾</button><button type="button" data-seat="passenger">副驾</button><button type="button" data-seat="rear">后排</button></div>
-          <button class="door-button" type="button" aria-pressed="false" data-primary-control data-min-target="44">${controlIcon('door')}<span>开门</span></button>
+          <div class="seat-views" role="group" aria-label="座舱座席"><button type="button" data-seat="driver" data-primary-control>主驾</button><button type="button" data-seat="passenger" data-primary-control>副驾</button><button type="button" data-seat="rear" data-primary-control>后排</button></div>
+          <button class="door-button" type="button" aria-pressed="false" data-primary-control>${controlIcon('door')}<span>开门</span></button>
         </aside>
         <aside class="cabin-detail" aria-live="polite" hidden>
           <p>当前座舱</p>

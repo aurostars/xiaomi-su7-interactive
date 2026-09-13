@@ -78,7 +78,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .mode-tabs button, .seat-views button, .door-button { min-height: 44px; border: 1px solid rgba(207, 216, 226, .2); background: rgba(255, 255, 255, .035); font-size: 12px; transition: color 220ms ease, border-color 220ms ease, background 220ms ease, transform 220ms ease; }
 .mode-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .control-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.mode-tabs button[aria-selected="true"] { color: #080a0c; background: #f1f3f5; }
+.mode-tabs button[aria-pressed="true"] { color: #080a0c; background: #f1f3f5; }
 .control-palette { min-width: 0; margin: 10px 0 0; padding: 0; border: 0; }
 .control-palette legend { margin-bottom: 7px; padding: 0; color: #c7ccd2; font-size: 11px; }
 .control-palette > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }

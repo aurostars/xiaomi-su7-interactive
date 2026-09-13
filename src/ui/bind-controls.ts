@@ -100,9 +100,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     const state = store.getState();
     elements.modeButtons.forEach((button) => {
       const selected = button.dataset.mode === state.mode;
-      button.setAttribute('aria-selected', String(selected));
       button.setAttribute('aria-pressed', String(selected));
-      button.tabIndex = selected ? 0 : -1;
     });
     elements.colorButtons.forEach((button) => {
       const selected = button.dataset.paint === state.paint || button.dataset.interior === state.interior;
