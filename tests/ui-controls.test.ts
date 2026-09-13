@@ -39,7 +39,13 @@ describe('high fidelity page shell', () => {
 
     expect(document.querySelector('[role="region"][aria-label="小米 SU7 交互车辆舞台"]')).not.toBeNull();
     expect(elements.modeButtons.map((button) => button.textContent)).toEqual(['外观', '座舱']);
-    expect(elements.colorButtons).toHaveLength(10);
+    expect(elements.colorButtons).toHaveLength(13);
+    expect(elements.colorButtons.map((button) => button.textContent)).toEqual([
+      '海湾蓝', '雅灰', '橄榄绿', '珍珠白', '钻石黑', '流星蓝', '霞光紫', '熔岩橙', '寒武岩灰',
+      '银河灰', '曜石黑', '暮光红', '迷雾紫',
+    ]);
+    expect(elements.colorButtons.every((button) => button.getAttribute('aria-label') === button.textContent)).toBe(true);
+    expect(elements.colorButtons.every((button) => button.hasAttribute('aria-pressed'))).toBe(true);
     expect(elements.doorButton.textContent).toContain('开门');
     expect(elements.canvas.getAttribute('aria-label')).toBe('小米 SU7 三维车辆');
     expect(document.querySelector('.hero-actions')?.textContent).toContain('进入座舱');

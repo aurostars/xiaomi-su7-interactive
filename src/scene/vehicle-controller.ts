@@ -3,6 +3,7 @@ import {
   MathUtils,
   type Material,
 } from 'three';
+import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
 import type { VehicleState } from '../state/vehicle-state';
 import type { DoorId, LoadedVehicle } from './load-vehicle';
 
@@ -35,24 +36,6 @@ const DOOR_OPEN_ANGLES: Record<DoorId, number> = {
   rearRight: 0.92,
 };
 const TRANSITION_MS = 360;
-const PAINT_COLORS: Record<string, string> = {
-  'lava-orange': '#ff4b2b',
-  lava: '#ff4b2b',
-  'gulf-blue': '#19b7ff',
-  bay: '#19b7ff',
-  aqua: '#0f7f72',
-  red: '#d91f2d',
-  pearl: '#f1f2ed',
-  titanium: '#aeb4bb',
-};
-const INTERIOR_COLORS: Record<string, string> = {
-  'obsidian-black': '#11161c',
-  graphite: '#11161c',
-  'cloud-brown': '#c4a484',
-  sand: '#c4a484',
-  crimson: '#8f3431',
-  mist: '#756583',
-};
 const CABIN_OBSIDIAN_COLOR = '#465566';
 
 type ColorMaterial = Material & { color: Color };
@@ -109,12 +92,12 @@ export function createVehicleController(
       if (disposed) return;
 
       vehicle.setCabinPresentation(state.mode === 'cabin');
-      const bodyTarget = new Color(PAINT_COLORS[state.paint] ?? state.paint);
-      const usesObsidian = state.interior === 'obsidian-black' || state.interior === 'graphite';
+      const bodyTarget = new Color(getPaintOption(state.paint).materialColor);
+      const usesObsidian = getInteriorOption(state.interior).id === 'obsidian-black';
       const interiorTarget = new Color(
         state.mode === 'cabin' && usesObsidian
           ? CABIN_OBSIDIAN_COLOR
-          : (INTERIOR_COLORS[state.interior] ?? state.interior),
+          : getInteriorOption(state.interior).materialColor,
       );
       vehicle.bodyMaterials.filter(hasColor).forEach((material) => {
         material.color.copy(bodyTarget);

@@ -10,8 +10,8 @@ import { createLoadedVehicle, type LoadedVehicle } from '../src/scene/load-vehic
 
 const state = (overrides: Partial<VehicleState> = {}): VehicleState => ({
   mode: 'exterior',
-  paint: 'lava-orange',
-  interior: 'cloud-brown',
+  paint: 'gulf-blue',
+  interior: 'galaxy-gray',
   doorsOpen: true,
   seatView: 'driver',
   activeStoryId: 'aero',
@@ -272,12 +272,12 @@ describe('createVehicleController', () => {
     const controller = createVehicleController(vehicle);
 
     controller.setRotation(Math.PI / 3);
-    controller.applyState(state({ doorsOpen: false, paint: '#00ff00' }));
+    controller.applyState(state({ doorsOpen: false, paint: 'unknown-persisted-paint' }));
     controller.dispose();
     finishAnimations();
 
     expect(vehicle.root.rotation.y).toBeCloseTo(Math.PI / 3);
-    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('00ff00');
+    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('2f6f91');
     expect(vi.getTimerCount()).toBe(0);
   });
 });

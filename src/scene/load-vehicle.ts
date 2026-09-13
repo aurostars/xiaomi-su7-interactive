@@ -11,6 +11,7 @@ import {
   type Object3D,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { getPaintOption } from '../content/vehicle-palettes';
 
 export const vehicleModelUrl = new URL('../assets/models/xiaomi-su7.glb', import.meta.url).href;
 export const vehicleFallbackUrl = new URL('../assets/images/vehicle-fallback.webp', import.meta.url).href;
@@ -42,6 +43,7 @@ function tuneAutomotiveMaterial(material: Material) {
   }
   material.envMapIntensity = 1.35;
   if (name === 'car_body') {
+    material.color.setHex(getPaintOption('gulf-blue').materialColor);
     material.metalness = .58;
     material.roughness = .2;
     material.clearcoat = .9;

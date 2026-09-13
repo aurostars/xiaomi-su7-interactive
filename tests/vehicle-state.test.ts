@@ -11,7 +11,7 @@ describe('vehicle state', () => {
 
     expect(store.getState()).toEqual({
       mode: 'exterior',
-      paint: 'lava-orange',
+      paint: 'gulf-blue',
       interior: 'obsidian-black',
       doorsOpen: false,
       seatView: 'driver',
@@ -20,12 +20,12 @@ describe('vehicle state', () => {
     });
   });
 
-  it('applies supplied initial state fields without changing other defaults', () => {
-    const store = createVehicleStore({ paint: 'aqua-blue', doorsOpen: true });
+  it('falls unknown persisted palette values back to official defaults', () => {
+    const store = createVehicleStore({ paint: 'aqua-blue', interior: 'legacy-brown', doorsOpen: true });
 
     expect(store.getState()).toMatchObject({
       mode: 'exterior',
-      paint: 'aqua-blue',
+      paint: 'gulf-blue',
       doorsOpen: true,
       interior: 'obsidian-black',
     });
@@ -134,7 +134,7 @@ describe('vehicle state', () => {
     expect(() => {
       exposedState.paint = 'unauthorized-red';
     }).toThrow(TypeError);
-    expect(store.getState().paint).toBe('lava-orange');
+    expect(store.getState().paint).toBe('gulf-blue');
     expect(notifications).toBe(0);
   });
 

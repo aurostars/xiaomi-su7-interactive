@@ -3,6 +3,7 @@ import techDrive from '../assets/images/tech-drive.webp';
 import techCabin from '../assets/images/tech-cabin.webp';
 import gallerySu7 from '../assets/images/gallery-su7.webp';
 import { STORY_CHAPTERS } from '../content/story-chapters';
+import { INTERIOR_OPTIONS, PAINT_OPTIONS } from '../content/vehicle-palettes';
 
 export interface ShellElements {
   stage: HTMLElement;
@@ -21,22 +22,6 @@ export interface ShellElements {
   storySections: HTMLElement[];
 }
 
-const paintColors = [
-  ['lava-orange', '熔岩橙', '#f05232'],
-  ['gulf-blue', '海湾蓝', '#36a9d6'],
-  ['aqua', '雅灰绿', '#547a79'],
-  ['red', '霞光红', '#b72531'],
-  ['pearl', '珍珠白', '#e7e5dd'],
-  ['titanium', '流星灰', '#8c9398'],
-] as const;
-
-const interiorColors = [
-  ['obsidian-black', '曜石黑', '#24282b'],
-  ['cloud-brown', '暮光棕', '#a9917d'],
-  ['crimson', '赤霞红', '#743b3d'],
-  ['mist', '迷雾紫', '#6b6277'],
-] as const;
-
 function controlIcon(type: 'exterior' | 'cabin' | 'door') {
   const path = type === 'exterior'
     ? '<path d="M3 12h18M5 12l2-5h10l2 5M6 16h.01M18 16h.01M5 12v5h14v-5"/>'
@@ -47,7 +32,7 @@ function controlIcon(type: 'exterior' | 'cabin' | 'door') {
 }
 
 function colorButton(value: string, name: string, color: string, type: 'paint' | 'interior') {
-  return `<button class="color-swatch" type="button" data-${type}="${value}" aria-label="${name}" title="${name}" style="--swatch:${color}"><span aria-hidden="true">${name}</span></button>`;
+  return `<button class="color-swatch" type="button" data-${type}="${value}" aria-label="${name}" aria-pressed="false" title="${name}" style="--swatch:${color}"><span>${name}</span></button>`;
 }
 
 function renderStory() {
@@ -109,10 +94,10 @@ export function renderShell(root: HTMLElement): ShellElements {
             <button type="button" data-mode="cabin" data-primary-control>${controlIcon('cabin')}<span>座舱</span></button>
           </div>
           <fieldset id="exterior-controls" class="control-palette secondary-palette paint-group" data-palette="paint">
-            <legend>车漆</legend><div>${paintColors.map(([value, name, color]) => colorButton(value, name, color, 'paint')).join('')}</div>
+            <legend>车漆</legend><div>${PAINT_OPTIONS.map(({ id, label, swatch }) => colorButton(id, label, swatch, 'paint')).join('')}</div>
           </fieldset>
           <fieldset id="cabin-controls" class="control-palette secondary-palette interior-group" data-palette="interior">
-            <legend>内饰</legend><div>${interiorColors.map(([value, name, color]) => colorButton(value, name, color, 'interior')).join('')}</div>
+            <legend>内饰</legend><div>${INTERIOR_OPTIONS.map(({ id, label, swatch }) => colorButton(id, label, swatch, 'interior')).join('')}</div>
           </fieldset>
           <div class="seat-views" role="group" aria-label="座舱座席"><button type="button" data-seat="driver" data-primary-control>主驾</button><button type="button" data-seat="passenger" data-primary-control>副驾</button><button type="button" data-seat="rear" data-primary-control>后排</button></div>
           <button class="door-button" type="button" aria-pressed="false" data-primary-control>${controlIcon('door')}<span>开门</span></button>

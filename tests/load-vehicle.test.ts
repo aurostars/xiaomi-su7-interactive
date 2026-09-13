@@ -112,6 +112,21 @@ describe('createLoadedVehicle', () => {
     });
   });
 
+  it('applies the official default paint while preserving metallic body tuning', () => {
+    const root = new Group();
+    const body = new MeshPhysicalMaterial({ color: 0xffffff });
+    body.name = 'Car_body';
+    root.add(new Mesh(new BoxGeometry(1, 1, 1), body));
+
+    createLoadedVehicle(root);
+
+    expect(body.color.getHex()).toBe(0x2f6f91);
+    expect(body.metalness).toBe(0.58);
+    expect(body.roughness).toBe(0.2);
+    expect(body.clearcoat).toBe(0.9);
+    expect(body.clearcoatRoughness).toBe(0.12);
+  });
+
   it('culls exterior shell backfaces so cabin cameras are not covered by opaque body geometry', () => {
     const root = new Group();
     const exteriorNames = ['Car_body', 'M_BODY_inside.004', 'M_BODY_black.004', 'Car_window'];

@@ -1,4 +1,5 @@
 import type { StoryId } from '../content/story-chapters';
+import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
 
 export type VehicleMode = 'exterior' | 'cabin';
 export type SeatView = 'driver' | 'passenger' | 'rear';
@@ -29,7 +30,7 @@ export interface VehicleStore {
 
 const defaultState: VehicleState = {
   mode: 'exterior',
-  paint: 'lava-orange',
+  paint: 'gulf-blue',
   interior: 'obsidian-black',
   doorsOpen: false,
   seatView: 'driver',
@@ -38,7 +39,12 @@ const defaultState: VehicleState = {
 };
 
 export function createVehicleStore(initial: Partial<VehicleState> = {}): VehicleStore {
-  let state: Readonly<VehicleState> = Object.freeze({ ...defaultState, ...initial });
+  let state: Readonly<VehicleState> = Object.freeze({
+    ...defaultState,
+    ...initial,
+    paint: getPaintOption(initial.paint ?? defaultState.paint).id,
+    interior: getInteriorOption(initial.interior ?? defaultState.interior).id,
+  });
   const listeners = new Set<() => void>();
 
   const update = (fields: Partial<VehicleState>) => {
