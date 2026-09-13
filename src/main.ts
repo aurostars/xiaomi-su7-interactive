@@ -2,12 +2,11 @@ import { type StoryId } from './content/story-chapters';
 import './styles.css';
 import { createDragController } from './interaction/drag-controller';
 import { createScrollStory } from './interaction/scroll-story';
-import { createMainRenderOrchestration } from './main-render-orchestration';
+import { applyMainStateTransition, createMainRenderOrchestration } from './main-render-orchestration';
 import {
   createExperienceOrchestrator,
   createStageFeedback,
   detectCapabilities,
-  getCabinExperienceIntent,
 } from './performance/capabilities';
 import {
   createCameraController,
@@ -172,16 +171,16 @@ orchestrator = createExperienceOrchestrator({
     let previousExperienceState = store.getState();
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
-      vehicleController?.applyState(state);
-      runtime.requestRender();
-      const intent = getCabinExperienceIntent(previousExperienceState, state);
+      const intent = applyMainStateTransition({
+        previousState: previousExperienceState,
+        state,
+        vehicleController,
+        runtime,
+        cameraRender,
+        reducedMotion: capabilities.reducedMotion,
+      });
       previousExperienceState = state;
-      if (intent.cabinMode !== undefined || intent.cameraView) {
-        runtime.setCabinMode(state.mode === 'cabin', state.seatView, capabilities.reducedMotion);
-      }
-      if (intent.cameraView) {
-        cameraRender.setTarget(intent.cameraView);
-      } else if (intent.cabinMode === false) {
+      if (!intent.cameraView && intent.cabinMode === false) {
         const frame = cameraRender.setStoryProgress(storyFrame.view, storyFrame.progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);

@@ -179,6 +179,52 @@ describe('cabin lighting', () => {
     expect(invalidate).toHaveBeenCalledTimes(4);
   });
 
+  it('interpolates driver to rear weights over 240ms and invalidates each changing frame', () => {
+    const frames = installAnimationFrames();
+    const invalidate = vi.fn();
+    const scene = new Scene();
+    const controller = createCabinLighting(scene, rendererWithExposure(), 'high', false, invalidate);
+    controller.apply({ enabled: true, seatView: 'driver' }, true);
+    invalidate.mockClear();
+    const rearFill = scene.getObjectByName('cabin-rear-fill') as PointLight;
+    const driverIntensity = rearFill.intensity;
+
+    controller.apply({ enabled: true, seatView: 'rear' });
+    frames.flush(120);
+    expect(rearFill.intensity).toBeGreaterThan(driverIntensity);
+    expect(rearFill.intensity).toBeLessThan(0.48);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+
+    frames.flush(240);
+    expect(rearFill.intensity).toBe(0.48);
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(frames.pendingCount()).toBe(0);
+  });
+
+  it('animates cabin exit to zero and restores exterior exposure on the terminal frame', () => {
+    const frames = installAnimationFrames();
+    const invalidate = vi.fn();
+    const scene = new Scene();
+    const renderer = rendererWithExposure(0.94);
+    const controller = createCabinLighting(scene, renderer, 'high', false, invalidate);
+    controller.apply({ enabled: true, seatView: 'rear' }, true);
+    invalidate.mockClear();
+
+    controller.apply({ enabled: false, seatView: 'rear' });
+    frames.flush(120);
+    expect(rigLights(scene).some((light) => light.intensity > 0)).toBe(true);
+    expect(renderer.toneMappingExposure).toBeGreaterThan(0.88);
+    expect(renderer.toneMappingExposure).toBeLessThan(0.94);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+
+    frames.flush(240);
+    expect(rigLights(scene).every((light) => light.intensity === 0)).toBe(true);
+    expect(scene.getObjectByName('cabin-ambient-fill')).toHaveProperty('intensity', 0);
+    expect(renderer.toneMappingExposure).toBe(0.94);
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(frames.pendingCount()).toBe(0);
+  });
+
   it('applies reduced-motion terminal changes once without scheduling animation work', () => {
     const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
     const invalidate = vi.fn();

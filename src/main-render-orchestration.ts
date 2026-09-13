@@ -1,3 +1,5 @@
+import { getCabinExperienceIntent, type CabinExperienceIntent } from './performance/capabilities';
+import type { SeatView, VehicleState } from './state/vehicle-state';
 import {
   createCameraRenderOrchestration,
   type CameraController,
@@ -12,6 +14,30 @@ export interface MainRenderOrchestrationOptions {
   rotateVehicle(deltaYaw: number): void;
   suspendAutoCamera(durationMs: number): void;
   initialTime?: number;
+}
+
+export interface MainStateTransitionOptions {
+  previousState: VehicleState;
+  state: VehicleState;
+  vehicleController?: { applyState(state: VehicleState): void };
+  runtime: {
+    requestRender(): void;
+    setCabinMode(enabled: boolean, seatView: SeatView, immediate?: boolean): void;
+  };
+  cameraRender: { setTarget(view: CameraView): void };
+  reducedMotion: boolean;
+}
+
+export function applyMainStateTransition(options: MainStateTransitionOptions): CabinExperienceIntent {
+  const { previousState, state, vehicleController, runtime, cameraRender, reducedMotion } = options;
+  vehicleController?.applyState(state);
+  runtime.requestRender();
+  const intent = getCabinExperienceIntent(previousState, state);
+  if (intent.cabinMode !== undefined || intent.cameraView) {
+    runtime.setCabinMode(state.mode === 'cabin', state.seatView, reducedMotion);
+  }
+  if (intent.cameraView) cameraRender.setTarget(intent.cameraView);
+  return intent;
 }
 
 export function createMainRenderOrchestration(options: MainRenderOrchestrationOptions) {
