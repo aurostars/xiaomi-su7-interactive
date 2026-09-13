@@ -286,6 +286,71 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
   }
 });
 
+for (const viewport of [
+  { width: 768, height: 900 },
+  { width: 900, height: 900 },
+  { width: 1024, height: 900 },
+  { width: 1152, height: 900 },
+]) {
+  test(`mid-width vehicle controls stay complete and usable at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/xiaomi-su7-interactive/');
+
+    const controls = page.locator('.vehicle-controls');
+    await expectFullyInViewport(controls, viewport);
+    const paletteButtons = controls.locator('.color-swatch');
+    const seatButtons = controls.locator('[data-seat]');
+    const doorButton = controls.locator('.door-button');
+    await expect(paletteButtons).toHaveCount(13);
+    await expect(seatButtons).toHaveCount(3);
+    await expect(doorButton).toHaveCount(1);
+
+    for (const control of await paletteButtons.or(seatButtons).or(doorButton).all()) {
+      await expectFullyInViewport(control, viewport);
+      const geometry = await control.evaluate((button) => ({
+        text: button.textContent?.trim(),
+        targetWidth: button.getBoundingClientRect().width,
+        targetHeight: button.getBoundingClientRect().height,
+        labelClientWidth: button.clientWidth,
+        labelScrollWidth: button.scrollWidth,
+      }));
+      expect(geometry.targetWidth, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
+      expect(geometry.targetHeight, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
+      expect(geometry.labelScrollWidth, JSON.stringify({ viewport, ...geometry }))
+        .toBeLessThanOrEqual(geometry.labelClientWidth);
+    }
+  });
+}
+
+test('technology exit makes fallback retry inert and restores it upward', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route('**/*.glb', (route) => route.abort());
+  await page.goto('/xiaomi-su7-interactive/');
+  const visual = page.locator('.vehicle-visual');
+  const retry = visual.locator('.vehicle-stage-feedback button');
+  await expect(retry).toBeVisible();
+
+  await page.locator('#technology').scrollIntoViewIfNeeded();
+  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden');
+  await expect(visual).toHaveAttribute('inert', '');
+  expect(await retry.evaluate((button: HTMLButtonElement) => {
+    button.focus();
+    return document.activeElement === button;
+  })).toBe(false);
+  await expect(retry.click({ trial: true, timeout: 500 })).rejects.toThrow();
+
+  await page.locator('[data-story-view="performance"]').evaluate((section) => {
+    section.scrollIntoView({ block: 'center', behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+  });
+  await expect(visual).not.toHaveAttribute('inert', '');
+  await retry.focus();
+  await expect(retry).toBeFocused();
+  await page.unroute('**/*.glb');
+  await retry.click();
+  await expect(retry).toBeHidden();
+});
+
 test('technology exit hides at the viewport boundary and restores upward', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });

@@ -127,6 +127,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .closing-cta a { padding: 15px 22px; border-radius: 4px; background: var(--accent); white-space: nowrap; }
 footer { display: flex; justify-content: space-between; padding: 28px max(40px, calc((100vw - 1160px) / 2)); color: #777d85; font-size: 11px; background: #030507; }
 
+@media (min-width: 768px) and (max-width: 1199px) {
+  .vehicle-controls { right: 20px; width: min(760px, calc(100% - 40px)); }
+}
+
 @media (min-width: 768px) {
   .vehicle-stage[data-mode='cabin'] .cabin-detail { top: 320px; }
 }

@@ -79,6 +79,9 @@ describe('stage visibility controller', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
     const addEventListener = vi.spyOn(window, 'addEventListener');
     const stage = document.createElement('div');
+    const retry = document.createElement('button');
+    retry.textContent = '重试加载';
+    stage.append(retry);
     const finalStory = document.createElement('section');
     const technology = document.createElement('section');
     let finalTop = 900;
@@ -95,6 +98,7 @@ describe('stage visibility controller', () => {
     expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('0');
     expect(stage.dataset.stageVisibility).toBe('visible');
     expect(stage.getAttribute('aria-hidden')).toBe('false');
+    expect(stage.hasAttribute('inert')).toBe(false);
     controller.update();
     expect(changes).toEqual([{ phase: 'visible', progress: 0 }]);
 
@@ -103,7 +107,14 @@ describe('stage visibility controller', () => {
     expect(stage.style.getPropertyValue('--stage-exit-progress')).toBe('1');
     expect(stage.dataset.stageVisibility).toBe('hidden');
     expect(stage.getAttribute('aria-hidden')).toBe('true');
+    expect(stage.hasAttribute('inert')).toBe(true);
     expect(changes.at(-1)).toEqual({ phase: 'hidden', progress: 1 });
+
+    finalTop = 900;
+    window.dispatchEvent(new Event('scroll'));
+    expect(stage.getAttribute('aria-hidden')).toBe('false');
+    expect(stage.hasAttribute('inert')).toBe(false);
+    expect(retry.tabIndex).toBe(0);
     controller.dispose();
   });
 

@@ -62,7 +62,9 @@ export function createStageVisibilityController(options: {
 
     options.stage.style.setProperty('--stage-exit-progress', String(state.progress));
     options.stage.dataset.stageVisibility = state.phase;
-    options.stage.setAttribute('aria-hidden', String(state.phase === 'hidden'));
+    const hidden = state.phase === 'hidden';
+    options.stage.setAttribute('aria-hidden', String(hidden));
+    options.stage.toggleAttribute('inert', hidden);
 
     if (!previousState || previousState.phase !== state.phase || previousState.progress !== state.progress) {
       previousState = state;
