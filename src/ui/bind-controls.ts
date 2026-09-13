@@ -1,4 +1,4 @@
-import { STORY_CHAPTERS, type StoryId } from '../content/story-chapters';
+import { STORY_CHAPTERS } from '../content/story-chapters';
 import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
 import type { ShellElements } from './render-shell';
@@ -73,10 +73,14 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   const storyDescription = elements.storyDetail.querySelector<HTMLElement>('[data-story-description]');
   if (!storyTitle || !storyEyebrow || !storyDescription) throw new Error('Story detail failed to render');
 
-  const selectStory = (id: StoryId) => {
-    store.actions.setActiveStory(id);
+  const selectStory = (id: string | undefined) => {
+    const chapter = STORY_CHAPTERS.find((candidate) => candidate.id === id);
+    if (!chapter) return;
+    store.actions.setActiveStory(chapter.id);
     const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    document.querySelector<HTMLElement>(`[data-story-section="${id}"]`)?.scrollIntoView({ behavior });
+    elements.storySections
+      .find((section) => section.dataset.storySection === chapter.id)
+      ?.scrollIntoView({ behavior });
   };
   const storyControls = [
     ...elements.storyHotspots.map((hotspot) => hotspot.querySelector<HTMLButtonElement>('button')),
@@ -84,7 +88,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   ];
   storyControls.forEach((button) => {
     if (!button) throw new Error('Story control failed to render');
-    listen(button, () => selectStory(button.dataset.storyId as StoryId));
+    listen(button, () => selectStory(button.dataset.storyId));
   });
 
   const cabinTitle = elements.cabinDetail.querySelector<HTMLElement>('h2');

@@ -172,25 +172,47 @@ describe('high fidelity page shell', () => {
     expect(elements.mobileStoryButtons[0].getAttribute('aria-current')).toBe('true');
   });
 
-  it('uses the story store as the single source for hotspot clicks and synchronized current states', () => {
+  it('uses the story store as the single source for desktop and mobile story controls', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const setActiveStory = vi.spyOn(store.actions, 'setActiveStory');
-    const scrollIntoView = vi.fn();
-    const performanceSection = document.querySelector<HTMLElement>('[data-story-section="performance"]')!;
-    performanceSection.scrollIntoView = scrollIntoView;
+    const performanceScroll = vi.fn();
+    const cabinScroll = vi.fn();
+    elements.storySections.find(({ dataset }) => dataset.storySection === 'performance')!.scrollIntoView = performanceScroll;
+    elements.storySections.find(({ dataset }) => dataset.storySection === 'cabin')!.scrollIntoView = cabinScroll;
     const unbind = bindControls(elements, store);
 
     elements.storyHotspots[1].querySelector<HTMLButtonElement>('button')!.click();
-    expect(setActiveStory).toHaveBeenCalledOnce();
     expect(setActiveStory).toHaveBeenCalledWith('performance');
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' });
+    expect(performanceScroll).toHaveBeenCalledWith({ behavior: 'smooth' });
 
-    store.actions.setActiveStory('performance');
-    expect(elements.storyHotspots[1].getAttribute('aria-current')).toBe('true');
-    expect(elements.mobileStoryButtons[1].getAttribute('aria-current')).toBe('true');
+    elements.mobileStoryButtons[2].click();
+    expect(store.getState().activeStoryId).toBe('cabin');
+    expect(setActiveStory).toHaveBeenLastCalledWith('cabin');
+    expect(cabinScroll).toHaveBeenCalledWith({ behavior: 'smooth' });
+    expect(elements.storyHotspots.filter((hotspot) => hotspot.getAttribute('aria-current') === 'true')).toHaveLength(1);
+    expect(elements.mobileStoryButtons.filter((button) => button.getAttribute('aria-current') === 'true')).toHaveLength(1);
+    expect(elements.storyHotspots[2].getAttribute('aria-current')).toBe('true');
+    expect(elements.mobileStoryButtons[2].getAttribute('aria-current')).toBe('true');
     expect(elements.storyDetail.hidden).toBe(false);
-    expect(elements.storyDetail.textContent).toContain('电驱、轮组与底盘');
+    expect(elements.storyDetail.textContent).toContain('切入座舱');
+
+    elements.enterCabinButton.click();
+    expect(elements.storyDetail.hidden).toBe(false);
+
+    unbind();
+  });
+
+  it('ignores an unknown story control id without dispatching or throwing', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const setActiveStory = vi.spyOn(store.actions, 'setActiveStory');
+    elements.mobileStoryButtons[0].dataset.storyId = 'unknown-story';
+    const unbind = bindControls(elements, store);
+
+    expect(() => elements.mobileStoryButtons[0].click()).not.toThrow();
+    expect(setActiveStory).not.toHaveBeenCalled();
+    expect(store.getState().activeStoryId).toBe('aero');
 
     unbind();
   });

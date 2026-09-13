@@ -153,7 +153,10 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .mobile-story-rail { position: absolute; right: 0; bottom: 76px; left: 0; z-index: 5; display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scroll-snap-type: x mandatory; pointer-events: auto; }
   .mobile-story-rail button { min-width: max-content; min-height: 44px; padding: 0 16px; scroll-snap-align: start; border: 1px solid var(--line); border-radius: 999px; background: rgba(7, 10, 14, .88); }
   .mobile-story-rail button[aria-current="true"] { border-color: var(--cyan); color: var(--cyan); }
-  html[data-vehicle-mode='cabin'] .story-hotspots, html[data-vehicle-mode='cabin'] .story-detail, html[data-vehicle-mode='cabin'] .mobile-story-rail { visibility: hidden; pointer-events: none; }
+  html[data-vehicle-mode='cabin'] .story-hotspots, html[data-vehicle-mode='cabin'] .mobile-story-rail { visibility: hidden; pointer-events: none; }
+  html[data-vehicle-mode='cabin'] .story-detail { top: 66px; bottom: auto; min-height: 38px; padding: 8px 14px; }
+  html[data-vehicle-mode='cabin'] .story-detail > p { display: none; }
+  html[data-vehicle-mode='cabin'] .story-detail h2 { overflow: hidden; font-size: 15px; line-height: 22px; text-overflow: ellipsis; white-space: nowrap; }
   .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
   .hero-specs div { padding: 10px; }
   .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; overscroll-behavior-inline: contain; border-width: 1px 0 0; }
