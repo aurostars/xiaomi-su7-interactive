@@ -6,6 +6,8 @@ import { createCameraController } from '../src/scene/camera-controller';
 import type { LoadedVehicle } from '../src/scene/load-vehicle';
 import { createVehicleController } from '../src/scene/vehicle-controller';
 import type { VehicleState } from '../src/state/vehicle-state';
+import { createVehicleStore } from '../src/state/vehicle-state';
+import { renderShell } from '../src/ui/render-shell';
 
 const state = (overrides: Partial<VehicleState> = {}): VehicleState => ({
   mode: 'cabin',
@@ -50,6 +52,32 @@ afterEach(() => {
 });
 
 describe('main state orchestration', () => {
+  it('keeps scroll-originated active story state driving the camera without hotspot controls', () => {
+    renderShell(document.body);
+    const store = createVehicleStore();
+    const camera = createCameraController(new PerspectiveCamera(32, 1, 0.1, 100));
+    const cameraRender = createMainRenderOrchestration({
+      camera,
+      runtime: { requestRender: vi.fn(), beginRenderActivity: vi.fn(), endRenderActivity: vi.fn() },
+      reducedMotion: true,
+      rotateVehicle: () => undefined,
+      suspendAutoCamera: () => undefined,
+      initialTime: 0,
+    });
+
+    const onScrollChapter = (storyId: 'cabin', progress: number) => {
+      store.actions.setActiveStory(storyId);
+      cameraRender.setStoryProgress(storyId, progress);
+      cameraRender.beforeRender(16);
+    };
+    onScrollChapter('cabin', 0.5);
+
+    expect(store.getState().activeStoryId).toBe('cabin');
+    expect(camera.getDiagnostics().view).toBe('cabin');
+    expect(document.querySelectorAll('.story-hotspot')).toHaveLength(0);
+    document.body.replaceChildren();
+  });
+
   it('routes a seat-only cabin delta to lighting and camera without restarting door motion', () => {
     vi.useFakeTimers();
     const scheduleDoorFrame = vi.spyOn(globalThis, 'setTimeout');

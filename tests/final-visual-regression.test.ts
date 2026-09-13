@@ -27,12 +27,10 @@ describe('final visual regression guardrails', () => {
     ).toBeLessThanOrEqual(2.5);
   });
 
-  it('keeps the mobile cabin card inside the stage reserve with a persistent non-overlapping story detail', () => {
+  it('keeps the mobile cabin card inside the stage reserve without removed story overlay styles', () => {
     const css = readFileSync('src/styles.css', 'utf8');
     const mobileRules = css.match(/@media \(max-width: 767px\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
     const cabinRule = mobileRules.match(/\.cabin-detail \{([\s\S]*?)\}/)?.[1] ?? '';
-    const cabinStoryRule = mobileRules.match(/html\[data-vehicle-mode=['"]cabin['"]\] \.story-detail \{([\s\S]*?)\}/)?.[1] ?? '';
-    const mobileStoryRailRule = mobileRules.match(/\.mobile-story-rail \{([\s\S]*?)\}/)?.[1] ?? '';
 
     expect(cabinRule).toContain('position: absolute');
     expect(cabinRule).not.toContain('position: fixed');
@@ -40,12 +38,8 @@ describe('final visual regression guardrails', () => {
     expect(cabinRule).toContain('bottom: auto');
     expect(cabinRule).toContain('max-height: calc(52dvh - 120px)');
     expect(mobileRules).toMatch(/\.vehicle-stage\[data-mode=['"]cabin['"]\]\s+\.hero-copy\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/);
-    expect(mobileRules).toMatch(/html\[data-vehicle-mode=['"]cabin['"]\] \.story-hotspots, html\[data-vehicle-mode=['"]cabin['"]\] \.mobile-story-rail/);
-    expect(mobileRules).not.toMatch(/html\[data-vehicle-mode=['"]cabin['"]\][^{]*\.story-detail[^{]*\{[^}]*visibility:\s*hidden/);
-    expect(cabinStoryRule).toContain('top: 66px');
-    expect(cabinStoryRule).toContain('bottom: auto');
-    expect(cabinStoryRule).toContain('min-height: 38px');
-    expect(mobileStoryRailRule).toContain('bottom: 84px');
+    expect(css).not.toMatch(/\.(?:header-cta|story-hotspot|hotspot-marker|hotspot-pulse|story-detail|mobile-story-rail)(?:\b|\[|:)/);
+    expect(css).not.toMatch(/\.brand(?:\s|\{|span)/);
   });
 
   it('provides environment reflections and a grounded contact shadow', () => {

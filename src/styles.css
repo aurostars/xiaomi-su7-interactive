@@ -21,14 +21,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .site-header {
   position: fixed; top: 16px; left: 50%; z-index: 20; transform: translateX(-50%);
   width: min(1160px, calc(100% - 40px)); height: 64px; padding: 0 18px;
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  display: flex; justify-content: center; align-items: center;
   border: 1px solid var(--line); background: rgba(5, 7, 10, .78); backdrop-filter: blur(18px);
 }
-.brand { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.brand span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #fff; background: var(--accent); font-weight: 800; letter-spacing: -2px; }
 .site-header nav { display: flex; align-items: center; gap: 38px; font-size: 13px; color: #c7cbd0; white-space: nowrap; }
 .site-header nav a:hover { color: #fff; }
-.header-cta { justify-self: end; padding: 10px 17px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13px; }
 
 .driving-experience { position: relative; isolation: isolate; background: #05070a; }
 .vehicle-visual { position: sticky; top: 0; z-index: 2; height: 100dvh; margin-bottom: -100dvh; overflow: hidden; pointer-events: none; }
@@ -59,19 +56,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .hero-specs dt { font-size: 19px; font-weight: 750; }
 .hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
 
-.story-hotspot { position: absolute; z-index: 4; left: var(--hotspot-x); top: var(--hotspot-y); pointer-events: auto; transform: translate(-22px, -22px); }
-.hotspot-marker { min-width: 44px; min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px; overflow: hidden; border: 1px solid rgba(75, 223, 242, .42); border-radius: 999px; background: rgba(7, 10, 14, .82); backdrop-filter: blur(14px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); transition: border-color .25s ease, background .25s ease; }
-.hotspot-marker strong { max-width: 0; overflow: hidden; opacity: 0; font-size: 12px; white-space: nowrap; transition: max-width .25s ease, opacity .2s ease; }
-.hotspot-marker[aria-current="true"], .hotspot-marker:focus-visible { border-color: var(--cyan); background: rgba(7, 19, 24, .94); }
-.hotspot-marker[aria-current="true"] strong, .hotspot-marker:focus-visible strong { max-width: 140px; opacity: 1; }
-.hotspot-pulse { position: relative; width: 27px; height: 27px; flex: 0 0 27px; border: 1px solid var(--cyan); border-radius: 50%; }
-.hotspot-pulse::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--cyan); font-size: 17px; line-height: 1; }
-.hotspot-marker[aria-current="true"] .hotspot-pulse::after { content: "−"; }
-.story-detail { position: absolute; right: max(36px, calc((100vw - 1160px) / 2)); bottom: 42px; z-index: 4; width: min(310px, calc(100% - 40px)); padding: 18px; border: 1px solid var(--line); border-left: 2px solid var(--cyan); background: rgba(7, 10, 14, .92); backdrop-filter: blur(16px); pointer-events: auto; }
-.story-detail > p:first-child { margin: 0 0 7px; color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-.story-detail h2 { margin: 0; font-size: 19px; line-height: 1.25; }
-.story-detail [data-story-description] { margin: 9px 0 0; color: #afb5bc; font-size: 12px; line-height: 1.65; }
-.mobile-story-rail { display: none; }
 
 .vehicle-controls { position: absolute; z-index: 4; top: 96px; right: 20px; width: 360px; padding: 12px; border: 1px solid rgba(207, 216, 226, .22); background: rgba(38, 45, 54, .58); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 42px rgba(9, 15, 23, .28); }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -135,10 +119,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 footer { display: flex; justify-content: space-between; padding: 28px max(40px, calc((100vw - 1160px) / 2)); color: #777d85; font-size: 11px; background: #030507; }
 
 @media (max-width: 767px) {
-  .site-header { top: 0; width: 100%; height: 58px; border-width: 0 0 1px; grid-template-columns: 1fr auto; }
-  .site-header nav { display: none; }
-  .brand b { display: none; }
-  .header-cta { padding: 8px 13px; }
+  .site-header { top: 0; width: 100%; height: 58px; border-width: 0 0 1px; }
+  .site-header nav { gap: clamp(18px, 7vw, 38px); }
   .vehicle-stage { min-height: calc(100dvh + 220px); padding-bottom: 220px; }
   .vehicle-canvas, .vehicle-fallback { inset: 52% -22% auto 4%; width: 118%; height: 40%; }
   .vehicle-focus-zone { inset: 54% 4% auto 4%; height: 28%; }
@@ -148,19 +130,6 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .hero-copy > p:not(.hero-label) { max-width: 280px; margin: 22px 0; font-size: 14px; }
   .hero-actions { gap: 8px; }
   .primary-cta, .secondary-cta { min-height: 44px; padding: 0 15px; font-size: 13px; }
-  .story-hotspot { display: none; left: var(--hotspot-x); top: var(--hotspot-y); transform: translate(-22px, -22px); }
-  .story-hotspot:has(> .hotspot-marker[aria-current="true"]) { display: block; }
-  .hotspot-marker { min-width: 44px; min-height: 44px; }
-  .story-detail { right: 14px; bottom: 130px; left: 14px; width: auto; padding: 14px 16px; }
-  .story-detail h2 { font-size: 17px; }
-  .story-detail [data-story-description] { line-height: 1.5; }
-  .mobile-story-rail { position: absolute; right: 0; bottom: 84px; left: 0; z-index: 5; display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scroll-snap-type: x mandatory; pointer-events: auto; }
-  .mobile-story-rail button { min-width: max-content; min-height: 44px; padding: 0 16px; scroll-snap-align: start; border: 1px solid var(--line); border-radius: 999px; background: rgba(7, 10, 14, .88); }
-  .mobile-story-rail button[aria-current="true"] { border-color: var(--cyan); color: var(--cyan); }
-  html[data-vehicle-mode='cabin'] .story-hotspots, html[data-vehicle-mode='cabin'] .mobile-story-rail { visibility: hidden; pointer-events: none; }
-  html[data-vehicle-mode='cabin'] .story-detail { top: 66px; bottom: auto; min-height: 38px; padding: 8px 14px; }
-  html[data-vehicle-mode='cabin'] .story-detail > p { display: none; }
-  html[data-vehicle-mode='cabin'] .story-detail h2 { overflow: hidden; font-size: 15px; line-height: 22px; text-overflow: ellipsis; white-space: nowrap; }
   .hero-specs { position: absolute; top: calc(100dvh - 250px); left: 20px; right: 20px; }
   .hero-specs div { padding: 10px; }
   .vehicle-controls { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: 25; width: 100%; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; overflow-x: auto; overscroll-behavior-inline: contain; border-width: 1px 0 0; }

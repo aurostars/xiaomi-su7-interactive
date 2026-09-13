@@ -49,7 +49,13 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.textContent).toContain('开门');
     expect(elements.canvas.getAttribute('aria-label')).toBe('小米 SU7 三维车辆');
     expect(document.querySelector('.hero-actions')?.textContent).toContain('进入座舱');
-    expect(elements.hotspotLabel.querySelector('.hotspot-marker')?.getAttribute('aria-live')).toBe('polite');
+    expect(document.querySelector('.brand')).toBeNull();
+    expect(document.querySelector('.header-cta')).toBeNull();
+    expect(document.querySelectorAll('.story-hotspot')).toHaveLength(0);
+    expect(document.querySelector('.story-detail')).toBeNull();
+    expect(document.querySelector('.mobile-story-rail')).toBeNull();
+    expect(document.querySelectorAll('.story-section')).toHaveLength(4);
+    expect(document.querySelectorAll('.site-nav a')).toHaveLength(4);
   });
 
   it('shows an accessible cabin detail card and keeps it synced while doors close and seats change', () => {
@@ -82,7 +88,6 @@ describe('high fidelity page shell', () => {
     elements.doorButton.click();
     expect(store.getState()).toMatchObject({ mode: 'cabin', doorsOpen: false });
     expect(elements.doorButton.textContent).toBe('开门');
-    expect(elements.hotspotLabel.classList.contains('cabin-detail')).toBe(false);
 
     elements.modeButtons.find((button) => button.dataset.mode === 'exterior')?.click();
     expect(elements.stage.dataset.mode).toBe('exterior');
@@ -193,73 +198,12 @@ describe('high fidelity page shell', () => {
     expect(elements.doorButton.disabled).toBe(false);
   });
 
-  it('renders persistent story hotspots, mobile rail and detail from the initial story', () => {
-    const elements = renderShell(document.body);
-
-    expect(elements.storyHotspots).toHaveLength(4);
-    expect(elements.mobileStoryButtons).toHaveLength(4);
-    expect(elements.storyDetail.hidden).toBe(false);
-    expect(elements.storyDetail.textContent).toContain('低趴轿跑姿态');
-    expect(elements.storyHotspots[0].hasAttribute('aria-current')).toBe(false);
-    expect(elements.storyHotspots[0].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe('true');
-    expect(elements.mobileStoryButtons[0].getAttribute('aria-current')).toBe('true');
-  });
-
-  it('uses the story store as the single source for desktop and mobile story controls', () => {
-    const elements = renderShell(document.body);
-    const store = createVehicleStore();
-    const setActiveStory = vi.spyOn(store.actions, 'setActiveStory');
-    const performanceScroll = vi.fn();
-    const cabinScroll = vi.fn();
-    elements.storySections.find(({ dataset }) => dataset.storySection === 'performance')!.scrollIntoView = performanceScroll;
-    elements.storySections.find(({ dataset }) => dataset.storySection === 'cabin')!.scrollIntoView = cabinScroll;
-    const unbind = bindControls(elements, store);
-
-    elements.storyHotspots[1].querySelector<HTMLButtonElement>('button')!.click();
-    expect(setActiveStory).toHaveBeenCalledWith('performance');
-    expect(performanceScroll).toHaveBeenCalledWith({ behavior: 'smooth' });
-
-    elements.mobileStoryButtons[2].click();
-    expect(store.getState().activeStoryId).toBe('cabin');
-    expect(setActiveStory).toHaveBeenLastCalledWith('cabin');
-    expect(cabinScroll).toHaveBeenCalledWith({ behavior: 'smooth' });
-    const desktopStoryButtons = elements.storyHotspots.map((hotspot) => hotspot.querySelector<HTMLButtonElement>('.hotspot-marker')!);
-    expect(desktopStoryButtons.filter((button) => button.getAttribute('aria-current') === 'true')).toHaveLength(1);
-    expect(elements.mobileStoryButtons.filter((button) => button.getAttribute('aria-current') === 'true')).toHaveLength(1);
-    expect(desktopStoryButtons[2].getAttribute('aria-current')).toBe('true');
-    expect(elements.storyHotspots.every((hotspot) => !hotspot.hasAttribute('aria-current'))).toBe(true);
-    expect(elements.mobileStoryButtons[2].getAttribute('aria-current')).toBe('true');
-    expect(elements.storyDetail.hidden).toBe(false);
-    expect(elements.storyDetail.textContent).toContain('切入座舱');
-
-    elements.enterCabinButton.click();
-    expect(elements.storyDetail.hidden).toBe(false);
-
-    unbind();
-  });
-
-  it('scrolls story hotspot targets without animation for reduced motion', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
-    const elements = renderShell(document.body);
-    const store = createVehicleStore();
-    const performanceScroll = vi.fn();
-    elements.storySections.find(({ dataset }) => dataset.storySection === 'performance')!.scrollIntoView = performanceScroll;
-    const unbind = bindControls(elements, store);
-
-    elements.storyHotspots[1].querySelector<HTMLButtonElement>('.hotspot-marker')!.click();
-
-    expect(performanceScroll).toHaveBeenCalledWith({ behavior: 'auto' });
-    unbind();
-  });
-
   it('stops click, keydown and store-driven DOM synchronization after unbind', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const setMode = vi.spyOn(store.actions, 'setMode');
     const unbind = bindControls(elements, store);
     const initialCabinPressed = elements.modeButtons[1].getAttribute('aria-pressed');
-    const initialStoryCurrent = elements.storyHotspots[0]
-      .querySelector<HTMLButtonElement>('.hotspot-marker')!.getAttribute('aria-current');
 
     unbind();
     elements.modeButtons[1].click();
@@ -271,24 +215,8 @@ describe('high fidelity page shell', () => {
     store.actions.setMode('cabin');
     store.actions.setActiveStory('performance');
     expect(elements.modeButtons[1].getAttribute('aria-pressed')).toBe(initialCabinPressed);
-    expect(elements.storyHotspots[0].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe(initialStoryCurrent);
-    expect(elements.storyHotspots[1].querySelector('.hotspot-marker')?.getAttribute('aria-current')).toBe('false');
     expect(document.documentElement.dataset.vehicleMode).toBeUndefined();
     expect(elements.stage.dataset.mode).toBeUndefined();
-  });
-
-  it('ignores an unknown story control id without dispatching or throwing', () => {
-    const elements = renderShell(document.body);
-    const store = createVehicleStore();
-    const setActiveStory = vi.spyOn(store.actions, 'setActiveStory');
-    elements.mobileStoryButtons[0].dataset.storyId = 'unknown-story';
-    const unbind = bindControls(elements, store);
-
-    expect(() => elements.mobileStoryButtons[0].click()).not.toThrow();
-    expect(setActiveStory).not.toHaveBeenCalled();
-    expect(store.getState().activeStoryId).toBe('aero');
-
-    unbind();
   });
 
   it('keeps one sticky vehicle visual alongside every story section and ends before technology', () => {

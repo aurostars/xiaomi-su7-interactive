@@ -1,5 +1,4 @@
 import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
-import { STORY_CHAPTERS } from '../content/story-chapters';
 import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
 import type { ShellElements } from './render-shell';
@@ -69,29 +68,6 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   listen(elements.doorButton, () => store.actions.toggleDoors());
   listen(elements.enterCabinButton, () => store.actions.setMode('cabin'));
 
-  const storyTitle = elements.storyDetail.querySelector<HTMLElement>('h2');
-  const storyEyebrow = elements.storyDetail.querySelector<HTMLElement>(':scope > p:first-child');
-  const storyDescription = elements.storyDetail.querySelector<HTMLElement>('[data-story-description]');
-  if (!storyTitle || !storyEyebrow || !storyDescription) throw new Error('Story detail failed to render');
-
-  const selectStory = (id: string | undefined) => {
-    const chapter = STORY_CHAPTERS.find((candidate) => candidate.id === id);
-    if (!chapter) return;
-    store.actions.setActiveStory(chapter.id);
-    const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    elements.storySections
-      .find((section) => section.dataset.storySection === chapter.id)
-      ?.scrollIntoView({ behavior });
-  };
-  const storyControls = [
-    ...elements.storyHotspots.map((hotspot) => hotspot.querySelector<HTMLButtonElement>('button')),
-    ...elements.mobileStoryButtons,
-  ];
-  storyControls.forEach((button) => {
-    if (!button) throw new Error('Story control failed to render');
-    listen(button, () => selectStory(button.dataset.storyId));
-  });
-
   const cabinTitle = elements.cabinDetail.querySelector<HTMLElement>('h2');
   const cabinDescription = elements.cabinDetail.querySelector<HTMLElement>('[data-cabin-description]');
   const cabinTags = elements.cabinDetail.querySelector<HTMLUListElement>('ul');
@@ -126,18 +102,6 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       item.textContent = tag;
       return item;
     }));
-    const chapter = STORY_CHAPTERS.find(({ id }) => id === state.activeStoryId)!;
-    elements.storyHotspots.forEach((hotspot) => {
-      const button = hotspot.querySelector<HTMLButtonElement>('.hotspot-marker');
-      if (!button) throw new Error('Story control failed to render');
-      button.setAttribute('aria-current', String(button.dataset.storyId === chapter.id));
-    });
-    elements.mobileStoryButtons.forEach((button) => {
-      button.setAttribute('aria-current', String(button.dataset.storyId === chapter.id));
-    });
-    storyEyebrow.textContent = chapter.eyebrow;
-    storyTitle.textContent = chapter.title;
-    storyDescription.textContent = chapter.description;
     document.documentElement.dataset.vehicleMode = state.mode;
     elements.stage.dataset.mode = state.mode;
   };
