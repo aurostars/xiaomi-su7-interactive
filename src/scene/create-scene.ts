@@ -76,6 +76,7 @@ function createDisplayGround(quality: SceneQuality) {
   const contactMaterial = new ShadowMaterial({
     color: 0x020407,
     opacity: automotiveSurface.groundOpacity,
+    depthWrite: false,
   });
   const contactGeometry = new PlaneGeometry(automotiveSurface.groundSize, automotiveSurface.groundSize);
   const contact = new Mesh(contactGeometry, contactMaterial);

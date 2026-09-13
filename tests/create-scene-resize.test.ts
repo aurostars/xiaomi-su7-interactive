@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GridHelper, type Material, type Mesh } from 'three';
+import {
+  GridHelper,
+  LineBasicMaterial,
+  type Material,
+  type Mesh,
+  MeshBasicMaterial,
+  ShadowMaterial,
+} from 'three';
 
 const rendererHarness = vi.hoisted(() => ({
   instances: [] as Array<{
@@ -95,11 +102,25 @@ describe('spatial display ground', () => {
       'vehicle-contact-ground',
     ]);
 
+    const grid = displayGround?.getObjectByName('display-grid') as GridHelper | undefined;
+    const contact = displayGround?.getObjectByName('vehicle-contact-ground') as Mesh | undefined;
+    const gridMaterials = Array.isArray(grid?.material) ? grid.material : [grid?.material];
+    expect(grid?.position.y).toBeLessThan(0);
+    expect(grid?.renderOrder).toBeLessThan(0);
+    expect(gridMaterials.every((material) => material instanceof LineBasicMaterial)).toBe(true);
+    expect(gridMaterials.every((material) => material?.transparent && !material.depthWrite)).toBe(true);
+    expect(contact?.position.y).toBeLessThan(0);
+    expect(contact?.renderOrder).toBeLessThan(0);
+    expect(contact?.material).toBeInstanceOf(ShadowMaterial);
+    expect((contact?.material as Material).transparent).toBe(true);
+    expect((contact?.material as Material).depthWrite).toBe(false);
+
     for (const name of ['display-accent-cyan', 'display-accent-orange']) {
       const accent = displayGround?.getObjectByName(name) as Mesh | undefined;
       expect(accent?.position.y).toBeLessThan(0);
       expect(accent?.renderOrder).toBeLessThan(0);
       const materials = Array.isArray(accent?.material) ? accent.material : [accent?.material];
+      expect(materials.every((material) => material instanceof MeshBasicMaterial)).toBe(true);
       expect(materials.every((material) => material?.transparent && !material.depthWrite)).toBe(true);
     }
 
@@ -112,10 +133,21 @@ describe('spatial display ground', () => {
     const lowGround = low.runtime.scene.getObjectByName('display-ground');
     const mediumGround = medium.runtime.scene.getObjectByName('display-ground');
     const lowGrid = lowGround?.getObjectByName('display-grid') as GridHelper | undefined;
+    const lowContact = lowGround?.getObjectByName('vehicle-contact-ground') as Mesh | undefined;
     const mediumGrid = mediumGround?.getObjectByName('display-grid') as GridHelper | undefined;
+    const lowGridMaterials = Array.isArray(lowGrid?.material) ? lowGrid.material : [lowGrid?.material];
 
     expect(lowGround?.getObjectByName('display-accent-cyan')).toBeUndefined();
     expect(lowGround?.getObjectByName('display-accent-orange')).toBeUndefined();
+    expect(lowGrid?.position.y).toBeLessThan(0);
+    expect(lowGrid?.renderOrder).toBeLessThan(0);
+    expect(lowGridMaterials.every((material) => material instanceof LineBasicMaterial)).toBe(true);
+    expect(lowGridMaterials.every((material) => material?.transparent && !material.depthWrite)).toBe(true);
+    expect(lowContact?.position.y).toBeLessThan(0);
+    expect(lowContact?.renderOrder).toBeLessThan(0);
+    expect(lowContact?.material).toBeInstanceOf(ShadowMaterial);
+    expect((lowContact?.material as Material).transparent).toBe(true);
+    expect((lowContact?.material as Material).depthWrite).toBe(false);
     expect(lowGrid?.geometry.getAttribute('position').count).toBeLessThan(
       mediumGrid?.geometry.getAttribute('position').count ?? 0,
     );

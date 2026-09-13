@@ -53,6 +53,59 @@ export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
   rear: { position: [0, 1.3, 1.28], target: [0, 1.05, -1.6], fov: 58, near: 0.025, vehicleYaw: 0 },
 };
 
+export interface WorldBounds {
+  min: [number, number, number];
+  max: [number, number, number];
+}
+
+export interface NdcBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  width: number;
+  height: number;
+  area: number;
+}
+
+/** Box3.setFromObject() bounds measured from the shipped SU7 GLB at its loader world transform. */
+export const SU7_WORLD_BOUNDS: WorldBounds = {
+  min: [-1.1002051298, -0.0297371928, -2.6309396052],
+  max: [1.1002051298, 1.4350140945, 2.6062138636],
+};
+const VEHICLE_Y_AXIS = new Vector3(0, 1, 0);
+
+export function projectWorldBoundsToNdc(
+  preset: CameraPreset,
+  aspect: number,
+  bounds: WorldBounds,
+): NdcBounds {
+  const camera = new PerspectiveCamera(preset.fov, aspect, preset.near, 100);
+  camera.position.fromArray(preset.position);
+  camera.lookAt(...preset.target);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+
+  const projectedCorners: Vector3[] = [];
+  for (const x of [bounds.min[0], bounds.max[0]]) {
+    for (const y of [bounds.min[1], bounds.max[1]]) {
+      for (const z of [bounds.min[2], bounds.max[2]]) {
+        projectedCorners.push(new Vector3(x, y, z).applyAxisAngle(VEHICLE_Y_AXIS, preset.vehicleYaw).project(camera));
+      }
+    }
+  }
+  const xCoordinates = projectedCorners.map(({ x }) => x);
+  const yCoordinates = projectedCorners.map(({ y }) => y);
+  const minX = Math.min(...xCoordinates);
+  const maxX = Math.max(...xCoordinates);
+  const minY = Math.min(...yCoordinates);
+  const maxY = Math.max(...yCoordinates);
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  return { minX, maxX, minY, maxY, width, height, area: width * height };
+}
+
 const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin', 'sensing'];
 const DAMPING = 5;
 const tuple = (value: Vector3): [number, number, number] => [value.x, value.y, value.z];

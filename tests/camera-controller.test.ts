@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { PerspectiveCamera } from 'three';
 import {
   CAMERA_PRESETS,
+  SU7_WORLD_BOUNDS,
+  type CameraPreset,
   createCameraController,
   createCameraRenderOrchestration,
+  projectWorldBoundsToNdc,
 } from '../src/scene/camera-controller';
 
 describe('camera render orchestration', () => {
@@ -70,6 +73,26 @@ describe('camera controller', () => {
     expect(aero.position[1]).toBeLessThan(2.8);
     expect(aero.fov).toBeGreaterThanOrEqual(30);
     expect(aero.fov).toBeLessThanOrEqual(35);
+  });
+
+  it('projects a 10-15% larger complete SU7 in the 1440x900 aero frame', () => {
+    const legacyAero: CameraPreset = {
+      position: [6.8, 2.8, 7.8],
+      target: [0, 0.7, 0],
+      fov: 32,
+      near: 0.1,
+      vehicleYaw: -0.18,
+    };
+    const legacyBounds = projectWorldBoundsToNdc(legacyAero, 1440 / 900, SU7_WORLD_BOUNDS);
+    const currentBounds = projectWorldBoundsToNdc(CAMERA_PRESETS.aero, 1440 / 900, SU7_WORLD_BOUNDS);
+    const linearScale = Math.sqrt(currentBounds.area / legacyBounds.area);
+
+    expect(linearScale).toBeGreaterThanOrEqual(1.1);
+    expect(linearScale).toBeLessThanOrEqual(1.15);
+    expect(currentBounds.minX).toBeGreaterThanOrEqual(-1);
+    expect(currentBounds.maxX).toBeLessThanOrEqual(1);
+    expect(currentBounds.minY).toBeGreaterThanOrEqual(-1);
+    expect(currentBounds.maxY).toBeLessThanOrEqual(1);
   });
 
   it('keeps driver, passenger, and rear viewpoints inside the cabin and spatially distinct', () => {
