@@ -33,7 +33,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .vehicle-visual[data-stage-visibility='hidden'] .vehicle-canvas { pointer-events: none; }
 .vehicle-stage { position: relative; z-index: 3; min-height: 100dvh; overflow: hidden; background: linear-gradient(120deg, #050609 18%, transparent 58%); }
 .vehicle-canvas { position: absolute; inset: 0 0 0 40%; z-index: 1; width: 60%; height: 100%; cursor: grab; pointer-events: auto; touch-action: none; }
-.vehicle-focus-zone { position: absolute; inset: 20% 4% 16% 40%; z-index: 2; pointer-events: none; }
+.vehicle-focus-zone { position: absolute; inset: 30% 4% 14% 40%; z-index: 2; pointer-events: none; }
 .vehicle-canvas:active { cursor: grabbing; }
 .vehicle-canvas[hidden] { display: none; }
 .vehicle-fallback { position: absolute; inset: 0 0 0 40%; z-index: 1; width: 60%; height: 100%; object-fit: cover; object-position: center; }
@@ -59,23 +59,30 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .hero-specs dd { margin: 5px 0 0; color: #92979e; font-size: 11px; }
 
 
-.vehicle-controls { position: absolute; z-index: 4; top: 96px; right: 20px; width: 360px; padding: 12px; border: 1px solid rgba(207, 216, 226, .22); background: rgba(38, 45, 54, .58); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 42px rgba(9, 15, 23, .28); }
-.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vehicle-controls {
+  position: absolute; z-index: 4; top: 84px; right: 20px; width: min(760px, calc(100% - 520px)); padding: 12px;
+  display: grid; grid-template-columns: 140px minmax(300px, 1fr) 180px; grid-template-areas: "mode seats door" "paint paint interior"; gap: 8px 10px;
+  border: 1px solid rgba(207, 216, 226, .22); background: rgba(38, 45, 54, .58); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 18px 42px rgba(9, 15, 23, .28);
+}
+.mode-tabs { grid-area: mode; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mode-tabs button, .seat-views button, .door-button { min-height: 44px; border: 1px solid rgba(207, 216, 226, .2); background: rgba(255, 255, 255, .035); font-size: 12px; transition: color 220ms ease, border-color 220ms ease, background 220ms ease, transform 220ms ease; }
 .mode-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .control-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .mode-tabs button[aria-pressed="true"] { color: #080a0c; background: #f1f3f5; }
-.control-palette { min-width: 0; margin: 10px 0 0; padding: 0; border: 0; }
+.control-palette { min-width: 0; margin: 0; padding: 0; border: 0; }
+.paint-group { grid-area: paint; }
+.interior-group { grid-area: interior; }
 .control-palette legend { margin-bottom: 7px; padding: 0; color: #c7ccd2; font-size: 11px; }
 .control-palette > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.paint-group > div { grid-template-columns: repeat(9, minmax(0, 1fr)); }
 .color-swatch { position: relative; min-width: 0; min-height: 44px; padding: 0 7px 0 29px; overflow: hidden; border: 1px solid rgba(207, 216, 226, .18); border-radius: 4px; background: rgba(255, 255, 255, .035); color: #d9dde2; font-size: 10px; text-align: left; white-space: nowrap; text-overflow: ellipsis; transition: border-color 220ms ease, background 220ms ease, transform 220ms ease; }
 .color-swatch::before { content: ""; position: absolute; left: 7px; top: 50%; width: 15px; height: 15px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .32), 0 2px 6px rgba(9, 15, 23, .24); transform: translateY(-50%); }
 .color-swatch[aria-pressed="true"] { border-color: #fff; background: rgba(255, 255, 255, .12); }
 .vehicle-controls button:hover:not(:disabled) { border-color: rgba(226, 233, 240, .58); background-color: rgba(255, 255, 255, .1); }
 .vehicle-controls button:active:not(:disabled) { transform: scale(.97); }
-.seat-views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+.seat-views { grid-area: seats; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 0; }
 .seat-views button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
-.door-button { width: 100%; margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.door-button { grid-area: door; width: 100%; margin-top: 0; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .door-button[aria-pressed="true"] { border-color: var(--accent); color: #ff8b70; }
 .vehicle-controls button:disabled { cursor: not-allowed; opacity: .32; }
 
@@ -119,6 +126,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .closing-cta h2 { max-width: 860px; }
 .closing-cta a { padding: 15px 22px; border-radius: 4px; background: var(--accent); white-space: nowrap; }
 footer { display: flex; justify-content: space-between; padding: 28px max(40px, calc((100vw - 1160px) / 2)); color: #777d85; font-size: 11px; background: #030507; }
+
+@media (min-width: 768px) {
+  .vehicle-stage[data-mode='cabin'] .cabin-detail { top: 250px; }
+}
 
 @media (max-width: 767px) {
   .site-header { top: 0; width: 100%; height: 58px; border-width: 0 0 1px; }

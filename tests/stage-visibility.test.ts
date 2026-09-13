@@ -33,9 +33,16 @@ describe('stage visibility calculation', () => {
     })).toEqual({ phase: 'fading', progress: 0 });
   });
 
-  it('lets technology reaching the viewport center override the story fade', () => {
+  it('keeps technology outside the hard boundary one pixel below the viewport', () => {
     expect(calculateStageVisibility({
-      finalStoryTop: -350, finalStoryHeight: 1000, technologyTop: 450,
+      finalStoryTop: 450, finalStoryHeight: 1000, technologyTop: 901,
+      viewportHeight: 900, reducedMotion: false,
+    })).toEqual({ phase: 'visible', progress: 0 });
+  });
+
+  it('hides as soon as technology reaches the viewport bottom boundary', () => {
+    expect(calculateStageVisibility({
+      finalStoryTop: 450, finalStoryHeight: 1000, technologyTop: 900,
       viewportHeight: 900, reducedMotion: false,
     })).toEqual({ phase: 'hidden', progress: 1 });
   });

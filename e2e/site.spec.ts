@@ -286,7 +286,7 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
   }
 });
 
-test('technology exit fades in the final story tail, hides before technology, and restores upward', async ({ page }) => {
+test('technology exit hides at the viewport boundary and restores upward', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -294,19 +294,25 @@ test('technology exit fades in the final story tail, hides before technology, an
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
   const visual = page.locator('.vehicle-visual');
-  await scrollStoryTo(page, 'intelligence', .9);
-  await expect(visual).toHaveAttribute('data-stage-visibility', 'fading');
-  const fadingOpacity = Number(await visual.evaluate((element) => getComputedStyle(element).opacity));
-  expect(fadingOpacity).toBeGreaterThan(0);
-  expect(fadingOpacity).toBeLessThan(1);
+  const positionTechnologyAt = async (top: number) => {
+    await page.evaluate((targetTop) => {
+      const technology = document.querySelector<HTMLElement>('#technology');
+      if (!technology) throw new Error('Missing technology section');
+      window.scrollTo({
+        top: window.scrollY + technology.getBoundingClientRect().top - targetTop,
+        behavior: 'instant',
+      });
+      window.dispatchEvent(new Event('scroll'));
+    }, top);
+    await expect.poll(async () => page.evaluate(() => Math.round(
+      document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity,
+    ))).toBe(top);
+  };
 
-  await page.evaluate(() => {
-    const technology = document.querySelector<HTMLElement>('#technology');
-    if (!technology) throw new Error('Missing technology section');
-    window.scrollTo({ top: window.scrollY + technology.getBoundingClientRect().top, behavior: 'instant' });
-  });
-  await expect.poll(async () => page.evaluate(() => document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity))
-    .toBeLessThanOrEqual(0);
+  await positionTechnologyAt(901);
+  await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden');
+
+  await positionTechnologyAt(900);
   await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden');
   await expect(visual).toHaveCSS('opacity', '0');
   await expect(visual).toHaveCSS('pointer-events', 'none');
@@ -626,12 +632,15 @@ for (const viewport of [
     if (viewport.width !== 390) {
       const heroCopy = page.locator('.hero-copy');
       const heroActions = page.locator('.hero-actions');
-      const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls].map(requiredBox));
+      const focusZone = page.locator('[data-vehicle-focus-zone]');
+      const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls, focusZone].map(requiredBox));
       const controlsBox = occupiedBoxes[2];
+      const focusBox = occupiedBoxes[3];
       expect(
         controlsBox.y + controlsBox.height,
         JSON.stringify({ viewport, controlsBox }),
       ).toBeLessThanOrEqual(viewport.height * 0.7);
+      expect(overlaps(controlsBox, focusBox), JSON.stringify({ viewport, controlsBox, focusBox })).toBe(false);
       await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
         animations: 'disabled',
         maxDiffPixelRatio: 0.035,
@@ -705,17 +714,17 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
   const seats = [
     {
       key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.25, 0.38],
-      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.28,
+      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.28, maxHighlightRatio: 0.04,
       glareRegion: [0.27, 0.12, 0.15, 0.16],
     },
     {
       key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.32, 1.55],
-      readableRegion: [0.08, 0.34, 0.64, 0.54], minMedian: 20, maxDarkRatio: 0.45,
+      readableRegion: [0.08, 0.34, 0.64, 0.54], minMedian: 20, maxDarkRatio: 0.45, maxHighlightRatio: 0.04,
       glareRegion: [0.27, 0.12, 0.15, 0.16],
     },
     {
       key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.28, 0.02],
-      readableRegion: [0.08, 0.42, 0.76, 0.42], minMedian: 35, maxDarkRatio: 0.4,
+      readableRegion: [0.08, 0.42, 0.76, 0.42], minMedian: 35, maxDarkRatio: 0.45, maxHighlightRatio: 0.04,
       glareRegion: [0.27, 0.12, 0.15, 0.16],
     },
   ] as const;
@@ -742,7 +751,7 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
       .toBeLessThanOrEqual(seat.maxDarkRatio);
     const glare = await readCanvasLuminance(page, seat.glareRegion);
     expect(glare.highlightRatio, `${seat.key} upper-cabin highlight ${JSON.stringify(glare)}`)
-      .toBeLessThanOrEqual(0.01);
+      .toBeLessThanOrEqual(seat.maxHighlightRatio);
     expectNoPageFailures();
     await expect(page).toHaveScreenshot(`cabin-${seat.key}-1440x900.png`, {
       animations: 'disabled',

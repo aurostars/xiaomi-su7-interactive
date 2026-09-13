@@ -31,7 +31,7 @@ export function calculateStageVisibility(input: StageVisibilityInput): StageVisi
     ? 1
     : clamp((storyProgress - 0.8) / 0.2, 0, 1);
 
-  const technologyEntered = input.technologyTop <= input.viewportHeight / 2;
+  const technologyEntered = input.technologyTop <= input.viewportHeight;
   const continuousProgress = technologyEntered ? 1 : fadeProgress;
   const progress = input.reducedMotion && continuousProgress > 0 ? 1 : continuousProgress;
 

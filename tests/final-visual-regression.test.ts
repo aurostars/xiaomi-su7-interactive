@@ -53,8 +53,9 @@ describe('final visual regression guardrails', () => {
 
     expect(desktopStoryRule).toContain('grid-template-columns: minmax(0, 40%) minmax(0, 60%)');
     expect(storyCopyRule).toContain('max-width: 420px');
-    expect(focusZoneRule).toContain('inset: 20% 4% 16% 40%');
+    expect(focusZoneRule).toContain('inset: 30% 4% 14% 40%');
     expect(visualRule).toContain('opacity: calc(1 - var(--stage-exit-progress))');
+    expect(css).toMatch(/\.vehicle-controls\s*\{[^}]*grid-template-areas:\s*"mode seats door" "paint paint interior";/);
     expect(canvasRule).toContain('inset: 0 0 0 40%');
     expect(canvasRule).toContain('width: 60%');
     expect(technologyRule).toContain('#090b0e');
