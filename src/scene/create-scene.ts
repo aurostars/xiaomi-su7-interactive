@@ -305,6 +305,7 @@ export function createScene(
       return renderLifecycle.setBeforeRender(callback);
     },
     setCabinMode(enabled, seatView, immediate) {
+      displayGround.group.visible = !enabled;
       cabinLighting.apply({ enabled, seatView }, immediate);
     },
     getCabinLightingDiagnostics() {

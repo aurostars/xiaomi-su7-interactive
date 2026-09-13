@@ -56,6 +56,7 @@ function makeVehicle(): LoadedVehicle & {
         rearRight: true,
       },
     },
+    setCabinPresentation: () => undefined,
     dispose: () => undefined,
     screen,
     untouched,
@@ -221,6 +222,25 @@ describe('createVehicleController', () => {
     });
     expect(invalidate).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('uses a legible cabin-only obsidian treatment and restores the exterior swatch', () => {
+    const vehicle = makeVehicle();
+    const controller = createVehicleController(vehicle, true);
+
+    controller.applyState(state({ mode: 'exterior', interior: 'obsidian-black', doorsOpen: false }));
+    const interiorMaterial = vehicle.interiorMaterials[0] as MeshStandardMaterial;
+    expect(interiorMaterial.color.getHexString()).toBe('11161c');
+    expect(interiorMaterial.emissive.getHexString()).toBe('000000');
+
+    controller.applyState(state({ mode: 'cabin', interior: 'obsidian-black', doorsOpen: false }));
+    expect(interiorMaterial.color.getHexString()).toBe('465566');
+    expect(interiorMaterial.emissive.getHexString()).toBe('28394a');
+    expect(interiorMaterial.emissiveIntensity).toBe(0.75);
+
+    controller.applyState(state({ mode: 'exterior', interior: 'obsidian-black', doorsOpen: false }));
+    expect(interiorMaterial.color.getHexString()).toBe('11161c');
+    expect(interiorMaterial.emissive.getHexString()).toBe('000000');
   });
 
   it('drives emissive mode and intensity on the real generated screen materials', () => {

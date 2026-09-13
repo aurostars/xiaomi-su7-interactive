@@ -39,6 +39,7 @@ function makeVehicle(): LoadedVehicle {
       screenGlow: true,
       doors: { frontLeft: true, frontRight: true, rearLeft: true, rearRight: true },
     },
+    setCabinPresentation() {},
     dispose() {},
   };
 }

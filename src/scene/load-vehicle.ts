@@ -29,6 +29,7 @@ const DOOR_DEFINITIONS = {
   rearRight: { names: ['door4'], side: 'right', hinge: [1.04, 0, 0.18] },
 } as const;
 const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
+const CABIN_OCCLUDER_NODE_NAMES = ['outside'];
 
 function tuneAutomotiveMaterial(material: Material) {
   if (!(material instanceof MeshPhysicalMaterial)) return;
@@ -72,6 +73,7 @@ export interface LoadedVehicle {
   screenMaterials: Material[];
   doors: VehicleDoors;
   capabilities: VehicleCapabilities;
+  setCabinPresentation(enabled: boolean): void;
   /** Releases this vehicle's GPU resources and detaches it. Safe to call repeatedly. */
   dispose(): void;
 }
@@ -211,6 +213,12 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
     if (pivot) doors[id] = pivot;
   }
   const screenMaterials = createCabinDisplays(root);
+  const cabinOccluders = CABIN_OCCLUDER_NODE_NAMES
+    .map((name) => findNode(root, [name]))
+    .filter((node): node is Object3D => Boolean(node));
+  const originalOccluderVisibility = new Map(
+    cabinOccluders.map((node) => [node, node.visible]),
+  );
   let disposed = false;
 
   root.traverse((object) => {
@@ -221,6 +229,11 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
     const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
     materials.forEach(tuneAutomotiveMaterial);
   });
+  const windowMaterials = collectMaterials(root, [...WINDOW_MATERIAL_NAMES])
+    .filter((material): material is MeshPhysicalMaterial => material instanceof MeshPhysicalMaterial);
+  const exteriorWindowIntensity = new Map(
+    windowMaterials.map((material) => [material, material.envMapIntensity]),
+  );
 
   return {
     root,
@@ -238,6 +251,15 @@ export function createLoadedVehicle(root: Object3D): LoadedVehicle {
         rearLeft: Boolean(doors.rearLeft),
         rearRight: Boolean(doors.rearRight),
       },
+    },
+    setCabinPresentation(enabled) {
+      if (disposed) return;
+      cabinOccluders.forEach((node) => {
+        node.visible = enabled ? false : (originalOccluderVisibility.get(node) ?? true);
+      });
+      windowMaterials.forEach((material) => {
+        material.envMapIntensity = enabled ? 0.25 : (exteriorWindowIntensity.get(material) ?? 1.6);
+      });
     },
     dispose() {
       if (disposed) return;

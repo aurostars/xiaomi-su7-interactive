@@ -131,6 +131,39 @@ describe('createLoadedVehicle', () => {
     expect(interior.side).toBe(DoubleSide);
   });
 
+  it('removes only static outer-shell occluders in cabin mode and restores reflective glass', () => {
+    const root = new Group();
+    const outside = new Group();
+    outside.name = 'OUTSIDE';
+    const roofShell = new Group();
+    roofShell.name = 'polySurface116';
+    const interior = new Group();
+    interior.name = 'INSIDE';
+    const door = new Group();
+    door.name = 'DOOR1';
+    const windowMaterial = new MeshPhysicalMaterial({ envMapIntensity: 1 });
+    windowMaterial.name = 'Car_window';
+    door.add(new Mesh(new PlaneGeometry(1, 1), windowMaterial));
+    root.add(outside, roofShell, interior, door);
+
+    const vehicle = createLoadedVehicle(root);
+    const exteriorWindowIntensity = windowMaterial.envMapIntensity;
+    vehicle.setCabinPresentation(true);
+
+    expect(outside.visible).toBe(false);
+    expect(roofShell.visible).toBe(true);
+    expect(interior.visible).toBe(true);
+    expect(door.visible).toBe(true);
+    expect(windowMaterial.envMapIntensity).toBe(0.25);
+
+    vehicle.setCabinPresentation(false);
+    expect(outside.visible).toBe(true);
+    expect(roofShell.visible).toBe(true);
+    expect(interior.visible).toBe(true);
+    expect(door.visible).toBe(true);
+    expect(windowMaterial.envMapIntensity).toBe(exteriorWindowIntensity);
+  });
+
   it('adds both cabin display overlays and exposes their materials', () => {
     const root = new Group();
 

@@ -53,6 +53,7 @@ const INTERIOR_COLORS: Record<string, string> = {
   crimson: '#8f3431',
   mist: '#756583',
 };
+const CABIN_OBSIDIAN_COLOR = '#465566';
 
 type ColorMaterial = Material & { color: Color };
 type EmissiveMaterial = Material & { emissive: Color; emissiveIntensity: number };
@@ -107,14 +108,25 @@ export function createVehicleController(
     applyState(state) {
       if (disposed) return;
 
+      vehicle.setCabinPresentation(state.mode === 'cabin');
       const bodyTarget = new Color(PAINT_COLORS[state.paint] ?? state.paint);
-      const interiorTarget = new Color(INTERIOR_COLORS[state.interior] ?? state.interior);
+      const usesObsidian = state.interior === 'obsidian-black' || state.interior === 'graphite';
+      const interiorTarget = new Color(
+        state.mode === 'cabin' && usesObsidian
+          ? CABIN_OBSIDIAN_COLOR
+          : (INTERIOR_COLORS[state.interior] ?? state.interior),
+      );
       vehicle.bodyMaterials.filter(hasColor).forEach((material) => {
         material.color.copy(bodyTarget);
         material.needsUpdate = true;
       });
       vehicle.interiorMaterials.filter(hasColor).forEach((material) => {
         material.color.copy(interiorTarget);
+        material.needsUpdate = true;
+      });
+      vehicle.interiorMaterials.filter(hasEmissive).forEach((material) => {
+        material.emissive.set(state.mode === 'cabin' && usesObsidian ? '#28394a' : '#000000');
+        material.emissiveIntensity = state.mode === 'cabin' && usesObsidian ? 0.75 : 0;
         material.needsUpdate = true;
       });
       vehicle.screenMaterials.filter(hasEmissive).forEach((material) => {

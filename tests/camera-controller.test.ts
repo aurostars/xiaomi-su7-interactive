@@ -115,24 +115,25 @@ describe('camera controller', () => {
       const [x, y, z] = CAMERA_PRESETS[view].position;
       expect(x).toBeGreaterThanOrEqual(-0.7);
       expect(x).toBeLessThanOrEqual(0.7);
-      // The shipped GLB roof liner intersects upper view rays when the eye is above 1.15m.
-      // Keep the eye below it and pitch down so near black roof/body geometry cannot dominate the frame.
-      expect(y).toBeGreaterThanOrEqual(1.05);
-      expect(y).toBeLessThanOrEqual(1.15);
-      expect(z).toBeGreaterThanOrEqual(0);
-      expect(z).toBeLessThanOrEqual(1.8);
+      // Keep the eye behind and above near-field wheel/seat geometry while the cabin-only
+      // shell treatment prevents the roof/body occluders identified by GLB raycasts.
+      expect(y).toBeGreaterThanOrEqual(1.2);
+      expect(y).toBeLessThanOrEqual(1.4);
+      expect(z).toBeGreaterThanOrEqual(view === 'driver' ? -0.1 : view === 'rear' ? 1.45 : 0.3);
+      expect(z).toBeLessThanOrEqual(view === 'driver' ? 0.1 : 1.8);
       expect(CAMERA_PRESETS[view].near).toBeGreaterThanOrEqual(0.12);
       expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.2);
       const [targetX, targetY, targetZ] = CAMERA_PRESETS[view].target;
-      expect(y - targetY).toBeGreaterThanOrEqual(0.2);
-      expect(Math.hypot(targetX - x, targetY - y, targetZ - z)).toBeGreaterThanOrEqual(2.4);
+      expect(y - targetY).toBeGreaterThanOrEqual(0.35);
+      expect(Math.hypot(targetX - x, targetY - y, targetZ - z))
+        .toBeGreaterThanOrEqual(view === 'driver' ? 2.4 : 2.7);
       expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(50);
       expect(CAMERA_PRESETS[view].fov).toBeLessThanOrEqual(58);
     }
     expect(CAMERA_PRESETS.driver.position[0]).toBeLessThan(0);
     expect(CAMERA_PRESETS.passenger.position[0]).toBeGreaterThan(0);
-    expect(CAMERA_PRESETS.driver.position[2]).toBeLessThanOrEqual(0.15);
-    expect(CAMERA_PRESETS.passenger.position[2]).toBeLessThanOrEqual(0.15);
+    expect(CAMERA_PRESETS.driver.position[2]).toBeLessThanOrEqual(0.1);
+    expect(CAMERA_PRESETS.passenger.position[2]).toBeGreaterThanOrEqual(0.3);
     expect(new Set(positions).size).toBe(3);
     expect(new Set(targets).size).toBe(3);
   });

@@ -107,6 +107,49 @@ async function requiredBox(locator: Locator) {
   return box;
 }
 
+type NormalizedRegion = readonly [x: number, y: number, width: number, height: number];
+
+async function readCanvasLuminance(page: Page, region: NormalizedRegion) {
+  const screenshot = await page.locator('canvas.vehicle-canvas').screenshot({ animations: 'disabled' });
+  return page.evaluate(async ({ encodedScreenshot, sampleRegion }) => {
+    const bytes = Uint8Array.from(atob(encodedScreenshot), (character) => character.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+    const [x, y, width, height] = sampleRegion;
+    const scratch = document.createElement('canvas');
+    scratch.width = Math.max(1, Math.floor(width * bitmap.width));
+    scratch.height = Math.max(1, Math.floor(height * bitmap.height));
+    const context = scratch.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Unable to create visual guardrail context');
+    context.drawImage(
+      bitmap,
+      Math.floor(x * bitmap.width),
+      Math.floor(y * bitmap.height),
+      scratch.width,
+      scratch.height,
+      0,
+      0,
+      scratch.width,
+      scratch.height,
+    );
+    bitmap.close();
+    const pixels = context.getImageData(0, 0, scratch.width, scratch.height).data;
+    const luminance: number[] = [];
+    for (let index = 0; index < pixels.length; index += 16) {
+      luminance.push(
+        pixels[index] * 0.2126
+        + pixels[index + 1] * 0.7152
+        + pixels[index + 2] * 0.0722,
+      );
+    }
+    luminance.sort((left, right) => left - right);
+    return {
+      median: luminance[Math.floor(luminance.length / 2)],
+      darkRatio: luminance.filter((value) => value < 12).length / luminance.length,
+      highlightRatio: luminance.filter((value) => value > 160).length / luminance.length,
+    };
+  }, { encodedScreenshot: screenshot.toString('base64'), sampleRegion: region });
+}
+
 async function activatePublicButton(locator: Locator) {
   // Exercise the rendered control's real click listener without flaky pointer hit-testing across sticky WebGL layers.
   await locator.evaluate((button: HTMLButtonElement) => button.click());
@@ -597,14 +640,26 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
   await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
   await expectRenderedCamera(page, initialRevision, {
     view: 'driver',
-    position: [-0.38, 1.1, 0.08],
+    position: [-0.38, 1.28, 0.02],
     near: 0.15,
   });
 
   const seats = [
-    { key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.1, 0.08] },
-    { key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.1, 1.28] },
-    { key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.1, 0.08] },
+    {
+      key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.25, 0.38],
+      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.28,
+      glareRegion: [0.27, 0.12, 0.15, 0.16],
+    },
+    {
+      key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.32, 1.55],
+      readableRegion: [0.08, 0.34, 0.64, 0.54], minMedian: 20, maxDarkRatio: 0.45,
+      glareRegion: [0.27, 0.12, 0.15, 0.16],
+    },
+    {
+      key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.28, 0.02],
+      readableRegion: [0.08, 0.42, 0.76, 0.42], minMedian: 35, maxDarkRatio: 0.4,
+      glareRegion: [0.27, 0.12, 0.15, 0.16],
+    },
   ] as const;
   for (const seat of seats) {
     const button = page.getByRole('button', { name: seat.label, exact: true });
@@ -622,6 +677,14 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     await expect(card.getByRole('heading', { name: seat.title })).toBeVisible();
     await expect(card.locator('li')).toHaveCount(3);
     for (let index = 0; index < 3; index += 1) await expect(card.locator('li').nth(index)).toBeVisible();
+    const readable = await readCanvasLuminance(page, seat.readableRegion);
+    expect(readable.median, `${seat.key} readable-region luminance ${JSON.stringify(readable)}`)
+      .toBeGreaterThanOrEqual(seat.minMedian);
+    expect(readable.darkRatio, `${seat.key} readable-region black crush ${JSON.stringify(readable)}`)
+      .toBeLessThanOrEqual(seat.maxDarkRatio);
+    const glare = await readCanvasLuminance(page, seat.glareRegion);
+    expect(glare.highlightRatio, `${seat.key} upper-cabin highlight ${JSON.stringify(glare)}`)
+      .toBeLessThanOrEqual(0.01);
     expectNoPageFailures();
     await expect(page).toHaveScreenshot(`cabin-${seat.key}-1440x900.png`, {
       animations: 'disabled',

@@ -127,6 +127,18 @@ describe('spatial display ground', () => {
     runtime.dispose();
   });
 
+  it('hides the exterior display ground in cabin mode so its cyan accents cannot leak through windows', () => {
+    const { runtime } = createRuntime(() => undefined, 'high');
+    const displayGround = runtime.scene.getObjectByName('display-ground');
+
+    runtime.setCabinMode(true, 'passenger', true);
+    expect(displayGround?.visible).toBe(false);
+
+    runtime.setCabinMode(false, 'passenger', true);
+    expect(displayGround?.visible).toBe(true);
+    runtime.dispose();
+  });
+
   it('omits accents and reduces grid geometry at low quality', () => {
     const low = createRuntime();
     const medium = createRuntime(() => undefined, 'medium');
