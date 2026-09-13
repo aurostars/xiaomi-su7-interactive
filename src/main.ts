@@ -10,6 +10,7 @@ import {
 import {
   createCameraController,
   type CameraController,
+  type CameraDiagnostics,
   type CameraView,
 } from './scene/camera-controller';
 import { createScene, renderFrameInterval } from './scene/create-scene';
@@ -57,14 +58,22 @@ let diagnosticCabinLighting: (() => {
   activeLights: number;
 }) | undefined;
 let diagnosticStory: { view: CameraView; progress: number; scrollY: number; updatedAt: number } | undefined;
-let diagnosticRendering: (() => { renderRevision: number; renderedView: CameraView | null }) | undefined;
+let diagnosticRendering: (() => {
+  renderRevision: number;
+  renderedView: CameraView | null;
+  renderedCamera: CameraDiagnostics | null;
+}) | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
   document.documentElement.classList.add('e2e-diagnostics');
   Object.defineProperty(window, '__SU7_E2E_READ_DIAGNOSTICS__', {
     value: () => {
       const vehicle = diagnosticVehicle?.getDiagnostics();
-      const rendering = diagnosticRendering?.() ?? { renderRevision: 0, renderedView: null };
+      const rendering = diagnosticRendering?.() ?? {
+        renderRevision: 0,
+        renderedView: null,
+        renderedCamera: null,
+      };
       return {
         modelReady: Boolean(vehicle),
         mode: store.getState().mode,
@@ -106,17 +115,28 @@ orchestrator = createExperienceOrchestrator({
     let camera!: CameraController;
     let renderRevision = 0;
     let renderedView: CameraView | null = null;
-    const readRendering = () => ({ renderRevision, renderedView });
+    let renderedCamera: CameraDiagnostics | null = null;
+    const readRendering = () => ({ renderRevision, renderedView, renderedCamera });
     const runtime = createScene(
       elements.canvas,
       capabilities.quality === 'high' ? 'high' : 'low',
       renderFrameInterval(import.meta.env.VITE_E2E_DIAGNOSTICS === '1'),
       () => {
+        const cameraDiagnostics = camera?.getDiagnostics();
         renderRevision += 1;
-        renderedView = camera?.getDiagnostics().view ?? null;
+        renderedView = cameraDiagnostics?.view ?? null;
+        renderedCamera = cameraDiagnostics ?? null;
       },
     );
     camera = createCameraController(runtime.camera);
+    let previousRenderAt = performance.now();
+    let forceImmediateCameraUpdate = false;
+    const clearBeforeRender = runtime.setBeforeRender((now) => {
+      const delta = Math.min(.05, Math.max(0, (now - previousRenderAt) / 1000));
+      previousRenderAt = now;
+      camera.update(delta, forceImmediateCameraUpdate || capabilities.reducedMotion);
+      forceImmediateCameraUpdate = false;
+    });
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
     diagnosticCabinLighting = readCabinLighting;
@@ -167,16 +187,6 @@ orchestrator = createExperienceOrchestrator({
     });
 
     runtime.start();
-    let frame = 0;
-    let previous = performance.now();
-    const update = (now: number) => {
-      if (stopped) return;
-      const delta = Math.min(.05, (now - previous) / 1000);
-      previous = now;
-      camera.update(delta, capabilities.reducedMotion);
-      frame = requestAnimationFrame(update);
-    };
-    frame = requestAnimationFrame(update);
 
     return {
       load: (onProgress: (progress: number) => void) => loadVehicle(vehicleModelUrl, onProgress),
@@ -195,7 +205,7 @@ orchestrator = createExperienceOrchestrator({
           const currentStoryFrame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
           vehicleYaw = currentStoryFrame.vehicleYaw;
         }
-        camera.update(0, true);
+        forceImmediateCameraUpdate = true;
         vehicleController.setRotation(vehicleYaw);
         runtime.render();
       },
@@ -205,7 +215,7 @@ orchestrator = createExperienceOrchestrator({
       dispose() {
         if (stopped) return;
         stopped = true;
-        cancelAnimationFrame(frame);
+        clearBeforeRender();
         unsubscribe();
         drag.dispose();
         story.dispose();

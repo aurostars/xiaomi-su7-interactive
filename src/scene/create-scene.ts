@@ -26,6 +26,7 @@ export interface SceneRuntime {
   resize(): void;
   render(): void;
   start(): void;
+  setBeforeRender(callback: (now: number) => void): () => void;
   setCabinMode(enabled: boolean, immediate?: boolean): void;
   getCabinLightingDiagnostics(): { enabled: boolean; exposure: number; activeLights: number };
   dispose(): void;
@@ -58,6 +59,30 @@ export function rendererOptions(quality: SceneQuality) {
 
 export function renderFrameInterval(diagnostics: boolean): number {
   return diagnostics ? 2_000 : 0;
+}
+
+export function createRenderLifecycle(renderScene: () => void, onRendered: () => void) {
+  let beforeRender: ((now: number) => void) | undefined;
+  let disposed = false;
+
+  return {
+    setBeforeRender(callback: (now: number) => void) {
+      beforeRender = callback;
+      return () => {
+        if (beforeRender === callback) beforeRender = undefined;
+      };
+    },
+    render(now: number) {
+      if (disposed) return;
+      beforeRender?.(now);
+      renderScene();
+      onRendered();
+    },
+    dispose() {
+      disposed = true;
+      beforeRender = undefined;
+    },
+  };
 }
 
 export function bindSceneResize(resize: () => void): () => void {
@@ -143,12 +168,15 @@ export function createScene(
     camera.updateProjectionMatrix();
   };
   const unbindResize = bindSceneResize(resize);
+  const renderLifecycle = createRenderLifecycle(
+    () => renderer.render(scene, camera),
+    onRendered,
+  );
   let lastRenderAt = 0;
   const render = (now = performance.now()) => {
     if (!running) return;
     if (now - lastRenderAt >= minimumFrameInterval) {
-      renderer.render(scene, camera);
-      onRendered();
+      renderLifecycle.render(now);
       lastRenderAt = now;
     }
     animationFrame = requestAnimationFrame(render);
@@ -157,15 +185,18 @@ export function createScene(
   return {
     scene, camera, renderer, resize,
     render() {
-      renderer.render(scene, camera);
-      onRendered();
-      lastRenderAt = performance.now();
+      const now = performance.now();
+      renderLifecycle.render(now);
+      lastRenderAt = now;
     },
     start() {
       if (running) return;
       running = true;
       resize();
       animationFrame = requestAnimationFrame(render);
+    },
+    setBeforeRender(callback) {
+      return renderLifecycle.setBeforeRender(callback);
     },
     setCabinMode(enabled, immediate) {
       cabinLighting.setEnabled(enabled, immediate);
@@ -176,6 +207,7 @@ export function createScene(
     dispose() {
       running = false;
       cancelAnimationFrame(animationFrame);
+      renderLifecycle.dispose();
       unbindResize();
       disposeEnvironment();
       groundGeometry.dispose();

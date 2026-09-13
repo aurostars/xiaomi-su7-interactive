@@ -25,6 +25,13 @@ interface Su7Diagnostics {
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
   renderRevision: number;
   renderedView: string | null;
+  renderedCamera: {
+    view: string;
+    target: number[];
+    position: number[];
+    fov: number;
+    near: number;
+  } | null;
 }
 
 const readDiagnostics = (page: Page) => page.evaluate(() => {
@@ -369,14 +376,21 @@ test('座舱视觉在主驾、副驾和后排保持完整', async ({ page }) => 
     const diagnostics = await readDiagnostics(page);
     return {
       renderedView: diagnostics.renderedView,
+      renderedPosition: diagnostics.renderedCamera?.position,
+      renderedNear: diagnostics.renderedCamera?.near,
       renderedAfterEntry: diagnostics.renderRevision > initialRevision,
     };
-  }).toEqual({ renderedView: 'driver', renderedAfterEntry: true });
+  }).toEqual({
+    renderedView: 'driver',
+    renderedPosition: [-0.38, 1.26, 0.08],
+    renderedNear: 0.025,
+    renderedAfterEntry: true,
+  });
 
   const seats = [
-    { key: 'passenger', label: '副驾', title: '副驾交互空间' },
-    { key: 'rear', label: '后排', title: '后排空间关系' },
-    { key: 'driver', label: '主驾', title: '主驾沉浸视野' },
+    { key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.26, 0.08] },
+    { key: 'rear', label: '后排', title: '后排空间关系', position: [0, 1.3, 1.28] },
+    { key: 'driver', label: '主驾', title: '主驾沉浸视野', position: [-0.38, 1.26, 0.08] },
   ] as const;
   for (const seat of seats) {
     const button = page.getByRole('button', { name: seat.label, exact: true });
@@ -386,9 +400,16 @@ test('座舱视觉在主驾、副驾和后排保持完整', async ({ page }) => 
       const diagnostics = await readDiagnostics(page);
       return {
         renderedView: diagnostics.renderedView,
+        renderedPosition: diagnostics.renderedCamera?.position,
+        renderedNear: diagnostics.renderedCamera?.near,
         revisionIncreased: diagnostics.renderRevision > revisionBeforeClick,
       };
-    }).toEqual({ renderedView: seat.key, revisionIncreased: true });
+    }).toEqual({
+      renderedView: seat.key,
+      renderedPosition: seat.position,
+      renderedNear: 0.025,
+      revisionIncreased: true,
+    });
     const diagnostics = await readDiagnostics(page);
     expect(Object.values(diagnostics.doorAngles).every((angle) => Number.isFinite(angle))).toBe(true);
     await expect(button).toHaveAttribute('aria-pressed', 'true');
