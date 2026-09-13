@@ -15,6 +15,7 @@ import {
   type CameraView,
 } from './scene/camera-controller';
 import { createScene } from './scene/create-scene';
+import { type RenderReason } from './scene/render-scheduler';
 import {
   loadVehicle,
   type LoadedVehicle,
@@ -60,6 +61,8 @@ let diagnosticCabinLighting: (() => {
 }) | undefined;
 let diagnosticStory: { view: CameraView; progress: number; scrollY: number; updatedAt: number } | undefined;
 let diagnosticRendering: (() => {
+  renderActive: boolean;
+  pendingRenderReasons: RenderReason[];
   renderRevision: number;
   renderedView: CameraView | null;
   renderedCamera: CameraDiagnostics | null;
@@ -71,6 +74,8 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
     value: () => {
       const vehicle = diagnosticVehicle?.getDiagnostics();
       const rendering = diagnosticRendering?.() ?? {
+        renderActive: false,
+        pendingRenderReasons: [],
         renderRevision: 0,
         renderedView: null,
         renderedCamera: null,
@@ -117,7 +122,13 @@ orchestrator = createExperienceOrchestrator({
     let renderRevision = 0;
     let renderedView: CameraView | null = null;
     let renderedCamera: CameraDiagnostics | null = null;
-    const readRendering = () => ({ renderRevision, renderedView, renderedCamera });
+    const readRendering = () => ({
+      renderActive: runtime.isRenderActive(),
+      pendingRenderReasons: [...runtime.getActiveRenderReasons()],
+      renderRevision,
+      renderedView,
+      renderedCamera,
+    });
     const runtime = createScene(
       elements.canvas,
       capabilities.quality === 'high' ? 'high' : 'low',

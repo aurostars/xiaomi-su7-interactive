@@ -23,6 +23,8 @@ interface Su7Diagnostics {
   activeStoryId: string;
   autoCameraSuspendedUntil: number;
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
+  renderActive: boolean;
+  pendingRenderReasons: string[];
   renderRevision: number;
   renderedView: string | null;
   renderedCamera: {
@@ -154,42 +156,149 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
-test('非 reduced-motion 下中途关门从当前角度连续反向并保持座席', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
+test('persistent story keeps hotspots, detail and rendered camera synchronized', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
-  await activatePublicButton(page.getByRole('button', { name: '副驾', exact: true }));
-  await page.waitForFunction(() => {
-    const reader = (window as typeof window & {
-      __SU7_E2E_READ_DIAGNOSTICS__?: () => Su7Diagnostics;
-    }).__SU7_E2E_READ_DIAGNOSTICS__;
-    const magnitude = Math.abs(reader?.().doorAngles.frontLeft ?? 0);
-    return magnitude > 0.1 && magnitude < 0.9;
-  }, undefined, { polling: 'raf' });
-  const openingSample = await readDiagnostics(page);
-  const openingMagnitude = Math.abs(openingSample.doorAngles.frontLeft ?? 0);
+  const hotspots = page.locator('.story-hotspot');
+  await expect(hotspots).toHaveCount(4);
+  for (const hotspot of await hotspots.all()) await expect(hotspot).toBeVisible();
+  await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
 
-  const closeDoor = page.getByRole('button', { name: '关门' });
-  await closeDoor.evaluate((button: HTMLButtonElement) => button.click());
-  await page.waitForFunction((previousMagnitude) => {
-    const reader = (window as typeof window & {
-      __SU7_E2E_READ_DIAGNOSTICS__?: () => Su7Diagnostics;
-    }).__SU7_E2E_READ_DIAGNOSTICS__;
-    const magnitude = Math.abs(reader?.().doorAngles.frontLeft ?? 0);
-    return magnitude < previousMagnitude && magnitude > 0.1;
-  }, openingMagnitude, { polling: 'raf' });
-  const firstClosingSample = await readDiagnostics(page);
-  expect(firstClosingSample.camera?.view).toBe('passenger');
+  const chapters = [
+    { id: 'aero', title: '低趴轿跑姿态，像风压过车身', view: 'aero' },
+    { id: 'performance', title: '电驱、轮组与底盘共同制造力量感', view: 'performance' },
+    { id: 'cabin', title: '切入座舱，看见屏幕与乘坐空间', view: 'cabin' },
+    { id: 'intelligence', title: '传感器视角，展示智能驾驶想象力', view: 'sensing' },
+  ] as const;
+  const detail = page.locator('.story-detail');
+  for (const chapter of chapters) {
+    await scrollStoryTo(page, chapter.id);
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return {
+        activeStoryId: diagnostics.activeStoryId,
+        renderedView: diagnostics.renderedView,
+        renderedCameraView: diagnostics.renderedCamera?.view,
+      };
+    }, { timeout: 30_000 }).toEqual({
+      activeStoryId: chapter.id,
+      renderedView: chapter.view,
+      renderedCameraView: chapter.view,
+    });
+    await expect(hotspots.filter({ has: page.locator(`[data-story-id="${chapter.id}"]`) })).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
+    await expect(detail).toBeVisible();
+    await expect(detail.getByRole('heading', { name: chapter.title })).toBeVisible();
+  }
 
+  const target = page.locator('.story-hotspot[data-story-id="performance"] button');
+  await target.click();
   await expect.poll(async () => {
     const diagnostics = await readDiagnostics(page);
     return {
-      closed: Object.values(diagnostics.doorAngles)
-        .every((angle) => angle !== null && Math.abs(angle) < 0.01),
-      seatView: diagnostics.camera?.view,
+      activeStoryId: diagnostics.activeStoryId,
+      renderedView: diagnostics.renderedView,
+      renderedCameraView: diagnostics.renderedCamera?.view,
     };
+  }, { timeout: 30_000 }).toEqual({
+    activeStoryId: 'performance',
+    renderedView: 'performance',
+    renderedCameraView: 'performance',
+  });
+  await expect(page.locator('[data-story-section="performance"]')).toBeInViewport();
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole('heading', { name: chapters[1].title })).toBeVisible();
+});
+
+test('idle render remains stable for 500ms and resumes after a visible interaction', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return { renderActive: diagnostics.renderActive, pendingRenderReasons: diagnostics.pendingRenderReasons };
+  }, { timeout: 30_000 }).toEqual({ renderActive: false, pendingRenderReasons: [] });
+
+  const settled = await readDiagnostics(page);
+  const sampledAt = Date.now();
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      elapsed: Date.now() - sampledAt >= 500,
+      revisionUnchanged: diagnostics.renderRevision === settled.renderRevision,
+      renderActive: diagnostics.renderActive,
+      pendingRenderReasons: diagnostics.pendingRenderReasons,
+    };
+  }, { timeout: 5_000, intervals: [50, 100, 200] }).toEqual({
+    elapsed: true,
+    revisionUnchanged: true,
+    renderActive: false,
+    pendingRenderReasons: [],
+  });
+
+  await page.getByRole('button', { name: '海湾蓝' }).click();
+  await expect.poll(async () => (await readDiagnostics(page)).renderRevision).toBeGreaterThan(settled.renderRevision);
+});
+
+test('mobile story rail, focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
+  const viewport = { width: 390, height: 844 };
+  await page.setViewportSize(viewport);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  const storyRail = page.locator('.mobile-story-rail');
+  const focusZone = page.locator('[data-vehicle-focus-zone]');
+  const controls = page.locator('[data-mobile-control-rail]');
+  const exteriorBoxes = await Promise.all([storyRail, focusZone, controls].map(requiredBox));
+  for (const locator of [storyRail, focusZone, controls]) await expectFullyInViewport(locator, viewport);
+  expect(overlaps(exteriorBoxes[0], exteriorBoxes[1])).toBe(false);
+  expect(overlaps(exteriorBoxes[0], exteriorBoxes[2]), JSON.stringify(exteriorBoxes)).toBe(false);
+  expect(overlaps(exteriorBoxes[1], exteriorBoxes[2])).toBe(false);
+
+  await page.getByRole('button', { name: '进入座舱' }).click();
+  await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe('driver');
+  const cabinCard = page.locator('.cabin-detail');
+  const cabinBoxes = await Promise.all([cabinCard, focusZone, controls].map(requiredBox));
+  for (const locator of [cabinCard, focusZone, controls]) await expectFullyInViewport(locator, viewport);
+  expect(overlaps(cabinBoxes[0], cabinBoxes[1])).toBe(false);
+  expect(overlaps(cabinBoxes[0], cabinBoxes[2])).toBe(false);
+  expect(overlaps(cabinBoxes[1], cabinBoxes[2])).toBe(false);
+});
+
+test('非 reduced-motion 下中途关门从当前角度连续反向并保持座席', async ({ page }) => {
+  await page.clock.install();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now()));
+
+  await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
+  await activatePublicButton(page.getByRole('button', { name: '副驾', exact: true }));
+  await page.clock.runFor(120);
+  const openingSample = await readDiagnostics(page);
+  const openingMagnitude = Math.abs(openingSample.doorAngles.frontLeft ?? 0);
+  expect(openingMagnitude).toBeGreaterThan(0.1);
+  expect(openingMagnitude).toBeLessThan(0.9);
+
+  const closeDoor = page.getByRole('button', { name: '关门' });
+  await closeDoor.evaluate((button: HTMLButtonElement) => button.click());
+  await page.clock.runFor(48);
+  const firstClosingSample = await readDiagnostics(page);
+  const closingMagnitude = Math.abs(firstClosingSample.doorAngles.frontLeft ?? 0);
+  expect(closingMagnitude).toBeLessThan(openingMagnitude);
+  expect(closingMagnitude).toBeGreaterThan(0.1);
+  expect(firstClosingSample.camera?.view).toBe('passenger');
+
+  await page.clock.runFor(400);
+  const settled = await readDiagnostics(page);
+  expect({
+    closed: Object.values(settled.doorAngles)
+      .every((angle) => angle !== null && Math.abs(angle) < 0.01),
+    seatView: settled.camera?.view,
   }).toEqual({ closed: true, seatView: 'passenger' });
 });
 
@@ -218,7 +327,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   await gulfBlue.click();
   await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('19b7ff');
 
-  await page.getByRole('tab', { name: '座舱' }).click();
+  await page.getByRole('button', { name: '座舱', exact: true }).click();
   await expect.poll(async () => {
     const diagnostics = await readDiagnostics(page);
     const angles = Object.values(diagnostics.doorAngles);
@@ -293,12 +402,12 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   await scrollStoryTo(page, 'performance');
   await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
   expect((await readDiagnostics(page)).camera?.view).toBe('rear');
-  await page.getByRole('tab', { name: '外观' }).click();
+  await page.getByRole('button', { name: '外观', exact: true }).click();
   await expect.poll(async () => {
     const camera = (await readDiagnostics(page)).camera;
     return { view: camera?.view, movedOutside: (camera?.position[0] ?? 0) > 2 };
   }, { timeout: 15_000 }).toEqual({ view: 'performance', movedOutside: true });
-  await expect(page.locator('.story-hotspot')).toContainText('电驱与底盘');
+  await expect(page.locator('.story-hotspot[aria-current="true"]')).toContainText('电驱与底盘');
 
   const moveWithinSection = async (progress: number) => {
     const previousFov = (await readDiagnostics(page)).camera?.fov;
@@ -314,10 +423,10 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   const hotspotPositions = new Set<string>();
   const hotspotExpectations = {
-    aero: ['空气动力学', 'front', '流畅车顶弧线'],
-    performance: ['电驱与底盘', 'wheel', '即时动力响应'],
-    cabin: ['智能座舱', 'cabin', '屏幕、方向盘与座椅'],
-    intelligence: ['智能驾驶感知', 'roof', '感知硬件持续理解'],
+    aero: ['空气动力学', '76%', '57%', '流畅车顶弧线'],
+    performance: ['电驱与底盘', '71%', '69%', '即时动力响应'],
+    cabin: ['智能座舱', '61%', '43%', '屏幕、方向盘与座椅'],
+    intelligence: ['智能驾驶感知', '67%', '29%', '感知硬件持续理解'],
   } as const;
   for (const view of ['aero', 'performance', 'cabin', 'intelligence'] as const) {
     await scrollStoryTo(page, view);
@@ -326,18 +435,23 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       return { activeStoryId: state.activeStoryId, cameraView: state.camera?.view };
     }).toEqual({ activeStoryId: view, cameraView: view === 'intelligence' ? 'sensing' : view });
 
-    const [label, position, detail] = hotspotExpectations[view];
-    const hotspot = page.locator('.story-hotspot');
+    const [label, x, y, detail] = hotspotExpectations[view];
+    const hotspot = page.locator(`.story-hotspot[data-story-id="${view}"]`);
     const marker = hotspot.locator('.hotspot-marker');
-    await expect(hotspot).toHaveAttribute('data-hotspot-view', view);
-    await expect(hotspot).toHaveAttribute('data-hotspot-position', position);
+    await expect(hotspot).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.story-hotspot[aria-current="true"]')).toHaveCount(1);
     await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
     await expect(marker).toBeVisible();
+    const position = await hotspot.evaluate((element) => {
+      const style = (element as HTMLElement).style;
+      return `${style.getPropertyValue('--hotspot-x')},${style.getPropertyValue('--hotspot-y')}`;
+    });
+    expect(position).toBe(`${x},${y}`);
     hotspotPositions.add(position);
     await marker.evaluate((button: HTMLButtonElement) => button.click());
-    await expect(marker).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('.hotspot-detail')).toContainText(detail);
-    await marker.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(page.locator(`[data-story-section="${view}"]`)).toBeInViewport();
+    await expect(page.locator('.story-detail')).toBeVisible();
+    await expect(page.locator('.story-detail')).toContainText(detail);
   }
   expect(hotspotPositions.size).toBe(4);
 
@@ -383,7 +497,7 @@ for (const viewport of [
   { width: 1280, height: 800 },
   { width: 390, height: 844 },
 ]) {
-  test(`首屏在 ${viewport.width}x${viewport.height} 的关键几何完整`, async ({ page }) => {
+  test(`visual hero geometry at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     test.setTimeout(90_000);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(viewport);
@@ -410,7 +524,7 @@ for (const viewport of [
     if (viewport.width === 390) {
       const ctaBox = await cta.boundingBox();
       const cabinCtaBox = await cabinCta.boundingBox();
-      const hotspotBox = await page.locator('.hotspot-marker').boundingBox();
+      const hotspotBox = await page.locator('.story-hotspot[aria-current="true"] .hotspot-marker').boundingBox();
       const canvasBox = await page.locator('canvas.vehicle-canvas').boundingBox();
       const specsBox = await specs.boundingBox();
       const controlsBox = await controls.boundingBox();
@@ -431,7 +545,33 @@ for (const viewport of [
   });
 }
 
-test('座舱视觉在主驾、副驾和后排保持完整', async ({ page }) => {
+test('visual story aero keeps the vehicle and persistent detail composed', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await scrollStoryTo(page, 'aero');
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      activeStoryId: diagnostics.activeStoryId,
+      renderedView: diagnostics.renderedView,
+      renderedCameraView: diagnostics.renderedCamera?.view,
+    };
+  }, { timeout: 30_000 }).toEqual({
+    activeStoryId: 'aero',
+    renderedView: 'aero',
+    renderedCameraView: 'aero',
+  });
+  await expect(page.locator('.story-detail')).toBeVisible();
+  await expect(page).toHaveScreenshot('story-aero-1440x900.png', {
+    animations: 'disabled',
+    maxDiffPixelRatio: 0.035,
+    timeout: 30_000,
+  });
+});
+
+test('visual cabin remains complete for driver, passenger and rear seats', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -154,7 +154,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .story-detail { right: 14px; bottom: 130px; left: 14px; width: auto; padding: 14px 16px; }
   .story-detail h2 { font-size: 17px; }
   .story-detail [data-story-description] { line-height: 1.5; }
-  .mobile-story-rail { position: absolute; right: 0; bottom: 76px; left: 0; z-index: 5; display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scroll-snap-type: x mandatory; pointer-events: auto; }
+  .mobile-story-rail { position: absolute; right: 0; bottom: 84px; left: 0; z-index: 5; display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scroll-snap-type: x mandatory; pointer-events: auto; }
   .mobile-story-rail button { min-width: max-content; min-height: 44px; padding: 0 16px; scroll-snap-align: start; border: 1px solid var(--line); border-radius: 999px; background: rgba(7, 10, 14, .88); }
   .mobile-story-rail button[aria-current="true"] { border-color: var(--cyan); color: var(--cyan); }
   html[data-vehicle-mode='cabin'] .story-hotspots, html[data-vehicle-mode='cabin'] .mobile-story-rail { visibility: hidden; pointer-events: none; }

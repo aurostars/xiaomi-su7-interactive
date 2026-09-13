@@ -60,10 +60,10 @@ export function createCabinLighting(
   rearFill.position.set(0, 1.15, 1.05);
 
   const lights: WeightedLight[] = [
-    { light: ambient, intensities: sameIntensity(0.3) },
+    { light: ambient, intensities: sameIntensity(0.8) },
     { light: roof, intensities: { driver: 0.72, passenger: 0.72, rear: 0.58 } },
     { light: screen, intensities: { driver: 0.3, passenger: 0.3, rear: 0.18 } },
-    { light: broadFill, intensities: { driver: 0.28, passenger: 0.28, rear: 0.36 } },
+    { light: broadFill, intensities: { driver: 0.8, passenger: 0.8, rear: 0.8 } },
     { light: rearFill, intensities: { driver: 0.12, passenger: 0.12, rear: 0.48 } },
   ];
   rig.add(ambient, roof, screen, broadFill, rearFill);

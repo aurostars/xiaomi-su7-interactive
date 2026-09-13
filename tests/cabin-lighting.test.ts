@@ -89,10 +89,13 @@ describe('cabin lighting', () => {
     const roof = scene.getObjectByName('cabin-roof-light') as PointLight;
     const screen = scene.getObjectByName('cabin-screen-light') as PointLight;
     const broadFill = scene.getObjectByName('cabin-broad-fill') as PointLight;
+    const ambientFill = scene.getObjectByName('cabin-ambient-fill') as PointLight;
     const rearFill = scene.getObjectByName('cabin-rear-fill') as PointLight;
     const driverRearIntensity = rearFill.intensity;
     expect(roof.intensity).toBeGreaterThan(0);
     expect(screen.intensity).toBeGreaterThan(0);
+    expect(ambientFill.intensity).toBeGreaterThanOrEqual(0.45);
+    expect(broadFill.intensity).toBeGreaterThanOrEqual(0.4);
     expect(broadFill.color.b).toBeGreaterThan(broadFill.color.r);
     expect(renderer.toneMappingExposure).toBeLessThanOrEqual(1);
 

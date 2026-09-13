@@ -176,8 +176,8 @@ export function createRenderLifecycle(renderScene: () => void, onRendered: () =>
 export function createScheduledRenderLifecycle(
   renderScene: () => void,
   onRendered: () => void,
-  requestFrame: (callback: FrameRequestCallback) => number = requestAnimationFrame,
-  cancelFrame: (handle: number) => void = cancelAnimationFrame,
+  requestFrame: (callback: FrameRequestCallback) => number = (callback) => requestAnimationFrame(callback),
+  cancelFrame: (handle: number) => void = (handle) => cancelAnimationFrame(handle),
 ) {
   const lifecycle = createRenderLifecycle(renderScene, onRendered);
   const scheduler = createRenderScheduler({

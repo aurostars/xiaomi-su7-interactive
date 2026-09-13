@@ -32,6 +32,7 @@ describe('final visual regression guardrails', () => {
     const mobileRules = css.match(/@media \(max-width: 767px\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
     const cabinRule = mobileRules.match(/\.cabin-detail \{([\s\S]*?)\}/)?.[1] ?? '';
     const cabinStoryRule = mobileRules.match(/html\[data-vehicle-mode=['"]cabin['"]\] \.story-detail \{([\s\S]*?)\}/)?.[1] ?? '';
+    const mobileStoryRailRule = mobileRules.match(/\.mobile-story-rail \{([\s\S]*?)\}/)?.[1] ?? '';
 
     expect(cabinRule).toContain('position: absolute');
     expect(cabinRule).not.toContain('position: fixed');
@@ -44,6 +45,7 @@ describe('final visual regression guardrails', () => {
     expect(cabinStoryRule).toContain('top: 66px');
     expect(cabinStoryRule).toContain('bottom: auto');
     expect(cabinStoryRule).toContain('min-height: 38px');
+    expect(mobileStoryRailRule).toContain('bottom: 84px');
   });
 
   it('provides environment reflections and a grounded contact shadow', () => {
