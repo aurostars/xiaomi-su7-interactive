@@ -1,11 +1,11 @@
-import type { CameraView } from '../scene/camera-controller';
+import type { StoryId } from '../content/story-chapters';
 
 export interface StorySection {
   element: HTMLElement;
-  view: CameraView;
+  view: StoryId;
 }
 
-export type ScrollProgressHandler = (view: CameraView, progress: number) => void;
+export type ScrollProgressHandler = (view: StoryId, progress: number) => void;
 
 export interface ScrollStory {
   update(autoCameraSuspendedUntil?: number): void;
@@ -18,7 +18,7 @@ export function createScrollStory(
   getAutoCameraSuspendedUntil: () => number = () => 0,
 ): ScrollStory {
   let disposed = false;
-  let lastView: CameraView | undefined;
+  let lastView: StoryId | undefined;
   let lastProgress = Number.NaN;
 
   const update = (autoCameraSuspendedUntil = getAutoCameraSuspendedUntil()) => {

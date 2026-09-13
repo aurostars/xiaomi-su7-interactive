@@ -2,6 +2,7 @@ import techPlatform from '../assets/images/tech-platform.webp';
 import techDrive from '../assets/images/tech-drive.webp';
 import techCabin from '../assets/images/tech-cabin.webp';
 import gallerySu7 from '../assets/images/gallery-su7.webp';
+import { STORY_CHAPTERS } from '../content/story-chapters';
 
 export interface ShellElements {
   stage: HTMLElement;
@@ -15,37 +16,6 @@ export interface ShellElements {
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
 }
-
-const story = [
-  {
-    view: 'aero',
-    label: '空气动力学',
-    title: '低趴轿跑姿态，像风压过车身',
-    body: '流畅车顶弧线与低重心姿态共同塑造动势，让每一道曲面都回应速度。',
-    points: ['长车头与流线车顶延展视觉比例', '车身型面在光影中保持清晰层次'],
-  },
-  {
-    view: 'performance',
-    label: '纯电性能',
-    title: '电驱、轮组与底盘共同制造力量感',
-    body: '即时动力响应配合稳定底盘，让敏捷加速与从容操控在同一台车上成立。',
-    points: ['低重心布局强化弯道支撑', '高性能轮组传递直接路感'],
-  },
-  {
-    view: 'cabin',
-    label: '智能座舱',
-    title: '切入座舱，看见屏幕与乘坐空间',
-    body: '屏幕、方向盘与座椅围绕驾乘者展开，信息和空间保持自然、连贯的秩序。',
-    points: ['前排交互触手可及', '多座席视角一键切换'],
-  },
-  {
-    view: 'sensing',
-    label: '智能感知',
-    title: '传感器视角，展示智能驾驶想象力',
-    body: '感知硬件持续理解车辆周围环境，让复杂道路信息转化为清晰驾驶辅助。',
-    points: ['多源感知协同工作', '环境信息实时形成判断'],
-  },
-] as const;
 
 const paintColors = [
   ['lava-orange', '熔岩橙', '#f05232'],
@@ -68,18 +38,19 @@ function colorButton(value: string, name: string, color: string, type: 'paint' |
 }
 
 function renderStory() {
-  return story.map(({ view, label, title, body, points }) => `
-    <section class="story-section" data-story-view="${view}" aria-labelledby="story-${view}">
+  return STORY_CHAPTERS.map(({ id, eyebrow, title, description, tags }) => `
+    <section class="story-section" data-story-view="${id}" aria-labelledby="story-${id}">
       <div class="story-copy">
-        <p class="section-label">${label}</p>
-        <h2 id="story-${view}">${title}</h2>
-        <p>${body}</p>
-        <ul>${points.map((point) => `<li>${point}</li>`).join('')}</ul>
+        <p class="section-label">${eyebrow}</p>
+        <h2 id="story-${id}">${title}</h2>
+        <p>${description}</p>
+        <ul>${tags.map((tag) => `<li>${tag}</li>`).join('')}</ul>
       </div>
     </section>`).join('');
 }
 
 export function renderShell(root: HTMLElement): ShellElements {
+  const initialChapter = STORY_CHAPTERS[0];
   root.innerHTML = `
     <header class="site-header">
       <a class="brand" href="#vehicle-stage" aria-label="小米汽车首页"><span aria-hidden="true">mi</span><b>小米汽车</b></a>
@@ -91,11 +62,11 @@ export function renderShell(root: HTMLElement): ShellElements {
         <canvas class="vehicle-canvas" aria-label="小米 SU7 三维车辆"></canvas>
         <div class="vehicle-focus-zone" data-vehicle-focus-zone aria-hidden="true"></div>
         <div class="stage-atmosphere" aria-hidden="true"></div>
-        <div class="story-hotspot" data-hotspot-view="aero" data-hotspot-position="front" aria-live="polite">
-          <button class="hotspot-marker" type="button" aria-expanded="false" aria-controls="story-hotspot-detail" aria-label="查看空气动力学部件说明">
-            <span class="hotspot-pulse" aria-hidden="true"></span><strong>空气动力学</strong>
+        <div class="story-hotspot" data-hotspot-view="${initialChapter.id}" data-hotspot-position="front" aria-live="polite">
+          <button class="hotspot-marker" type="button" aria-expanded="false" aria-controls="story-hotspot-detail" aria-label="查看${initialChapter.hotspot.label}部件说明">
+            <span class="hotspot-pulse" aria-hidden="true"></span><strong>${initialChapter.hotspot.label}</strong>
           </button>
-          <div id="story-hotspot-detail" class="hotspot-detail" hidden><b>空气动力学</b><p>前翼与流线车身协同梳理气流，稳定高速姿态。</p></div>
+          <div id="story-hotspot-detail" class="hotspot-detail" hidden><b>${initialChapter.hotspot.label}</b><p>${initialChapter.description}</p></div>
         </div>
       </div>
       <div class="vehicle-stage">

@@ -14,7 +14,7 @@ const state = (overrides: Partial<VehicleState> = {}): VehicleState => ({
   interior: 'cloud-brown',
   doorsOpen: true,
   seatView: 'driver',
-  hotspot: 'hero',
+  activeStoryId: 'aero',
   autoCameraSuspendedUntil: 0,
   ...overrides,
 });
@@ -111,7 +111,7 @@ describe('createVehicleController', () => {
   it.each([
     ['seatView', { seatView: 'passenger' }],
     ['paint', { paint: 'gulf-blue' }],
-    ['hotspot', { hotspot: 'performance' }],
+    ['activeStoryId', { activeStoryId: 'performance' }],
   ] as const)('does not restart door motion for a %s-only update', (_field, update) => {
     vi.useFakeTimers();
     const schedule = vi.spyOn(globalThis, 'setTimeout');

@@ -1,3 +1,4 @@
+import { STORY_CHAPTERS, type StoryId } from '../content/story-chapters';
 import type { VehicleCapabilities } from '../scene/load-vehicle';
 import type { VehicleStore } from '../state/vehicle-state';
 import type { ShellElements } from './render-shell';
@@ -20,28 +21,12 @@ const CABIN_DETAILS = {
   },
 } as const;
 
-const HOTSPOTS = {
-  hero: {
-    view: 'aero', label: '空气动力学', position: 'front',
-    detail: '前翼与流线车身协同梳理气流，稳定高速姿态。',
-  },
-  aero: {
-    view: 'aero', label: '空气动力学', position: 'front',
-    detail: '前翼与流线车身协同梳理气流，稳定高速姿态。',
-  },
-  performance: {
-    view: 'performance', label: '电驱与底盘', position: 'wheel',
-    detail: '轮组与低重心底盘传递电驱响应，强化弯道支撑。',
-  },
-  cabin: {
-    view: 'cabin', label: '智能座舱', position: 'cabin',
-    detail: '座舱交互空间围绕驾乘者组织屏幕、方向盘与座席。',
-  },
-  sensing: {
-    view: 'sensing', label: '智能驾驶感知', position: 'roof',
-    detail: '车顶与环车感知融合环境信息，辅助车辆理解道路。',
-  },
-} as const;
+const HOTSPOT_POSITIONS: Record<StoryId, string> = {
+  aero: 'front',
+  performance: 'wheel',
+  cabin: 'cabin',
+  intelligence: 'roof',
+};
 
 export function applyVehicleCapabilities(elements: ShellElements, capabilities: VehicleCapabilities): void {
   elements.colorButtons.forEach((button) => {
@@ -136,16 +121,18 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       item.textContent = tag;
       return item;
     }));
-    const hotspot = HOTSPOTS[state.hotspot as keyof typeof HOTSPOTS] ?? HOTSPOTS.hero;
-    if (activeHotspot !== hotspot.view) {
-      activeHotspot = hotspot.view;
-      elements.hotspotLabel.dataset.hotspotView = hotspot.view;
-      elements.hotspotLabel.dataset.hotspotPosition = hotspot.position;
-      hotspotMarker.setAttribute('aria-label', `查看${hotspot.label}部件说明`);
+    const chapter = STORY_CHAPTERS.find(({ id }) => id === state.activeStoryId)!;
+    if (activeHotspot !== chapter.id) {
+      activeHotspot = chapter.id;
+      elements.hotspotLabel.dataset.hotspotView = chapter.id;
+      elements.hotspotLabel.dataset.hotspotPosition = HOTSPOT_POSITIONS[chapter.id];
+      elements.hotspotLabel.style.setProperty('--hotspot-x', `${chapter.hotspot.x}%`);
+      elements.hotspotLabel.style.setProperty('--hotspot-y', `${chapter.hotspot.y}%`);
+      hotspotMarker.setAttribute('aria-label', `查看${chapter.hotspot.label}部件说明`);
       hotspotMarker.setAttribute('aria-expanded', 'false');
-      hotspotMarker.querySelector('strong')!.textContent = hotspot.label;
-      hotspotTitle.textContent = hotspot.label;
-      hotspotCopy.textContent = hotspot.detail;
+      hotspotMarker.querySelector('strong')!.textContent = chapter.hotspot.label;
+      hotspotTitle.textContent = chapter.hotspot.label;
+      hotspotCopy.textContent = chapter.description;
       hotspotDetail.hidden = true;
     }
     document.documentElement.dataset.vehicleMode = state.mode;

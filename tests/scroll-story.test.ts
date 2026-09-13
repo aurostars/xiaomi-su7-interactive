@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDragController } from '../src/interaction/drag-controller';
 import { createScrollStory } from '../src/interaction/scroll-story';
 
-const views = ['aero', 'performance', 'cabin', 'sensing'] as const;
+const views = ['aero', 'performance', 'cabin', 'intelligence'] as const;
 
 function makeSections() {
   let scrollY = 0;

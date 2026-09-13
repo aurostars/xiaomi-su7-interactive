@@ -15,7 +15,7 @@ describe('vehicle state', () => {
       interior: 'obsidian-black',
       doorsOpen: false,
       seatView: 'driver',
-      hotspot: 'hero',
+      activeStoryId: 'aero',
       autoCameraSuspendedUntil: 0,
     });
   });
@@ -88,13 +88,13 @@ describe('vehicle state', () => {
     store.actions.setMode('cabin');
     store.actions.setPaint('pearl-white');
     store.actions.setInterior('mist-gray');
-    store.actions.setHotspot('wheel');
+    store.actions.setActiveStory('performance');
 
     expect(store.getState()).toMatchObject({
       mode: 'cabin',
       paint: 'pearl-white',
       interior: 'mist-gray',
-      hotspot: 'wheel',
+      activeStoryId: 'performance',
       doorsOpen: true,
       seatView: 'driver',
     });
@@ -152,17 +152,27 @@ describe('vehicle state', () => {
     expect(observedPaints).toEqual(['pearl-white']);
   });
 
-  it('does not notify subscribers when the active story hotspot is unchanged', () => {
-    const store = createVehicleStore({ hotspot: 'aero' });
+  it('does not notify subscribers when the active story is unchanged', () => {
+    const store = createVehicleStore({ activeStoryId: 'aero' });
     let notifications = 0;
     store.subscribe(() => {
       notifications += 1;
     });
 
-    store.actions.setHotspot('aero');
-    store.actions.setHotspot('aero');
+    store.actions.setActiveStory('aero');
+    store.actions.setActiveStory('aero');
 
     expect(notifications).toBe(0);
-    expect(store.getState().hotspot).toBe('aero');
+    expect(store.getState().activeStoryId).toBe('aero');
+  });
+
+  it('preserves the active story while unrelated actions update vehicle state', () => {
+    const store = createVehicleStore({ activeStoryId: 'intelligence' });
+
+    store.actions.setPaint('pearl-white');
+    store.actions.toggleDoors();
+    store.actions.setSeatView('rear');
+
+    expect(store.getState().activeStoryId).toBe('intelligence');
   });
 });

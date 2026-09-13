@@ -1,3 +1,4 @@
+import { type StoryId } from './content/story-chapters';
 import './styles.css';
 import { createDragController } from './interaction/drag-controller';
 import { createScrollStory } from './interaction/scroll-story';
@@ -89,7 +90,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         cabinLighting: diagnosticCabinLighting?.() ?? null,
         vehicleYaw: vehicle?.yaw ?? null,
         materials: vehicle?.materials ?? { body: 0, interior: 0, screens: 0 },
-        hotspot: store.getState().hotspot,
+        activeStoryId: store.getState().activeStoryId,
         autoCameraSuspendedUntil: store.getState().autoCameraSuspendedUntil,
         story: diagnosticStory ?? null,
         ...rendering,
@@ -153,12 +154,13 @@ orchestrator = createExperienceOrchestrator({
     const story = createScrollStory(
       elements.storySections.map((element) => ({
         element,
-        view: element.dataset.storyView as CameraView,
+        view: element.dataset.storyView as StoryId,
       })),
-      (view, progress) => {
+      (storyId, progress) => {
+        const view: CameraView = storyId === 'intelligence' ? 'sensing' : storyId;
         storyFrame = { view, progress };
         diagnosticStory = { view, progress, scrollY: window.scrollY, updatedAt: performance.now() };
-        store.actions.setHotspot(view);
+        store.actions.setActiveStory(storyId);
         if (store.getState().mode !== 'exterior') return;
         const frame = cameraRender.setStoryProgress(view, progress);
         vehicleYaw = frame.vehicleYaw;

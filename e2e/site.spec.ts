@@ -20,7 +20,7 @@ interface Su7Diagnostics {
   cabinLighting: { enabled: boolean; exposure: number; activeLights: number } | null;
   vehicleYaw: number | null;
   materials: { body: number; interior: number; screens: number };
-  hotspot: string;
+  activeStoryId: string;
   autoCameraSuspendedUntil: number;
   story: { view: string; progress: number; scrollY: number; updatedAt: number } | null;
   renderRevision: number;
@@ -291,7 +291,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect((await readDiagnostics(page)).materials).toEqual({ body: 1, interior: 4, screens: 2 });
 
   await scrollStoryTo(page, 'performance');
-  await expect.poll(async () => (await readDiagnostics(page)).hotspot).toBe('performance');
+  await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
   expect((await readDiagnostics(page)).camera?.view).toBe('rear');
   await page.getByRole('tab', { name: '外观' }).click();
   await expect.poll(async () => {
@@ -314,17 +314,17 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   const hotspotPositions = new Set<string>();
   const hotspotExpectations = {
-    aero: ['空气动力学', 'front', '前翼与流线车身'],
-    performance: ['电驱与底盘', 'wheel', '轮组与低重心底盘'],
-    cabin: ['智能座舱', 'cabin', '座舱交互空间'],
-    sensing: ['智能驾驶感知', 'roof', '车顶与环车感知'],
+    aero: ['空气动力学', 'front', '流畅车顶弧线'],
+    performance: ['电驱与底盘', 'wheel', '即时动力响应'],
+    cabin: ['智能座舱', 'cabin', '屏幕、方向盘与座椅'],
+    intelligence: ['智能驾驶感知', 'roof', '感知硬件持续理解'],
   } as const;
-  for (const view of ['aero', 'performance', 'cabin', 'sensing'] as const) {
+  for (const view of ['aero', 'performance', 'cabin', 'intelligence'] as const) {
     await scrollStoryTo(page, view);
     await expect.poll(async () => {
       const state = await readDiagnostics(page);
-      return { hotspot: state.hotspot, cameraView: state.camera?.view };
-    }).toEqual({ hotspot: view, cameraView: view });
+      return { activeStoryId: state.activeStoryId, cameraView: state.camera?.view };
+    }).toEqual({ activeStoryId: view, cameraView: view === 'intelligence' ? 'sensing' : view });
 
     const [label, position, detail] = hotspotExpectations[view];
     const hotspot = page.locator('.story-hotspot');
@@ -532,10 +532,10 @@ test('reduced motion keeps scroll chapters and target camera active with immedia
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  await scrollStoryTo(page, 'sensing');
+  await scrollStoryTo(page, 'intelligence');
 
   await expect.poll(async () => {
     const state = await readDiagnostics(page);
-    return { hotspot: state.hotspot, view: state.camera?.view, fov: state.camera?.fov };
-  }).toEqual({ hotspot: 'sensing', view: 'sensing', fov: 34 });
+    return { activeStoryId: state.activeStoryId, view: state.camera?.view, fov: state.camera?.fov };
+  }).toEqual({ activeStoryId: 'intelligence', view: 'sensing', fov: 34 });
 });

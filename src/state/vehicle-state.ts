@@ -1,3 +1,5 @@
+import type { StoryId } from '../content/story-chapters';
+
 export type VehicleMode = 'exterior' | 'cabin';
 export type SeatView = 'driver' | 'passenger' | 'rear';
 
@@ -7,7 +9,7 @@ export interface VehicleState {
   interior: string;
   doorsOpen: boolean;
   seatView: SeatView;
-  hotspot: string;
+  activeStoryId: StoryId;
   autoCameraSuspendedUntil: number;
 }
 
@@ -20,7 +22,7 @@ export interface VehicleStore {
     setInterior(interior: string): void;
     toggleDoors(): void;
     setSeatView(seatView: SeatView): void;
-    setHotspot(hotspot: string): void;
+    setActiveStory(id: StoryId): void;
     suspendAutoCamera(durationMs: number): void;
   };
 }
@@ -31,7 +33,7 @@ const defaultState: VehicleState = {
   interior: 'obsidian-black',
   doorsOpen: false,
   seatView: 'driver',
-  hotspot: 'hero',
+  activeStoryId: 'aero',
   autoCameraSuspendedUntil: 0,
 };
 
@@ -64,7 +66,7 @@ export function createVehicleStore(initial: Partial<VehicleState> = {}): Vehicle
       setSeatView: (seatView) => update(state.mode === 'cabin'
         ? { seatView }
         : { mode: 'cabin', doorsOpen: true, seatView }),
-      setHotspot: (hotspot) => update({ hotspot }),
+      setActiveStory: (activeStoryId) => update({ activeStoryId }),
       suspendAutoCamera: (durationMs) =>
         update({ autoCameraSuspendedUntil: Date.now() + durationMs }),
     },

@@ -168,14 +168,14 @@ describe('high fidelity page shell', () => {
     const marker = elements.hotspotLabel.querySelector<HTMLButtonElement>('.hotspot-marker')!;
     const detail = elements.hotspotLabel.querySelector<HTMLElement>('.hotspot-detail')!;
     const expected = {
-      aero: ['空气动力学', '前翼与流线车身', 'front'],
-      performance: ['电驱与底盘', '轮组与低重心底盘', 'wheel'],
-      cabin: ['智能座舱', '座舱交互空间', 'cabin'],
-      sensing: ['智能驾驶感知', '车顶与环车感知', 'roof'],
+      aero: ['空气动力学', '流畅车顶弧线', 'front'],
+      performance: ['电驱与底盘', '即时动力响应', 'wheel'],
+      cabin: ['智能座舱', '屏幕、方向盘与座椅', 'cabin'],
+      intelligence: ['智能驾驶感知', '感知硬件持续理解', 'roof'],
     } as const;
 
     for (const [view, [label, description, position]] of Object.entries(expected)) {
-      store.actions.setHotspot(view);
+      store.actions.setActiveStory(view as keyof typeof expected);
       expect(elements.hotspotLabel.dataset.hotspotView).toBe(view);
       expect(elements.hotspotLabel.dataset.hotspotPosition).toBe(position);
       expect(marker.getAttribute('aria-label')).toBe(`查看${label}部件说明`);
