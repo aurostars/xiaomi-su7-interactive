@@ -1,6 +1,7 @@
 import './styles.css';
 import { createDragController } from './interaction/drag-controller';
 import { createScrollStory } from './interaction/scroll-story';
+import { createMainRenderOrchestration } from './main-render-orchestration';
 import {
   createExperienceOrchestrator,
   createStageFeedback,
@@ -9,7 +10,6 @@ import {
 } from './performance/capabilities';
 import {
   createCameraController,
-  createCameraRenderOrchestration,
   type CameraController,
   type CameraDiagnostics,
   type CameraView,
@@ -130,12 +130,6 @@ orchestrator = createExperienceOrchestrator({
       capabilities.reducedMotion,
     );
     camera = createCameraController(runtime.camera);
-    const cameraRender = createCameraRenderOrchestration(
-      camera,
-      runtime,
-      capabilities.reducedMotion,
-    );
-    const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
     diagnosticCabinLighting = readCabinLighting;
@@ -144,6 +138,17 @@ orchestrator = createExperienceOrchestrator({
     let vehicleYaw = 0;
     let storyFrame: { view: CameraView; progress: number } = { view: 'aero', progress: 0 };
     let stopped = false;
+    const cameraRender = createMainRenderOrchestration({
+      camera,
+      runtime,
+      reducedMotion: capabilities.reducedMotion,
+      rotateVehicle(deltaYaw) {
+        vehicleYaw += deltaYaw;
+        vehicleController?.setRotation(vehicleYaw);
+      },
+      suspendAutoCamera: store.actions.suspendAutoCamera,
+    });
+    const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
 
     const story = createScrollStory(
       elements.storySections.map((element) => ({
@@ -161,14 +166,7 @@ orchestrator = createExperienceOrchestrator({
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
-    const drag = createDragController(elements.canvas, {
-      rotateBy(deltaYaw) {
-        vehicleYaw += deltaYaw;
-        vehicleController?.setRotation(vehicleYaw);
-        cameraRender.requestFrame();
-      },
-      suspendAutoCamera: store.actions.suspendAutoCamera,
-    });
+    const drag = createDragController(elements.canvas, cameraRender.dragCallbacks);
     let previousExperienceState = store.getState();
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
@@ -189,10 +187,7 @@ orchestrator = createExperienceOrchestrator({
     });
 
     runtime.start();
-    const onVisibilityChange = () => {
-      if (!document.hidden) cameraRender.requestFrame();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    const unbindVisibility = cameraRender.bindVisibility(document);
 
     return {
       load: (onProgress: (progress: number) => void) => loadVehicle(vehicleModelUrl, onProgress),
@@ -227,7 +222,7 @@ orchestrator = createExperienceOrchestrator({
         unsubscribe();
         drag.dispose();
         story.dispose();
-        document.removeEventListener('visibilitychange', onVisibilityChange);
+        unbindVisibility();
         vehicleController?.dispose();
         if (diagnosticVehicle === vehicleController) diagnosticVehicle = undefined;
         if (diagnosticCamera === camera) {

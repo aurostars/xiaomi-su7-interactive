@@ -61,14 +61,6 @@ describe('camera render orchestration', () => {
     expect(runtime.endRenderActivity).toHaveBeenCalledWith('camera');
   });
 
-  it('requests terminal frames for drag and visibility restoration', () => {
-    const { orchestration, runtime } = createHarness();
-
-    orchestration.requestFrame();
-    orchestration.requestFrame();
-
-    expect(runtime.requestRender).toHaveBeenCalledTimes(2);
-  });
 });
 
 describe('camera controller', () => {
