@@ -58,7 +58,7 @@ export function rendererOptions(quality: SceneQuality) {
 }
 
 export function renderFrameInterval(diagnostics: boolean): number {
-  return diagnostics ? 2_000 : 0;
+  return diagnostics ? Number.POSITIVE_INFINITY : 0;
 }
 
 export function createRenderLifecycle(renderScene: () => void, onRendered: () => void) {

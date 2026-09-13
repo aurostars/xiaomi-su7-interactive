@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import * as sceneModule from '../src/scene/create-scene';
 
 describe('scene resize lifecycle', () => {
-  it('caps diagnostic rendering instead of continuously saturating software WebGL', () => {
+  it('keeps diagnostic rendering interaction-driven instead of periodically saturating software WebGL', () => {
     const renderFrameInterval = (sceneModule as typeof sceneModule & {
       renderFrameInterval?: (diagnostics: boolean) => number;
     }).renderFrameInterval;
     expect(renderFrameInterval).toBeTypeOf('function');
-    expect(renderFrameInterval?.(true)).toBe(2_000);
+    expect(renderFrameInterval?.(true)).toBe(Number.POSITIVE_INFINITY);
     expect(renderFrameInterval?.(false)).toBe(0);
   });
 

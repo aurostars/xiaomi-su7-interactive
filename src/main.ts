@@ -159,6 +159,7 @@ orchestrator = createExperienceOrchestrator({
         const frame = camera.setStoryProgress(view, progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
+        if (capabilities.reducedMotion) runtime.render();
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
@@ -184,6 +185,7 @@ orchestrator = createExperienceOrchestrator({
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
       }
+      if (capabilities.reducedMotion && (intent.cabinMode !== undefined || intent.cameraView)) runtime.render();
     });
 
     runtime.start();
