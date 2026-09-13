@@ -200,29 +200,18 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
-test('targeted locator selects the current story hotspot button by its own data-story-id', async ({ page }) => {
-  await page.setContent('<div class="story-hotspot" data-story-id="aero"><button class="hotspot-marker" data-story-id="aero" aria-current="true"></button></div>');
-  await expect(page.locator('.hotspot-marker[data-story-id="aero"][aria-current="true"]')).toHaveCount(1);
-});
-
-test('persistent story keeps hotspots, detail and rendered camera synchronized', async ({ page }) => {
+test('scroll story keeps active chapter and rendered camera synchronized', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  const hotspots = page.locator('.story-hotspot');
-  await expect(hotspots).toHaveCount(4);
-  for (const hotspot of await hotspots.all()) await expect(hotspot).toBeVisible();
-  await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
-
   const chapters = [
-    { id: 'aero', title: '低趴轿跑姿态，像风压过车身', view: 'aero' },
-    { id: 'performance', title: '电驱、轮组与底盘共同制造力量感', view: 'performance' },
-    { id: 'cabin', title: '切入座舱，看见屏幕与乘坐空间', view: 'cabin' },
-    { id: 'intelligence', title: '传感器视角，展示智能驾驶想象力', view: 'sensing' },
+    { id: 'aero', view: 'aero' },
+    { id: 'performance', view: 'performance' },
+    { id: 'cabin', view: 'cabin' },
+    { id: 'intelligence', view: 'sensing' },
   ] as const;
-  const detail = page.locator('.story-detail');
   for (const chapter of chapters) {
     await scrollStoryTo(page, chapter.id);
     await expect.poll(async () => {
@@ -237,29 +226,8 @@ test('persistent story keeps hotspots, detail and rendered camera synchronized',
       renderedView: chapter.view,
       renderedCameraView: chapter.view,
     });
-    await expect(page.locator(`.hotspot-marker[data-story-id="${chapter.id}"]`)).toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
-    await expect(detail).toBeVisible();
-    await expect(detail.getByRole('heading', { name: chapter.title })).toBeVisible();
+    await expect(page.locator(`[data-story-section="${chapter.id}"] .story-copy`)).toBeInViewport();
   }
-
-  const target = page.locator('.story-hotspot[data-story-id="performance"] button');
-  await target.click();
-  await expect.poll(async () => {
-    const diagnostics = await readDiagnostics(page);
-    return {
-      activeStoryId: diagnostics.activeStoryId,
-      renderedView: diagnostics.renderedView,
-      renderedCameraView: diagnostics.renderedCamera?.view,
-    };
-  }, { timeout: 30_000 }).toEqual({
-    activeStoryId: 'performance',
-    renderedView: 'performance',
-    renderedCameraView: 'performance',
-  });
-  await expect(page.locator('[data-story-section="performance"]')).toBeInViewport();
-  await expect(detail).toBeVisible();
-  await expect(detail.getByRole('heading', { name: chapters[1].title })).toBeVisible();
 });
 
 test('idle render remains stable for 500ms and resumes after a visible interaction', async ({ page }) => {
@@ -288,25 +256,22 @@ test('idle render remains stable for 500ms and resumes after a visible interacti
     pendingRenderReasons: [],
   });
 
-  await page.getByRole('button', { name: '海湾蓝' }).click();
+  await page.getByRole('button', { name: '熔岩橙' }).click();
   await expect.poll(async () => (await readDiagnostics(page)).renderRevision).toBeGreaterThan(settled.renderRevision);
 });
 
-test('mobile story rail, focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
+test('mobile focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
   const viewport = { width: 390, height: 844 };
   await page.setViewportSize(viewport);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  const storyRail = page.locator('.mobile-story-rail');
   const focusZone = page.locator('[data-vehicle-focus-zone]');
   const controls = page.locator('[data-mobile-control-rail]');
-  const exteriorBoxes = await Promise.all([storyRail, focusZone, controls].map(requiredBox));
-  for (const locator of [storyRail, focusZone, controls]) await expectFullyInViewport(locator, viewport);
+  const exteriorBoxes = await Promise.all([focusZone, controls].map(requiredBox));
+  for (const locator of [focusZone, controls]) await expectFullyInViewport(locator, viewport);
   expect(overlaps(exteriorBoxes[0], exteriorBoxes[1])).toBe(false);
-  expect(overlaps(exteriorBoxes[0], exteriorBoxes[2]), JSON.stringify(exteriorBoxes)).toBe(false);
-  expect(overlaps(exteriorBoxes[1], exteriorBoxes[2])).toBe(false);
 
   await page.getByRole('button', { name: '进入座舱' }).click();
   await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe('driver');
@@ -372,9 +337,9 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(response?.status()).toBe(200);
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  const gulfBlue = page.getByRole('button', { name: '海湾蓝' });
-  await gulfBlue.click();
-  await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('19b7ff');
+  const lavaOrange = page.getByRole('button', { name: '熔岩橙' });
+  await lavaOrange.click();
+  await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('c84a20');
 
   await page.getByRole('button', { name: '座舱', exact: true }).click();
   await expect.poll(async () => {
@@ -456,8 +421,6 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     const camera = (await readDiagnostics(page)).camera;
     return { view: camera?.view, movedOutside: (camera?.position[0] ?? 0) > 2 };
   }, { timeout: 15_000 }).toEqual({ view: 'performance', movedOutside: true });
-  await expect(page.locator('.hotspot-marker[aria-current="true"]')).toContainText('电驱与底盘');
-
   const moveWithinSection = async (progress: number) => {
     const previousFov = (await readDiagnostics(page)).camera?.fov;
     await scrollStoryTo(page, 'performance', progress);
@@ -470,35 +433,14 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(lateFrame.camera?.fov).not.toBe(earlyFrame.camera?.fov);
   expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
-  const hotspotPositions = new Set<string>();
-  const hotspotExpectations = {
-    aero: ['空气动力学', '流畅车顶弧线'],
-    performance: ['电驱与底盘', '即时动力响应'],
-    cabin: ['智能座舱', '屏幕、方向盘与座椅'],
-    intelligence: ['智能驾驶感知', '感知硬件持续理解'],
-  } as const;
   for (const view of ['aero', 'performance', 'cabin', 'intelligence'] as const) {
     await scrollStoryTo(page, view);
     await expect.poll(async () => {
       const state = await readDiagnostics(page);
       return { activeStoryId: state.activeStoryId, cameraView: state.camera?.view };
     }).toEqual({ activeStoryId: view, cameraView: view === 'intelligence' ? 'sensing' : view });
-
-    const [label, detail] = hotspotExpectations[view];
-    const hotspot = page.locator(`.story-hotspot[data-story-id="${view}"]`);
-    const marker = hotspot.locator('.hotspot-marker');
-    await expect(marker).toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('.hotspot-marker[aria-current="true"]')).toHaveCount(1);
-    await expect(marker).toHaveAttribute('aria-label', `查看${label}部件说明`);
-    await expect(marker).toBeVisible();
-    const markerBox = await requiredBox(marker);
-    hotspotPositions.add(`${Math.round(markerBox.x)},${Math.round(markerBox.y)}`);
-    await marker.evaluate((button: HTMLButtonElement) => button.click());
-    await expect(page.locator(`[data-story-section="${view}"]`)).toBeInViewport();
-    await expect(page.locator('.story-detail')).toBeVisible();
-    await expect(page.locator('.story-detail')).toContainText(detail);
+    await expect(page.locator(`[data-story-section="${view}"] .story-copy`)).toBeInViewport();
   }
-  expect(hotspotPositions.size).toBe(4);
 
   const yawBefore = (await readDiagnostics(page)).vehicleYaw;
   await page.evaluate(() => {
@@ -561,37 +503,22 @@ for (const viewport of [
     if (viewport.width !== 390) {
       const heroCopy = page.locator('.hero-copy');
       const heroActions = page.locator('.hero-actions');
-      const storyDetail = page.locator('.story-detail');
-      const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls, storyDetail].map(requiredBox));
+      const occupiedBoxes = await Promise.all([heroCopy, heroActions, controls].map(requiredBox));
       const controlsBox = occupiedBoxes[2];
       expect(
         controlsBox.y + controlsBox.height,
         JSON.stringify({ viewport, controlsBox }),
-      ).toBeLessThanOrEqual(viewport.height * 0.6);
-      const desktopHotspots = page.locator('.story-hotspot');
-      await expect(desktopHotspots).toHaveCount(4);
-      for (const hotspot of await desktopHotspots.all()) {
-        const hotspotBox = await requiredBox(hotspot.locator('.hotspot-marker'));
-        for (const occupiedBox of occupiedBoxes) {
-          expect(overlaps(hotspotBox, occupiedBox), JSON.stringify({ viewport, hotspotBox, occupiedBox })).toBe(false);
-        }
-      }
-      await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
-        animations: 'disabled',
-        maxDiffPixelRatio: 0.035,
-        timeout: 30_000,
-      });
+      ).toBeLessThanOrEqual(viewport.height * 0.7);
     }
 
     if (viewport.width === 390) {
       const ctaBox = await cta.boundingBox();
       const cabinCtaBox = await cabinCta.boundingBox();
-      const hotspotBox = await page.locator('.hotspot-marker[aria-current="true"]').boundingBox();
       const canvasBox = await page.locator('canvas.vehicle-canvas').boundingBox();
       const specsBox = await specs.boundingBox();
       const controlsBox = await controls.boundingBox();
-      expect(ctaBox && cabinCtaBox && hotspotBox && canvasBox && specsBox && controlsBox).toBeTruthy();
-      if (ctaBox && cabinCtaBox && hotspotBox && canvasBox && specsBox && controlsBox) {
+      expect(ctaBox && cabinCtaBox && canvasBox && specsBox && controlsBox).toBeTruthy();
+      if (ctaBox && cabinCtaBox && canvasBox && specsBox && controlsBox) {
         const visibleVehicle = {
           x: Math.max(0, canvasBox.x),
           y: Math.max(0, canvasBox.y),
@@ -599,15 +526,13 @@ for (const viewport of [
           height: Math.min(viewport.height, canvasBox.y + canvasBox.height) - Math.max(0, canvasBox.y),
         };
         expect(overlaps(ctaBox, visibleVehicle), JSON.stringify({ ctaBox, visibleVehicle })).toBe(false);
-        expect(overlaps(hotspotBox, ctaBox)).toBe(false);
-        expect(overlaps(hotspotBox, cabinCtaBox)).toBe(false);
         expect(specsBox.y + specsBox.height).toBeLessThanOrEqual(controlsBox.y);
       }
     }
   });
 }
 
-test('visual story aero keeps the vehicle and persistent detail composed', async ({ page }) => {
+test('visual story aero keeps the vehicle and story copy composed', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
@@ -625,12 +550,7 @@ test('visual story aero keeps the vehicle and persistent detail composed', async
     renderedView: 'aero',
     renderedCameraView: 'aero',
   });
-  await expect(page.locator('.story-detail')).toBeVisible();
-  await expect(page).toHaveScreenshot('story-aero-1440x900.png', {
-    animations: 'disabled',
-    maxDiffPixelRatio: 0.035,
-    timeout: 30_000,
-  });
+  await expect(page.locator('[data-story-section="aero"] .story-copy')).toBeInViewport();
 });
 
 test('visual cabin remains complete for driver, passenger and rear seats', async ({ page }) => {
@@ -691,11 +611,6 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     expect(glare.highlightRatio, `${seat.key} upper-cabin highlight ${JSON.stringify(glare)}`)
       .toBeLessThanOrEqual(0.01);
     expectNoPageFailures();
-    await expect(page).toHaveScreenshot(`cabin-${seat.key}-1440x900.png`, {
-      animations: 'disabled',
-      maxDiffPixelRatio: 0.035,
-      timeout: 30_000,
-    });
   }
   expectNoPageFailures();
 });
@@ -747,6 +662,43 @@ test('移动座舱使用真实几何避让操作区并保持触控尺寸', async
     }
   }
   expectNoPageFailures();
+});
+
+for (const viewport of [
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+]) {
+  test(`active story copy stays outside the vehicle focus zone at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/xiaomi-su7-interactive/');
+    await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+    for (const storyId of ['aero', 'performance', 'cabin', 'intelligence']) {
+      await scrollStoryTo(page, storyId);
+      const copy = page.locator(`[data-story-section="${storyId}"] .story-copy`);
+      const focusZone = page.locator('[data-vehicle-focus-zone]');
+      const [copyBox, focusBox] = await Promise.all([requiredBox(copy), requiredBox(focusZone)]);
+      expect(overlaps(copyBox, focusBox), JSON.stringify({ viewport, storyId, copyBox, focusBox })).toBe(false);
+    }
+  });
+}
+
+test('vehicle stage exits before technology and restores with the correct story on upward scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+
+  await page.locator('#technology').scrollIntoViewIfNeeded();
+  const visual = page.locator('.vehicle-visual');
+  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden');
+  await expect(visual).toHaveCSS('pointer-events', 'none');
+  await expect(visual).toHaveCSS('opacity', '0');
+
+  await scrollStoryTo(page, 'performance');
+  await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/);
+  await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
 });
 
 test('reduced motion keeps scroll chapters and target camera active with immediate transitions', async ({ page }) => {

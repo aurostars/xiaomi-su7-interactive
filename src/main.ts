@@ -1,6 +1,7 @@
 import { type StoryId } from './content/story-chapters';
 import './styles.css';
 import { createDragController } from './interaction/drag-controller';
+import { createStageVisibilityController } from './interaction/stage-visibility';
 import { createScrollStory } from './interaction/scroll-story';
 import { applyMainStateTransition, createMainRenderOrchestration } from './main-render-orchestration';
 import {
@@ -38,6 +39,10 @@ app.id = 'app';
 if (!app.isConnected) document.body.prepend(app);
 
 const elements = renderShell(app);
+const visual = elements.canvas.parentElement ?? app;
+const finalStory = elements.storySections.at(-1);
+const technology = app.querySelector<HTMLElement>('#technology');
+if (!finalStory || !technology) throw new Error('Stage visibility boundaries failed to render');
 const store = createVehicleStore();
 const unbindControls = bindControls(elements, store);
 applyVehicleCapabilities(elements, {
@@ -104,7 +109,6 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
 }
 
 const capabilities = detectCapabilities();
-const visual = elements.canvas.parentElement ?? app;
 document.documentElement.dataset.quality = capabilities.quality;
 document.documentElement.classList.toggle('reduced-motion', capabilities.reducedMotion);
 
@@ -160,6 +164,28 @@ orchestrator = createExperienceOrchestrator({
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
     const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
+    let stageVisibilityIdleTimer: ReturnType<typeof window.setTimeout> | undefined;
+    const stageVisibility = createStageVisibilityController({
+      stage: visual,
+      finalStory,
+      technology,
+      reducedMotion: capabilities.reducedMotion,
+      onChange(state) {
+        runtime.requestRender();
+        if (stageVisibilityIdleTimer !== undefined) window.clearTimeout(stageVisibilityIdleTimer);
+        if (state.phase === 'fading') {
+          runtime.beginRenderActivity('story');
+          stageVisibilityIdleTimer = window.setTimeout(() => {
+            stageVisibilityIdleTimer = undefined;
+            runtime.endRenderActivity('story');
+          }, 250);
+        } else {
+          stageVisibilityIdleTimer = undefined;
+          runtime.endRenderActivity('story');
+        }
+      },
+    });
+    stageVisibility.update();
 
     const story = createScrollStory(
       elements.storySections.map((element) => ({
@@ -231,6 +257,9 @@ orchestrator = createExperienceOrchestrator({
         if (stopped) return;
         stopped = true;
         clearBeforeRender();
+        if (stageVisibilityIdleTimer !== undefined) window.clearTimeout(stageVisibilityIdleTimer);
+        runtime.endRenderActivity('story');
+        stageVisibility.dispose();
         unsubscribe();
         drag.dispose();
         story.dispose();

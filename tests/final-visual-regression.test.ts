@@ -38,8 +38,22 @@ describe('final visual regression guardrails', () => {
     expect(cabinRule).toContain('bottom: auto');
     expect(cabinRule).toContain('max-height: calc(52dvh - 120px)');
     expect(mobileRules).toMatch(/\.vehicle-stage\[data-mode=['"]cabin['"]\]\s+\.hero-copy\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/);
-    expect(css).not.toMatch(/\.(?:header-cta|story-hotspot|hotspot-marker|hotspot-pulse|story-detail|mobile-story-rail)(?:\b|\[|:)/);
+    expect(css).not.toMatch(/\.(?:header-cta|story-hotspots?|hotspot-marker|hotspot-pulse|story-detail|mobile-story-rail)(?:\b|\[|:)/);
     expect(css).not.toMatch(/\.brand(?:\s|\{|span)/);
+  });
+
+  it('keeps desktop story copy inside the left safe region and stages the vehicle on the right', () => {
+    const css = readFileSync('src/styles.css', 'utf8');
+    const desktopStoryRule = css.match(/\.story-section\s*\{([^}]*)\}/)?.[1] ?? '';
+    const storyCopyRule = css.match(/\.story-copy\s*\{([^}]*)\}/)?.[1] ?? '';
+    const focusZoneRule = css.match(/\.vehicle-focus-zone\s*\{([^}]*)\}/)?.[1] ?? '';
+    const visualRule = css.match(/\.vehicle-visual\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(desktopStoryRule).toContain('grid-template-columns: minmax(0, 40%) minmax(0, 60%)');
+    expect(storyCopyRule).toContain('max-width: 420px');
+    expect(focusZoneRule).toContain('inset: 20% 4% 16% 40%');
+    expect(visualRule).toContain('opacity: calc(1 - var(--stage-exit-progress))');
+    expect(css).toMatch(/\.vehicle-visual\[data-stage-visibility=['"]hidden['"]\]\s*\{[^}]*pointer-events:\s*none;[^}]*z-index:\s*0;/);
   });
 
   it('provides environment reflections and a grounded contact shadow', () => {
