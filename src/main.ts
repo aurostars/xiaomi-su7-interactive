@@ -9,6 +9,7 @@ import {
 } from './performance/capabilities';
 import {
   createCameraController,
+  createCameraRenderOrchestration,
   type CameraController,
   type CameraDiagnostics,
   type CameraView,
@@ -129,15 +130,12 @@ orchestrator = createExperienceOrchestrator({
       capabilities.reducedMotion,
     );
     camera = createCameraController(runtime.camera);
-    let previousRenderAt = performance.now();
-    let forceImmediateCameraUpdate = false;
-    const clearBeforeRender = runtime.setBeforeRender((now) => {
-      const delta = Math.min(.05, Math.max(0, (now - previousRenderAt) / 1000));
-      previousRenderAt = now;
-      camera.update(delta, forceImmediateCameraUpdate || capabilities.reducedMotion);
-      forceImmediateCameraUpdate = false;
-      if (camera.isSettled()) runtime.endRenderActivity('camera');
-    });
+    const cameraRender = createCameraRenderOrchestration(
+      camera,
+      runtime,
+      capabilities.reducedMotion,
+    );
+    const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
     const readCabinLighting = () => runtime.getCabinLightingDiagnostics();
     diagnosticCamera = camera;
     diagnosticCabinLighting = readCabinLighting;
@@ -157,11 +155,9 @@ orchestrator = createExperienceOrchestrator({
         diagnosticStory = { view, progress, scrollY: window.scrollY, updatedAt: performance.now() };
         store.actions.setHotspot(view);
         if (store.getState().mode !== 'exterior') return;
-        runtime.beginRenderActivity('camera');
-        const frame = camera.setStoryProgress(view, progress);
+        const frame = cameraRender.setStoryProgress(view, progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
-        runtime.requestRender();
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
@@ -169,7 +165,7 @@ orchestrator = createExperienceOrchestrator({
       rotateBy(deltaYaw) {
         vehicleYaw += deltaYaw;
         vehicleController?.setRotation(vehicleYaw);
-        runtime.requestRender();
+        cameraRender.requestFrame();
       },
       suspendAutoCamera: store.actions.suspendAutoCamera,
     });
@@ -184,11 +180,9 @@ orchestrator = createExperienceOrchestrator({
         runtime.setCabinMode(intent.cabinMode, capabilities.reducedMotion);
       }
       if (intent.cameraView) {
-        runtime.beginRenderActivity('camera');
-        camera.setTarget(intent.cameraView);
+        cameraRender.setTarget(intent.cameraView);
       } else if (intent.cabinMode === false) {
-        runtime.beginRenderActivity('camera');
-        const frame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
+        const frame = cameraRender.setStoryProgress(storyFrame.view, storyFrame.progress);
         vehicleYaw = frame.vehicleYaw;
         vehicleController?.setRotation(vehicleYaw);
       }
@@ -196,7 +190,7 @@ orchestrator = createExperienceOrchestrator({
 
     runtime.start();
     const onVisibilityChange = () => {
-      if (!document.hidden) runtime.requestRender();
+      if (!document.hidden) cameraRender.requestFrame();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -214,13 +208,12 @@ orchestrator = createExperienceOrchestrator({
         const state = store.getState();
         vehicleController.applyState(state);
         runtime.setCabinMode(state.mode === 'cabin', true);
-        runtime.beginRenderActivity('camera');
-        if (state.mode === 'cabin') camera.setTarget(state.seatView);
+        if (state.mode === 'cabin') cameraRender.setTarget(state.seatView);
         else {
-          const currentStoryFrame = camera.setStoryProgress(storyFrame.view, storyFrame.progress);
+          const currentStoryFrame = cameraRender.setStoryProgress(storyFrame.view, storyFrame.progress);
           vehicleYaw = currentStoryFrame.vehicleYaw;
         }
-        forceImmediateCameraUpdate = true;
+        cameraRender.forceImmediateUpdate();
         vehicleController.setRotation(vehicleYaw);
         runtime.render();
       },

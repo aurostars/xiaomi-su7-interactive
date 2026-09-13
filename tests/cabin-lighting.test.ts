@@ -11,6 +11,33 @@ function rigLights(scene: Scene): PointLight[] {
   return rig?.children.filter((child): child is PointLight => child instanceof PointLight) ?? [];
 }
 
+function installAnimationFrames() {
+  let nextHandle = 1;
+  let currentTime = 0;
+  const pending = new Map<number, FrameRequestCallback>();
+  const cancelled: number[] = [];
+  vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
+  vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+    const handle = nextHandle++;
+    pending.set(handle, callback);
+    return handle;
+  });
+  vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((handle) => {
+    cancelled.push(handle);
+    pending.delete(handle);
+  });
+  return {
+    cancelled,
+    pendingCount: () => pending.size,
+    flush(time: number) {
+      currentTime = time;
+      const callbacks = [...pending.values()];
+      pending.clear();
+      callbacks.forEach((callback) => callback(time));
+    },
+  };
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe('cabin lighting', () => {
@@ -73,19 +100,50 @@ describe('cabin lighting', () => {
     expect(controller.getDiagnostics()).toEqual({ enabled: false, exposure: 0.9, activeLights: 0 });
   });
 
-  it('invalidates after every animated lighting update', () => {
-    let pending: FrameRequestCallback | undefined;
-    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
-      pending = callback;
-      return 1;
-    });
+  it('invalidates every animated change including the terminal frame and stops afterward', () => {
+    const frames = installAnimationFrames();
     const invalidate = vi.fn();
-    const controller = createCabinLighting(new Scene(), rendererWithExposure(), 'high', false, invalidate);
+    const renderer = rendererWithExposure();
+    const controller = createCabinLighting(new Scene(), renderer, 'high', false, invalidate);
 
     controller.setEnabled(true);
-    pending?.(performance.now() + 120);
-
+    expect(frames.pendingCount()).toBe(1);
+    frames.flush(80);
     expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(renderer.toneMappingExposure).toBeGreaterThan(0.88);
+    frames.flush(160);
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    frames.flush(240);
+    expect(invalidate).toHaveBeenCalledTimes(3);
+    expect(renderer.toneMappingExposure).toBe(0.88);
+    expect(frames.pendingCount()).toBe(0);
+
+    frames.flush(320);
+    expect(invalidate).toHaveBeenCalledTimes(3);
+  });
+
+  it('cancels an old transition and keeps invalidating the reversed transition through completion', () => {
+    const frames = installAnimationFrames();
+    const invalidate = vi.fn();
+    const renderer = rendererWithExposure();
+    const controller = createCabinLighting(new Scene(), renderer, 'high', false, invalidate);
+
+    controller.setEnabled(true);
+    frames.flush(80);
+    const exposureDuringOpening = renderer.toneMappingExposure;
+    controller.setEnabled(false);
+    expect(frames.cancelled).toHaveLength(1);
+
+    frames.flush(160);
+    frames.flush(240);
+    frames.flush(320);
+    expect(invalidate).toHaveBeenCalledTimes(4);
+    expect(exposureDuringOpening).toBeLessThan(0.9);
+    expect(renderer.toneMappingExposure).toBe(0.9);
+    expect(frames.pendingCount()).toBe(0);
+
+    frames.flush(400);
+    expect(invalidate).toHaveBeenCalledTimes(4);
   });
 
   it('applies reduced-motion terminal changes once without scheduling animation work', () => {

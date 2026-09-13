@@ -119,3 +119,45 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
     },
   };
 }
+
+export interface CameraRenderRuntime {
+  beginRenderActivity(reason: 'camera'): void;
+  endRenderActivity(reason: 'camera'): void;
+  requestRender(): void;
+}
+
+export function createCameraRenderOrchestration(
+  camera: CameraController,
+  runtime: CameraRenderRuntime,
+  reducedMotion: boolean,
+  initialTime = performance.now(),
+) {
+  let previousRenderAt = initialTime;
+  let forceImmediate = false;
+
+  const beginTransition = () => runtime.beginRenderActivity('camera');
+
+  return {
+    setTarget(view: CameraView) {
+      beginTransition();
+      camera.setTarget(view);
+    },
+    setStoryProgress(view: CameraView, progress: number) {
+      beginTransition();
+      const frame = camera.setStoryProgress(view, progress);
+      runtime.requestRender();
+      return frame;
+    },
+    forceImmediateUpdate() {
+      forceImmediate = true;
+    },
+    beforeRender(now: number) {
+      const delta = Math.min(.05, Math.max(0, (now - previousRenderAt) / 1000));
+      previousRenderAt = now;
+      camera.update(delta, forceImmediate || reducedMotion);
+      forceImmediate = false;
+      if (camera.isSettled()) runtime.endRenderActivity('camera');
+    },
+    requestFrame: runtime.requestRender,
+  };
+}

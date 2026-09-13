@@ -1,9 +1,75 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PerspectiveCamera } from 'three';
 import {
   CAMERA_PRESETS,
   createCameraController,
+  createCameraRenderOrchestration,
 } from '../src/scene/camera-controller';
+
+describe('camera render orchestration', () => {
+  function createHarness(reducedMotion = false) {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    camera.position.fromArray(CAMERA_PRESETS.aero.position);
+    const controller = createCameraController(camera);
+    const events: string[] = [];
+    const runtime = {
+      beginRenderActivity: vi.fn(() => events.push('begin')),
+      endRenderActivity: vi.fn(() => events.push('end')),
+      requestRender: vi.fn(() => events.push('request')),
+    };
+    const orchestration = createCameraRenderOrchestration(controller, runtime, reducedMotion, 0);
+    return { camera, controller, events, orchestration, runtime };
+  }
+
+  it('begins camera activity before ordinary and story target changes', () => {
+    const { controller, events, orchestration } = createHarness();
+    vi.spyOn(controller, 'setTarget').mockImplementation(() => { events.push('target'); });
+    vi.spyOn(controller, 'setStoryProgress').mockImplementation(() => {
+      events.push('story');
+      return { view: 'aero', progress: 0.5, vehicleYaw: 0 };
+    });
+
+    orchestration.setTarget('driver');
+    orchestration.setStoryProgress('aero', 0.5);
+
+    expect(events).toEqual(['begin', 'target', 'begin', 'story', 'request']);
+  });
+
+  it('updates continuously and ends activity only after the camera settles', () => {
+    const { controller, orchestration, runtime } = createHarness();
+    const update = vi.spyOn(controller, 'update');
+
+    orchestration.setTarget('driver');
+    for (let time = 16; time < 5_000 && runtime.endRenderActivity.mock.calls.length === 0; time += 16) {
+      orchestration.beforeRender(time);
+    }
+
+    expect(update.mock.calls.length).toBeGreaterThan(1);
+    expect(runtime.endRenderActivity).toHaveBeenCalledTimes(1);
+    expect(runtime.endRenderActivity).toHaveBeenCalledWith('camera');
+    expect(controller.isSettled()).toBe(true);
+  });
+
+  it('settles reduced motion in its requested terminal frame', () => {
+    const { controller, orchestration, runtime } = createHarness(true);
+
+    orchestration.setTarget('driver');
+    expect(runtime.beginRenderActivity).toHaveBeenCalledWith('camera');
+    orchestration.beforeRender(16);
+
+    expect(controller.isSettled()).toBe(true);
+    expect(runtime.endRenderActivity).toHaveBeenCalledWith('camera');
+  });
+
+  it('requests terminal frames for drag and visibility restoration', () => {
+    const { orchestration, runtime } = createHarness();
+
+    orchestration.requestFrame();
+    orchestration.requestFrame();
+
+    expect(runtime.requestRender).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('camera controller', () => {
   it('keeps driver, passenger, and rear viewpoints inside the cabin and spatially distinct', () => {

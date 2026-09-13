@@ -143,15 +143,67 @@ describe('createVehicleController', () => {
     expect(schedule).toHaveBeenCalledTimes(2);
   });
 
-  it('invalidates every non-reduced door animation update', () => {
+  it('invalidates every door animation step including terminal state and stops afterward', () => {
     vi.useFakeTimers();
     const invalidate = vi.fn();
     const controller = createVehicleController(makeVehicle(), false, invalidate);
 
     controller.applyState(state());
-    vi.advanceTimersByTime(48);
+    let steps = 0;
+    while (vi.getTimerCount() > 0 && steps < 100) {
+      const callsBeforeStep = invalidate.mock.calls.length;
+      vi.advanceTimersByTime(16);
+      expect(invalidate).toHaveBeenCalledTimes(callsBeforeStep + 1);
+      steps += 1;
+    }
 
-    expect(invalidate).toHaveBeenCalledTimes(3);
+    expect(steps).toBeGreaterThan(1);
+    expect(controller.getDiagnostics().doorAngles).toEqual({
+      frontLeft: -1.05,
+      frontRight: 1.05,
+      rearLeft: -0.92,
+      rearRight: 0.92,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    const terminalCalls = invalidate.mock.calls.length;
+    vi.advanceTimersByTime(1_000);
+    expect(invalidate).toHaveBeenCalledTimes(terminalCalls);
+  });
+
+  it('cancels an old door motion and invalidates the reverse through terminal state', () => {
+    vi.useFakeTimers();
+    const cancel = vi.spyOn(globalThis, 'clearTimeout');
+    const invalidate = vi.fn();
+    const controller = createVehicleController(makeVehicle(), false, invalidate);
+
+    controller.applyState(state());
+    vi.advanceTimersByTime(96);
+    const partialAngle = controller.getDiagnostics().doorAngles.frontLeft;
+    controller.applyState(state({ doorsOpen: false }));
+    expect(cancel).toHaveBeenCalled();
+    expect(controller.getDiagnostics().doorAngles.frontLeft).toBe(partialAngle);
+
+    const callsBeforeReverse = invalidate.mock.calls.length;
+    let reverseSteps = 0;
+    while (vi.getTimerCount() > 0 && reverseSteps < 100) {
+      const callsBeforeStep = invalidate.mock.calls.length;
+      vi.advanceTimersByTime(16);
+      expect(invalidate).toHaveBeenCalledTimes(callsBeforeStep + 1);
+      reverseSteps += 1;
+    }
+
+    expect(reverseSteps).toBeGreaterThan(1);
+    expect(invalidate.mock.calls.length).toBeGreaterThan(callsBeforeReverse);
+    expect(controller.getDiagnostics().doorAngles).toEqual({
+      frontLeft: 0,
+      frontRight: 0,
+      rearLeft: 0,
+      rearRight: 0,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    const terminalCalls = invalidate.mock.calls.length;
+    vi.advanceTimersByTime(1_000);
+    expect(invalidate).toHaveBeenCalledTimes(terminalCalls);
   });
 
   it('applies final door angles synchronously and invalidates once with reduced motion', () => {

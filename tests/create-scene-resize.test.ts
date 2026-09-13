@@ -1,26 +1,63 @@
-import { describe, expect, it, vi } from 'vitest';
-import * as sceneModule from '../src/scene/create-scene';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-function createFrameHarness() {
+const rendererHarness = vi.hoisted(() => ({
+  instances: [] as Array<{
+    render: ReturnType<typeof vi.fn>;
+    setSize: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  }>,
+}));
+
+vi.mock('three', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('three')>();
+  class WebGLRenderer {
+    outputColorSpace = '';
+    toneMapping = 0;
+    toneMappingExposure = 1;
+    shadowMap = { enabled: false, type: 0 };
+    render = vi.fn();
+    setSize = vi.fn();
+    setPixelRatio = vi.fn();
+    dispose = vi.fn();
+
+    constructor() {
+      rendererHarness.instances.push(this);
+    }
+  }
+  class PMREMGenerator {
+    fromScene() {
+      return { texture: new actual.Texture(), dispose: vi.fn() };
+    }
+    dispose() {}
+  }
+  return { ...actual, PMREMGenerator, WebGLRenderer };
+});
+
+vi.mock('three/examples/jsm/environments/RoomEnvironment.js', () => ({
+  RoomEnvironment: class {
+    dispose() {}
+  },
+}));
+
+import { createScene } from '../src/scene/create-scene';
+
+function installAnimationFrames() {
   let nextHandle = 1;
   const pending = new Map<number, FrameRequestCallback>();
-  const renderer = { render: vi.fn() };
-  const lifecycle = sceneModule.createScheduledRenderLifecycle(
-    () => renderer.render(),
-    () => undefined,
-    (callback) => {
-      const handle = nextHandle++;
-      pending.set(handle, callback);
-      return handle;
-    },
-    (handle) => pending.delete(handle),
-  );
-
+  const cancelled: number[] = [];
+  vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+    const handle = nextHandle++;
+    pending.set(handle, callback);
+    return handle;
+  });
+  vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((handle) => {
+    cancelled.push(handle);
+    pending.delete(handle);
+  });
   return {
-    lifecycle,
-    renderer,
-    pendingAnimationFrames: () => pending.size,
-    flushAnimationFrame(time: number) {
+    cancelled,
+    pendingCount: () => pending.size,
+    flush(time: number) {
       const callbacks = [...pending.values()];
       pending.clear();
       callbacks.forEach((callback) => callback(time));
@@ -28,84 +65,91 @@ function createFrameHarness() {
   };
 }
 
+function createRuntime(onRendered: () => void = () => undefined) {
+  const canvas = document.createElement('canvas');
+  Object.defineProperties(canvas, {
+    clientWidth: { configurable: true, value: 800 },
+    clientHeight: { configurable: true, value: 400 },
+  });
+  const runtime = createScene(canvas, 'low', onRendered);
+  const renderer = rendererHarness.instances.at(-1);
+  if (!renderer) throw new Error('renderer was not created');
+  return { canvas, renderer, runtime };
+}
+
+afterEach(() => {
+  rendererHarness.instances.length = 0;
+  vi.restoreAllMocks();
+});
+
 describe('scene resize lifecycle', () => {
-  it('renders once when invalidated and remains idle afterward', () => {
-    const { lifecycle: runtime, renderer, flushAnimationFrame, pendingAnimationFrames } = createFrameHarness();
+  it('coalesces resize and context restoration into one real scene frame', () => {
+    const frames = installAnimationFrames();
+    const { canvas, renderer, runtime } = createRuntime();
 
-    runtime.requestRender();
-    flushAnimationFrame(0);
+    window.dispatchEvent(new Event('resize'));
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
 
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(frames.pendingCount()).toBe(1);
+    frames.flush(16);
+    expect(renderer.setSize).toHaveBeenCalledWith(800, 400, false);
     expect(renderer.render).toHaveBeenCalledTimes(1);
-    expect(pendingAnimationFrames()).toBe(0);
+    expect(frames.pendingCount()).toBe(0);
+    runtime.dispose();
+  });
+
+  it('makes manual render asynchronous and preserves frame callback order in RAF', () => {
+    const frames = installAnimationFrames();
+    const order: string[] = [];
+    const { renderer, runtime } = createRuntime(() => order.push('onRendered'));
+    renderer.render.mockImplementation(() => order.push('renderer.render'));
+    runtime.setBeforeRender((time) => order.push(`beforeRender:${time}`));
+
+    runtime.render();
+    runtime.render();
+
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(frames.pendingCount()).toBe(1);
+    frames.flush(32);
+    expect(renderer.render).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['beforeRender:32', 'renderer.render', 'onRendered']);
+    expect(frames.pendingCount()).toBe(0);
+    runtime.dispose();
   });
 
   it('keeps rendering only while an activity reason is retained', () => {
-    const { lifecycle: runtime, renderer, flushAnimationFrame, pendingAnimationFrames } = createFrameHarness();
+    const frames = installAnimationFrames();
+    const { renderer, runtime } = createRuntime();
 
     runtime.beginRenderActivity('camera');
-    flushAnimationFrame(0);
-    flushAnimationFrame(16);
+    frames.flush(0);
+    frames.flush(16);
     expect(renderer.render).toHaveBeenCalledTimes(2);
 
     runtime.endRenderActivity('camera');
-    flushAnimationFrame(32);
-    expect(pendingAnimationFrames()).toBe(0);
+    frames.flush(32);
+    expect(renderer.render).toHaveBeenCalledTimes(3);
+    expect(frames.pendingCount()).toBe(0);
+    runtime.dispose();
   });
 
-  it('orders each frame beforeRender, renderer.render, then onRendered and clears lifecycle callbacks', () => {
-    const createRenderLifecycle = (sceneModule as typeof sceneModule & {
-      createRenderLifecycle?: (
-        renderScene: () => void,
-        onRendered: () => void,
-      ) => {
-        setBeforeRender(callback: (now: number) => void): () => void;
-        render(now: number): void;
-        dispose(): void;
-      };
-    }).createRenderLifecycle;
-    expect(createRenderLifecycle).toBeTypeOf('function');
-    if (!createRenderLifecycle) return;
+  it('cancels pending work, removes listeners, and ignores requests after dispose', () => {
+    const frames = installAnimationFrames();
+    const { canvas, renderer, runtime } = createRuntime();
 
-    const order: string[] = [];
-    const lifecycle = createRenderLifecycle(
-      () => order.push('renderer.render'),
-      () => order.push('onRendered'),
-    );
-    const clearBeforeRender = lifecycle.setBeforeRender((now) => order.push(`beforeRender:${now}`));
+    runtime.requestRender();
+    expect(frames.pendingCount()).toBe(1);
+    runtime.dispose();
+    expect(frames.cancelled).toHaveLength(1);
+    expect(frames.pendingCount()).toBe(0);
 
-    lifecycle.render(42);
-    expect(order).toEqual(['beforeRender:42', 'renderer.render', 'onRendered']);
-
-    clearBeforeRender();
-    lifecycle.render(84);
-    expect(order).toEqual([
-      'beforeRender:42',
-      'renderer.render',
-      'onRendered',
-      'renderer.render',
-      'onRendered',
-    ]);
-
-    lifecycle.dispose();
-    lifecycle.render(126);
-    expect(order).toHaveLength(5);
-  });
-
-  it('resizes with the window and removes the listener on dispose', () => {
-    const bindSceneResize = (sceneModule as typeof sceneModule & {
-      bindSceneResize?: (resize: () => void) => () => void;
-    }).bindSceneResize;
-    expect(bindSceneResize).toBeTypeOf('function');
-    if (!bindSceneResize) return;
-
-    const resize = vi.fn();
-    const dispose = bindSceneResize(resize);
-
+    const resizeCalls = renderer.setSize.mock.calls.length;
     window.dispatchEvent(new Event('resize'));
-    expect(resize).toHaveBeenCalledTimes(1);
-
-    dispose();
-    window.dispatchEvent(new Event('resize'));
-    expect(resize).toHaveBeenCalledTimes(1);
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    runtime.render();
+    expect(renderer.setSize).toHaveBeenCalledTimes(resizeCalls);
+    expect(frames.pendingCount()).toBe(0);
+    expect(renderer.render).not.toHaveBeenCalled();
   });
 });
