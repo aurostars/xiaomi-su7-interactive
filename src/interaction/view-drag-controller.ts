@@ -100,6 +100,7 @@ export function createViewDragController(
   window.addEventListener('blur', onBlur);
 
   const reset = () => {
+    finishInteraction();
     offset = { yaw: 0, pitch: 0 };
     origin = offset;
     callbacks.applyOffset(offset);

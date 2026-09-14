@@ -87,6 +87,52 @@ describe('view drag controller', () => {
     },
   );
 
+  it('reset cancels an active drag and ignores continuation from its old pointer', () => {
+    const { beginInteraction, controller, element, endInteraction, offsets, requestRender } = createHarness();
+
+    dispatchPointer(element, 'pointerdown', 10, 10);
+    dispatchPointer(element, 'pointermove', 20, 20);
+    controller.reset();
+    dispatchPointer(element, 'pointermove', 30, 30);
+    dispatchPointer(element, 'pointerup', 30, 30);
+
+    expect(beginInteraction).toHaveBeenCalledTimes(1);
+    expect(endInteraction).toHaveBeenCalledTimes(1);
+    expect(offsets).toEqual([
+      { yaw: 0.06, pitch: 0.06 },
+      { yaw: 0, pitch: 0 },
+    ]);
+    expect(requestRender).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
+
+  it('ends an active interaction on window blur while preserving its offset', () => {
+    const { controller, element, endInteraction, offsets } = createHarness();
+
+    dispatchPointer(element, 'pointerdown', 10, 10);
+    dispatchPointer(element, 'pointermove', 20, 20);
+    window.dispatchEvent(new Event('blur'));
+    dispatchPointer(element, 'pointermove', 30, 30);
+
+    expect(endInteraction).toHaveBeenCalledTimes(1);
+    expect(offsets).toEqual([{ yaw: 0.06, pitch: 0.06 }]);
+    controller.dispose();
+  });
+
+  it('ends an active interaction when disabled and ignores later pointer events', () => {
+    const { controller, element, endInteraction, offsets } = createHarness();
+
+    dispatchPointer(element, 'pointerdown', 10, 10);
+    dispatchPointer(element, 'pointermove', 20, 20);
+    controller.setEnabled(false);
+    dispatchPointer(element, 'pointermove', 30, 30);
+    dispatchPointer(element, 'pointerup', 30, 30);
+
+    expect(endInteraction).toHaveBeenCalledTimes(1);
+    expect(offsets).toEqual([{ yaw: 0.06, pitch: 0.06 }]);
+    controller.dispose();
+  });
+
   it('resets offsets and releases an active interaction on dispose', () => {
     const { beginInteraction, controller, element, endInteraction, offsets, requestRender } = createHarness();
 

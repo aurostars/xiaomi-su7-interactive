@@ -277,7 +277,6 @@ orchestrator = createExperienceOrchestrator({
       dispose() {
         if (stopped) return;
         stopped = true;
-        clearBeforeRender();
         if (stageRuntime === runtime) {
           clearStageVisibilityActivity(runtime);
           stageRuntime = undefined;
@@ -285,6 +284,9 @@ orchestrator = createExperienceOrchestrator({
         unsubscribe();
         if (activeViewDrag === drag) activeViewDrag = undefined;
         drag.dispose();
+        cameraRender.forceImmediateUpdate();
+        cameraRender.beforeRender(performance.now());
+        clearBeforeRender();
         story.dispose();
         unbindVisibility();
         vehicleController?.dispose();

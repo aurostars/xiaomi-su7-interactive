@@ -66,7 +66,26 @@ describe('main render orchestration', () => {
     const endRenderActivity = vi.fn();
     const stageVisibilityDispose = vi.fn();
     const stageVisibilityUpdate = vi.fn();
-    const dragDispose = vi.fn();
+    let dragCallbacks: {
+      applyOffset(offset: { yaw: number; pitch: number }): void;
+      beginInteraction(): void;
+      endInteraction(): void;
+      requestRender(): void;
+    } | undefined;
+    const lifecycleEvents: string[] = [];
+    const clearBeforeRender = vi.fn(() => lifecycleEvents.push('clear-before-render'));
+    const cameraSetManualOffset = vi.fn(() => beginRenderActivity('camera'));
+    const cameraForceImmediateUpdate = vi.fn(() => lifecycleEvents.push('camera-force-immediate'));
+    const cameraBeforeRender = vi.fn(() => {
+      lifecycleEvents.push('camera-before-render');
+      endRenderActivity('camera');
+    });
+    const dragDispose = vi.fn(() => {
+      lifecycleEvents.push('drag-dispose');
+      dragCallbacks?.endInteraction();
+      dragCallbacks?.applyOffset({ yaw: 0, pitch: 0 });
+      dragCallbacks?.requestRender();
+    });
     const dragReset = vi.fn();
     const dragSetEnabled = vi.fn();
     const dragSetMode = vi.fn();
@@ -91,7 +110,7 @@ describe('main render orchestration', () => {
       createScene: vi.fn(() => ({
         camera: {}, requestRender, beginRenderActivity, endRenderActivity,
         isRenderActive: () => false, getActiveRenderReasons: () => [],
-        setBeforeRender: () => () => undefined, start: vi.fn(), render: vi.fn(),
+        setBeforeRender: () => clearBeforeRender, start: vi.fn(), render: vi.fn(),
         setCabinMode: vi.fn(), getCabinLightingDiagnostics: () => ({ enabled: false, exposure: 0, activeLights: 0 }),
         scene: { add: vi.fn() }, dispose: vi.fn(),
       })),
@@ -100,8 +119,9 @@ describe('main render orchestration', () => {
     vi.doMock('../src/main-render-orchestration', () => ({
       applyMainStateTransition: vi.fn(() => ({})),
       createMainRenderOrchestration: vi.fn(() => ({
-        beforeRender: vi.fn(), setTarget: vi.fn(), setStoryProgress: vi.fn(() => ({ vehicleYaw: 0 })),
-        setManualOffset: vi.fn(), forceImmediateUpdate: vi.fn(), bindVisibility: () => () => undefined,
+        beforeRender: cameraBeforeRender, setTarget: vi.fn(), setStoryProgress: vi.fn(() => ({ vehicleYaw: 0 })),
+        setManualOffset: cameraSetManualOffset, forceImmediateUpdate: cameraForceImmediateUpdate,
+        bindVisibility: () => () => undefined,
       })),
     }));
     vi.doMock('../src/interaction/scroll-story', () => ({
@@ -116,12 +136,15 @@ describe('main render orchestration', () => {
       }),
     }));
     vi.doMock('../src/interaction/view-drag-controller', () => ({
-      createViewDragController: vi.fn(() => ({
-        dispose: dragDispose,
-        reset: dragReset,
-        setEnabled: dragSetEnabled,
-        setMode: dragSetMode,
-      })),
+      createViewDragController: vi.fn((_element, callbacks) => {
+        dragCallbacks = callbacks;
+        return {
+          dispose: dragDispose,
+          reset: dragReset,
+          setEnabled: dragSetEnabled,
+          setMode: dragSetMode,
+        };
+      }),
     }));
     vi.doMock('../src/performance/capabilities', async () => {
       const actual = await vi.importActual<typeof import('../src/performance/capabilities')>('../src/performance/capabilities');
@@ -182,8 +205,23 @@ describe('main render orchestration', () => {
     visibilityOptions?.onChange({ phase: 'visible', progress: 0 });
     expect(dragSetEnabled).toHaveBeenLastCalledWith(true);
 
+    lifecycleEvents.length = 0;
+    beginRenderActivity.mockClear();
+    endRenderActivity.mockClear();
+    cameraForceImmediateUpdate.mockClear();
+    cameraBeforeRender.mockClear();
+    dragCallbacks?.beginInteraction();
     disposeAttempt();
+
     expect(dragDispose).toHaveBeenCalledTimes(1);
+    expect(lifecycleEvents).toEqual([
+      'drag-dispose',
+      'camera-force-immediate',
+      'camera-before-render',
+      'clear-before-render',
+    ]);
+    expect(beginRenderActivity.mock.calls.map(([reason]) => reason)).toEqual(['view-drag', 'camera']);
+    expect(endRenderActivity.mock.calls.map(([reason]) => reason)).toEqual(['view-drag', 'camera']);
     expect(stageVisibilityDispose).not.toHaveBeenCalled();
 
     window.dispatchEvent(new Event('pagehide'));
