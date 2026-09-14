@@ -13,6 +13,7 @@ export interface ShellElements {
   enterCabinButton: HTMLButtonElement;
   cabinDetail: HTMLElement;
   viewHint: HTMLElement;
+  controlTooltip: HTMLElement;
   controlGroups: HTMLElement[];
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
@@ -75,6 +76,7 @@ export function renderShell(root: HTMLElement): ShellElements {
           </fieldset>
           <div class="seat-views" role="group" aria-label="座舱座席" data-control-group="seat" aria-hidden="true" hidden><button type="button" data-seat="driver" data-primary-control>主驾</button><button type="button" data-seat="passenger" data-primary-control>副驾</button><button type="button" data-seat="rear" data-primary-control>后排</button></div>
           <div class="door-control" role="group" aria-label="车门" data-control-group="doors"><button class="door-button" type="button" aria-pressed="false" data-primary-control>${controlIcon('door')}<span>开门</span></button></div>
+          <div class="control-tooltip" role="tooltip" data-control-tooltip hidden></div>
         </aside>
         <aside class="view-hint" data-view-hint aria-live="polite">
           <strong data-view-hint-primary>拖拽车辆查看外观细节</strong>
@@ -107,8 +109,9 @@ export function renderShell(root: HTMLElement): ShellElements {
   const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
   const cabinDetail = root.querySelector<HTMLElement>('.cabin-detail');
   const viewHint = root.querySelector<HTMLElement>('[data-view-hint]');
+  const controlTooltip = root.querySelector<HTMLElement>('[data-control-tooltip]');
   const controlGroups = Array.from(root.querySelectorAll<HTMLElement>('[data-control-group]'));
-  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !viewHint || controlGroups.length !== 5) {
+  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !viewHint || !controlTooltip || controlGroups.length !== 5) {
     throw new Error('Vehicle shell failed to render');
   }
   return {
@@ -118,6 +121,7 @@ export function renderShell(root: HTMLElement): ShellElements {
     enterCabinButton,
     cabinDetail,
     viewHint,
+    controlTooltip,
     controlGroups,
     modeButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')),
     colorButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('.color-swatch')),

@@ -60,11 +60,17 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 
 
 .vehicle-controls {
-  position: absolute; z-index: 6; top: 88px; right: max(20px, calc((100vw - 1360px) / 2)); width: 466px; padding: 10px;
-  display: grid; grid-template-columns: 1fr 52px; grid-template-areas: "mode door" "paint paint" "interior interior" "seats seats"; gap: 8px;
-  border: 1px solid rgba(221, 231, 240, .18); border-radius: 18px;
-  background: rgba(13, 18, 24, .9); backdrop-filter: blur(22px) saturate(1.15);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 18px 48px rgba(2, 7, 12, .38);
+  position: absolute; z-index: 6; top: 88px; right: max(20px, calc((100vw - 1360px) / 2)); width: 466px;
+  display: grid; grid-template-columns: 1fr 58px; grid-template-areas: "mode door" "paint paint" "interior interior" "seats seats"; gap: 8px;
+}
+.vehicle-controls > [data-control-group] {
+  position: relative; min-width: 0; padding: 4px;
+  border: 1px solid rgba(221, 231, 240, .18); border-radius: 14px;
+  background: rgba(13, 18, 24, .9);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 14px 34px rgba(2, 7, 12, .32);
+  transition: opacity 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 [data-control-group][hidden] { display: none !important; }
 .mode-tabs { grid-area: mode; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -100,8 +106,17 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
   font-size: 11px; line-height: 1; white-space: nowrap; pointer-events: none;
   opacity: 0; transform: translate(-50%, 4px); transition: opacity 160ms ease, transform 160ms ease;
 }
-.color-swatch:hover::after, .color-swatch:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.color-swatch:hover::after { opacity: 1; transform: translate(-50%, 0); }
 .color-swatch[aria-pressed="true"] { border-color: #fff; background: rgba(255, 255, 255, .1); transform: scale(1.04); }
+.control-tooltip {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 10;
+  width: max-content; max-width: 140px; padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 7px;
+  background: #111820; color: #f4f7f9; box-shadow: 0 8px 20px rgba(1, 5, 9, .4);
+  font-size: 11px; line-height: 1; white-space: nowrap; pointer-events: none;
+  opacity: 1; transform: translateY(0); transition: opacity 160ms ease, transform 160ms ease;
+}
+.control-tooltip[hidden] { display: none; }
 .vehicle-controls button:hover:not(:disabled) { border-color: rgba(226, 233, 240, .58); background-color: rgba(255, 255, 255, .1); }
 .vehicle-controls button:active:not(:disabled) { transform: scale(.97); }
 .seat-views { grid-area: seats; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -115,15 +130,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .view-hint {
   position: absolute; z-index: 5; top: 228px; right: max(20px, calc((100vw - 1360px) / 2)); width: 466px; padding: 9px 12px;
   border: 1px solid rgba(221, 231, 240, .14); border-radius: 12px; background: rgba(13, 18, 24, .86);
-  backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); pointer-events: none;
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); pointer-events: none;
 }
 .view-hint strong, .view-hint span { display: inline; }
 .view-hint strong { color: #f2f5f7; font-size: 11px; font-weight: 650; line-height: 1.25; }
 .view-hint span { margin-left: 7px; color: #929aa3; font-size: 9px; line-height: 1.25; }
-.vehicle-stage[data-mode='cabin'] .view-hint { top: 273px; }
+.vehicle-stage[data-mode='cabin'] .view-hint { top: 274px; }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .vehicle-controls, .view-hint { background: #10161d; }
+  .vehicle-controls > [data-control-group], .view-hint { background: #10161d; }
 }
 
 .cabin-detail {
@@ -212,6 +227,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .control-palette > div { display: flex; flex-wrap: nowrap; gap: 4px; }
   .color-swatch { width: 44px; min-height: 44px; }
   .color-swatch::after { display: none; }
+  .control-tooltip { position: fixed; top: auto; right: 14px; bottom: 116px; }
   html[data-vehicle-mode='exterior'] .secondary-palette[data-palette='interior'], html[data-vehicle-mode='cabin'] .secondary-palette[data-palette='paint'] { display: none; }
   .seat-views { flex: 0 0 180px; margin: 0; }
   .door-control { flex: 0 0 52px; }
@@ -244,6 +260,9 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .vehicle-controls > [data-control-group], .color-swatch, .color-swatch::after, .control-tooltip {
+    transition: none !important;
+  }
   .stage-atmosphere { filter: none; opacity: .2; }
 }
 
@@ -255,7 +274,11 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
 
 .reduced-motion .stage-atmosphere { filter: none; opacity: .2; }
 .reduced-motion .primary-cta:hover { transform: none; }
+.reduced-motion .vehicle-controls > [data-control-group],
+.reduced-motion .color-swatch,
+.reduced-motion .color-swatch::after,
+.reduced-motion .control-tooltip { transition: none !important; }
 
 @media (prefers-reduced-transparency: reduce) {
-  .site-header, .vehicle-controls, .view-hint { background: #080b0f; backdrop-filter: none; }
+  .site-header, .vehicle-controls > [data-control-group], .view-hint { background: #080b0f; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

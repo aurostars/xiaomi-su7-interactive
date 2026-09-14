@@ -1243,14 +1243,37 @@ test('floating controls and guidance stay clear at target responsive viewports',
     const hint = page.locator('[data-view-hint]');
     const heroCopy = page.locator('.hero-copy');
     const focusZone = page.locator('[data-vehicle-focus-zone]');
-    for (const locator of [controls, hint]) await expectFullyInViewport(locator, viewport);
-    const [controlsBox, hintBox, copyBox, focusBox] = await Promise.all(
-      [controls, hint, heroCopy, focusZone].map(requiredBox),
-    );
-    for (const [name, floatingBox] of [['controls', controlsBox], ['hint', hintBox]] as const) {
-      expect(overlaps(floatingBox, copyBox), JSON.stringify({ viewport, name, floatingBox, copyBox })).toBe(false);
-      expect(overlaps(floatingBox, focusBox), JSON.stringify({ viewport, name, floatingBox, focusBox })).toBe(false);
+    const assertClearLayout = async (mode: 'exterior' | 'cabin') => {
+      for (const locator of [controls, hint]) await expectFullyInViewport(locator, viewport);
+      const [controlsBox, hintBox, focusBox, copyBox] = await Promise.all([
+        requiredBox(controls),
+        requiredBox(hint),
+        requiredBox(focusZone),
+        heroCopy.boundingBox(),
+      ]);
+      for (const [name, floatingBox] of [['controls', controlsBox], ['hint', hintBox]] as const) {
+        if (copyBox) {
+          expect(overlaps(floatingBox, copyBox), JSON.stringify({ viewport, mode, name, floatingBox, copyBox })).toBe(false);
+        }
+        expect(overlaps(floatingBox, focusBox), JSON.stringify({ viewport, mode, name, floatingBox, focusBox })).toBe(false);
+      }
+      expect(overlaps(controlsBox, hintBox), JSON.stringify({ viewport, mode, controlsBox, hintBox })).toBe(false);
+    };
+
+    await page.getByRole('button', { name: '外观', exact: true }).click();
+    await expect(page.locator('.vehicle-stage')).toHaveAttribute('data-mode', 'exterior');
+    await assertClearLayout('exterior');
+    if (viewport.width === 390) {
+      const paintSwatch = page.locator('[data-paint]:visible').first();
+      const tooltip = page.locator('[data-control-tooltip]');
+      await paintSwatch.focus();
+      await expect(tooltip).toBeVisible();
+      await expect(tooltip).toHaveText(await paintSwatch.getAttribute('aria-label') ?? '');
+      await expectFullyInViewport(tooltip, viewport);
     }
-    expect(overlaps(controlsBox, hintBox), JSON.stringify({ viewport, controlsBox, hintBox })).toBe(false);
+
+    await page.getByRole('button', { name: '座舱', exact: true }).click();
+    await expect(page.locator('.vehicle-stage')).toHaveAttribute('data-mode', 'cabin');
+    await assertClearLayout('cabin');
   }
 });

@@ -305,6 +305,39 @@ describe('high fidelity page shell', () => {
     unbind();
   });
 
+  it('renders each semantic group as its own glass module with aligned fallbacks and motion reduction', () => {
+    const outerRule = styles.match(/\.vehicle-controls\s*\{([^}]*)\}/)?.[1] ?? '';
+    const groupRule = styles.match(/\.vehicle-controls\s*>\s*\[data-control-group\]\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(outerRule).not.toMatch(/(?:background|backdrop-filter|box-shadow|border):/);
+    expect(groupRule).toContain('background:');
+    expect(groupRule).toContain('border:');
+    expect(groupRule).toContain('backdrop-filter:');
+    expect(groupRule).toContain('-webkit-backdrop-filter:');
+    expect(styles).toContain('@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))');
+    expect(styles).toMatch(/@supports not[\s\S]*?\.vehicle-controls > \[data-control-group\][^{]*\{[^}]*background:/);
+    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.vehicle-controls > \[data-control-group\][^{]*\{[^}]*transition:\s*none !important/);
+    expect(styles).toMatch(/\.reduced-motion \.vehicle-controls > \[data-control-group\][^{]*\{[^}]*transition:\s*none !important/);
+  });
+
+  it('exposes a real tooltip when a swatch receives keyboard focus', () => {
+    const elements = renderShell(document.body);
+    const store = createVehicleStore();
+    const unbind = bindControls(elements, store);
+    const swatch = elements.colorButtons[0];
+    const tooltip = document.querySelector<HTMLElement>('[data-control-tooltip]')!;
+
+    expect(tooltip.hidden).toBe(true);
+    swatch.focus();
+    expect(tooltip.hidden).toBe(false);
+    expect(tooltip.dataset.visible).toBe('true');
+    expect(tooltip.textContent).toBe(swatch.getAttribute('data-tooltip'));
+    swatch.blur();
+    expect(tooltip.hidden).toBe(true);
+    expect(tooltip.dataset.visible).toBeUndefined();
+    unbind();
+  });
+
   it('collapses the inactive palette at a narrow viewport and keeps every primary button at least 44px', () => {
     const elements = renderShell(document.body);
     const primaryButtons = [...elements.modeButtons, ...elements.seatButtons, elements.doorButton];

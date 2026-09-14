@@ -58,6 +58,21 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       if (button.dataset.paint) store.actions.setPaint(getPaintOption(button.dataset.paint).id);
       if (button.dataset.interior) store.actions.setInterior(getInteriorOption(button.dataset.interior).id);
     });
+    const showTooltip = () => {
+      elements.controlTooltip.textContent = button.dataset.tooltip ?? button.getAttribute('aria-label') ?? '';
+      elements.controlTooltip.hidden = false;
+      elements.controlTooltip.dataset.visible = 'true';
+    };
+    const hideTooltip = () => {
+      elements.controlTooltip.hidden = true;
+      delete elements.controlTooltip.dataset.visible;
+    };
+    button.addEventListener('focus', showTooltip);
+    button.addEventListener('blur', hideTooltip);
+    cleanups.push(() => {
+      button.removeEventListener('focus', showTooltip);
+      button.removeEventListener('blur', hideTooltip);
+    });
   });
   elements.seatButtons.forEach((button) => {
     listen(button, () => {
