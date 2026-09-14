@@ -65,15 +65,28 @@ describe('main state orchestration', () => {
       initialTime: 0,
     });
 
+    let previousState = store.getState();
+    const unsubscribe = store.subscribe(() => {
+      const currentState = store.getState();
+      applyMainStateTransition({
+        previousState,
+        state: currentState,
+        runtime: { requestRender: vi.fn(), setCabinMode: vi.fn() },
+        cameraRender,
+        reducedMotion: true,
+      });
+      previousState = currentState;
+    });
     const onScrollChapter = (storyId: 'cabin', progress: number) => {
       store.actions.setActiveStory(storyId);
-      cameraRender.setStoryProgress(storyId, progress);
+      if (store.getState().mode === 'exterior') cameraRender.setStoryProgress(storyId, progress);
       cameraRender.beforeRender(16);
     };
     onScrollChapter('cabin', 0.5);
 
     expect(store.getState().activeStoryId).toBe('cabin');
-    expect(camera.getDiagnostics().view).toBe('cabin');
+    expect(camera.getDiagnostics().view).toBe('rear');
+    unsubscribe();
     expect(document.querySelectorAll('.story-hotspot')).toHaveLength(0);
     document.body.replaceChildren();
   });

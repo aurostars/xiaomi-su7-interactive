@@ -3,6 +3,10 @@ import { expect, test, type Locator, type Page, type Route } from '@playwright/t
 interface Su7Diagnostics {
   modelReady: boolean;
   mode: 'exterior' | 'cabin';
+  state: {
+    mode: 'exterior' | 'cabin';
+    seatView: 'driver' | 'passenger' | 'rear';
+  };
   paint: string | null;
   doorAngles: {
     frontLeft: number | null;
@@ -205,7 +209,7 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
-test('simplified chrome keeps four centered links and removes legacy overlays', async ({ page }) => {
+test('simplified chrome keeps three centered links and removes legacy overlays', async ({ page }) => {
   let modelRequests = 0;
   page.on('request', (request) => {
     if (isGlbRequest(request.url())) modelRequests += 1;
@@ -220,14 +224,18 @@ test('simplified chrome keeps four centered links and removes legacy overlays', 
 
     const header = page.locator('.site-header');
     const nav = page.locator('.site-nav');
-    await expect(nav.locator('a')).toHaveText(['SU7', '细节', '科技', '影像']);
-    await expect(nav.locator('a')).toHaveCount(4);
+    await expect(nav.locator('a')).toHaveText(['SU7', '细节', '科技']);
+    await expect(nav.locator('a')).toHaveCount(3);
+    await expect(page.locator('#film')).toHaveCount(0);
     const [headerBox, navBox] = await Promise.all([requiredBox(header), requiredBox(nav)]);
     expect(Math.abs((navBox.x + navBox.width / 2) - (headerBox.x + headerBox.width / 2))).toBeLessThanOrEqual(1);
     for (const selector of ['.brand', '.header-cta', '.story-hotspot', '.story-hotspots', '.story-detail', '.mobile-story-rail']) {
       await expect(page.locator(selector), `${selector} at ${viewport.width}x${viewport.height}`).toHaveCount(0);
     }
   }
+  await page.locator('[data-story-id="cabin"]').scrollIntoViewIfNeeded();
+  await expect.poll(() => readDiagnostics(page).then((d) => d.state.mode)).toBe('cabin');
+  await expect.poll(() => readDiagnostics(page).then((d) => d.state.seatView)).toBe('rear');
   expect(modelRequests, 'responsive viewport checks should issue exactly one GLB request').toBe(1);
 });
 
@@ -294,7 +302,7 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
 
   for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport);
-    for (const storyId of ['aero', 'performance', 'cabin', 'intelligence']) {
+    for (const storyId of ['aero', 'performance', 'cabin']) {
       await scrollStoryTo(page, storyId);
       const [copyBox, focusBox] = await Promise.all([
         requiredBox(page.locator(`[data-story-section="${storyId}"] .story-copy`)),
@@ -675,8 +683,7 @@ test('scroll story keeps active chapter and rendered camera synchronized', async
   const chapters = [
     { id: 'aero', view: 'aero' },
     { id: 'performance', view: 'performance' },
-    { id: 'cabin', view: 'cabin' },
-    { id: 'intelligence', view: 'sensing' },
+    { id: 'cabin', view: 'rear' },
   ] as const;
   for (const chapter of chapters) {
     await scrollStoryTo(page, chapter.id);
@@ -915,12 +922,12 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
   expect(lateFrame.camera?.fov).not.toBe(earlyFrame.camera?.fov);
   expect(lateFrame.vehicleYaw).not.toBe(earlyFrame.vehicleYaw);
 
-  for (const view of ['aero', 'performance', 'cabin', 'intelligence'] as const) {
+  for (const view of ['aero', 'performance', 'cabin'] as const) {
     await scrollStoryTo(page, view);
     await expect.poll(async () => {
       const state = await readDiagnostics(page);
       return { activeStoryId: state.activeStoryId, cameraView: state.camera?.view };
-    }).toEqual({ activeStoryId: view, cameraView: view === 'intelligence' ? 'sensing' : view });
+    }).toEqual({ activeStoryId: view, cameraView: view === 'cabin' ? 'rear' : view });
     await expect(page.locator(`[data-story-section="${view}"] .story-copy`)).toBeInViewport();
   }
 
@@ -953,7 +960,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
       cameraView: diagnostics.camera?.view,
       yawRestored: diagnostics.vehicleYaw !== draggedYaw,
     };
-  }).toEqual({ storyUpdated: true, cameraView: 'sensing', yawRestored: true });
+  }).toEqual({ storyUpdated: true, cameraView: 'rear', yawRestored: true });
 
   await page.getByRole('link', { name: '返回车辆舞台' }).click();
   await expect(page.locator('#vehicle-stage')).toBeInViewport();
@@ -1197,7 +1204,7 @@ for (const viewport of [
     await page.goto('/xiaomi-su7-interactive/');
     await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-    for (const storyId of ['aero', 'performance', 'cabin', 'intelligence']) {
+    for (const storyId of ['aero', 'performance', 'cabin']) {
       await scrollStoryTo(page, storyId);
       const copy = page.locator(`[data-story-section="${storyId}"] .story-copy`);
       const focusZone = page.locator('[data-vehicle-focus-zone]');
@@ -1230,10 +1237,10 @@ test('reduced motion keeps scroll chapters and target camera active with immedia
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
-  await scrollStoryTo(page, 'intelligence');
+  await scrollStoryTo(page, 'cabin');
 
   await expect.poll(async () => {
     const state = await readDiagnostics(page);
     return { activeStoryId: state.activeStoryId, view: state.camera?.view, fov: state.camera?.fov };
-  }).toEqual({ activeStoryId: 'intelligence', view: 'sensing', fov: 34 });
+  }).toEqual({ activeStoryId: 'cabin', view: 'rear', fov: 52 });
 });

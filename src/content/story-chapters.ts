@@ -1,4 +1,4 @@
-export type StoryId = 'aero' | 'performance' | 'cabin' | 'intelligence';
+export type StoryId = 'aero' | 'performance' | 'cabin';
 
 export interface StoryChapter {
   id: StoryId;
@@ -29,12 +29,5 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     title: '切入座舱，看见屏幕与乘坐空间',
     description: '屏幕、方向盘与座椅围绕驾乘者展开，信息和空间保持自然、连贯的秩序。',
     bullets: ['前排交互触手可及', '多座席视角一键切换'],
-  },
-  {
-    id: 'intelligence',
-    eyebrow: '智能感知',
-    title: '传感器视角，展示智能驾驶想象力',
-    description: '感知硬件持续理解车辆周围环境，让复杂道路信息转化为清晰驾驶辅助。',
-    bullets: ['多源感知协同工作', '环境信息实时形成判断'],
   },
 ];

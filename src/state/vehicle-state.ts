@@ -82,7 +82,15 @@ export function createVehicleStore(initial: VehicleStateHydration = {}): Vehicle
       setSeatView: (seatView) => update(state.mode === 'cabin'
         ? { seatView }
         : { mode: 'cabin', doorsOpen: true, seatView }),
-      setActiveStory: (activeStoryId) => update({ activeStoryId }),
+      setActiveStory: (activeStoryId) => {
+        const enteringCabin = activeStoryId === 'cabin' && state.activeStoryId !== 'cabin';
+        const leavingCabin = activeStoryId !== 'cabin' && state.activeStoryId === 'cabin';
+        update(enteringCabin
+          ? { activeStoryId, mode: 'cabin', doorsOpen: true, seatView: 'rear' }
+          : leavingCabin
+            ? { activeStoryId, mode: 'exterior' }
+            : { activeStoryId });
+      },
       suspendAutoCamera: (durationMs) =>
         update({ autoCameraSuspendedUntil: Date.now() + durationMs }),
     },

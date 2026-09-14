@@ -88,6 +88,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
       return {
         modelReady: Boolean(vehicle),
         mode: store.getState().mode,
+        state: store.getState(),
         paint: vehicle?.paint ?? null,
         doorAngles: vehicle?.doorAngles ?? {
           frontLeft: null,
@@ -200,7 +201,7 @@ orchestrator = createExperienceOrchestrator({
         view: element.dataset.storyView as StoryId,
       })),
       (storyId, progress) => {
-        const view: CameraView = storyId === 'intelligence' ? 'sensing' : storyId;
+        const view: CameraView = storyId;
         storyFrame = { view, progress };
         diagnosticStory = { view, progress, scrollY: window.scrollY, updatedAt: performance.now() };
         store.actions.setActiveStory(storyId);

@@ -132,7 +132,7 @@ describe('camera controller', () => {
   });
 
   it('retains the exterior near plane for story presets', () => {
-    for (const view of ['aero', 'performance', 'cabin', 'sensing'] as const) {
+    for (const view of ['aero', 'performance', 'cabin'] as const) {
       expect(CAMERA_PRESETS[view].near).toBe(0.1);
     }
   });

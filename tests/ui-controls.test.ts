@@ -37,6 +37,10 @@ describe('high fidelity page shell', () => {
   it('exposes the vehicle stage and all primary controls with accessible names', () => {
     const elements = renderShell(document.body);
 
+    expect(document.querySelector('#film')).toBeNull();
+    expect([...document.querySelectorAll('nav a')].map((node) => node.textContent?.trim()))
+      .toEqual(['SU7', '细节', '科技']);
+    expect(elements.storySections).toHaveLength(3);
     expect(document.querySelector('[role="region"][aria-label="小米 SU7 交互车辆舞台"]')).not.toBeNull();
     expect(elements.modeButtons.map((button) => button.textContent)).toEqual(['外观', '座舱']);
     expect(elements.colorButtons).toHaveLength(13);
@@ -54,8 +58,8 @@ describe('high fidelity page shell', () => {
     expect(document.querySelectorAll('.story-hotspot')).toHaveLength(0);
     expect(document.querySelector('.story-detail')).toBeNull();
     expect(document.querySelector('.mobile-story-rail')).toBeNull();
-    expect(document.querySelectorAll('.story-section')).toHaveLength(4);
-    expect(document.querySelectorAll('.site-nav a')).toHaveLength(4);
+    expect(document.querySelectorAll('.story-section')).toHaveLength(3);
+    expect(document.querySelectorAll('.site-nav a')).toHaveLength(3);
   });
 
   it('shows an accessible cabin detail card and keeps it synced while doors close and seats change', () => {
@@ -120,11 +124,10 @@ describe('high fidelity page shell', () => {
       '低趴轿跑姿态，像风压过车身',
       '电驱、轮组与底盘共同制造力量感',
       '切入座舱，看见屏幕与乘坐空间',
-      '传感器视角，展示智能驾驶想象力',
     ]);
     expect(document.querySelectorAll('.technology-card')).toHaveLength(3);
     expect(Array.from(document.querySelectorAll('.technology-card h3'), (node) => node.textContent)).toContain('智能驾驶感知');
-    expect(document.querySelector('.brand-film img')).not.toBeNull();
+    expect(document.querySelector('.brand-film img')).toBeNull();
     const returnLink = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href="#vehicle-stage"]'))
       .find((link) => link.textContent?.includes('返回车辆舞台'));
     expect(returnLink).toBeDefined();
@@ -227,7 +230,7 @@ describe('high fidelity page shell', () => {
     const technology = document.querySelector('.technology-section');
 
     expect(visual?.contains(elements.canvas)).toBe(true);
-    expect(story?.querySelectorAll('[data-story-view]')).toHaveLength(4);
+    expect(story?.querySelectorAll('[data-story-view]')).toHaveLength(3);
     expect(experience?.contains(technology)).toBe(false);
   });
 

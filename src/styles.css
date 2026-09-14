@@ -119,8 +119,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .technology-card div { min-height: 122px; padding: 24px; }
 .technology-card h3 { margin: 0 0 10px; font-size: 23px; }
 .technology-card p { margin: 0; color: var(--muted); line-height: 1.7; }
-.brand-film { padding: 120px max(7vw, calc((100vw - 1160px) / 2)); background: #05070a; }
-.brand-film img { display: block; width: 100%; max-height: 720px; object-fit: cover; border-radius: 4px; }
 .closing-cta { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 80px; padding: 130px max(40px, calc((100vw - 1160px) / 2)); background: linear-gradient(110deg, #0b1118, #221817); }
 .closing-cta p { color: var(--cyan); }
 .closing-cta h2 { max-width: 860px; }
@@ -197,7 +195,7 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .story-section { min-height: 105dvh; display: flex; padding: 100px 20px; align-items: flex-end; background: linear-gradient(0deg, rgba(75, 223, 242, .045), transparent 50%); }
   .story-copy { width: 100%; max-width: none; padding-right: 0; }
   .story-copy h2, .technology-section h2, .closing-cta h2 { font-size: clamp(34px, 10vw, 48px); }
-  .technology-section, .brand-film, .closing-cta { padding: 90px 20px; }
+  .technology-section, .closing-cta { padding: 90px 20px; }
   .technology-grid { grid-template-columns: 1fr; }
   .technology-card:first-child { grid-row: auto; }
   .technology-card:first-child img { height: auto; aspect-ratio: 16 / 9; }

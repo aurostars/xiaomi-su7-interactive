@@ -1,7 +1,6 @@
 import techPlatform from '../assets/images/tech-platform.webp';
 import techDrive from '../assets/images/tech-drive.webp';
 import techCabin from '../assets/images/tech-cabin.webp';
-import gallerySu7 from '../assets/images/gallery-su7.webp';
 import { STORY_CHAPTERS } from '../content/story-chapters';
 import { INTERIOR_OPTIONS, PAINT_OPTIONS } from '../content/vehicle-palettes';
 
@@ -32,7 +31,7 @@ function colorButton(value: string, name: string, color: string, type: 'paint' |
 
 function renderStory() {
   return STORY_CHAPTERS.map(({ id, eyebrow, title, description, bullets }) => `
-    <section class="story-section" data-story-view="${id}" data-story-section="${id}" aria-labelledby="story-${id}">
+    <section class="story-section" data-story-id="${id}" data-story-view="${id}" data-story-section="${id}" aria-labelledby="story-${id}">
       <div class="story-copy">
         <p class="section-label">${eyebrow}</p>
         <h2 id="story-${id}">${title}</h2>
@@ -45,7 +44,7 @@ function renderStory() {
 export function renderShell(root: HTMLElement): ShellElements {
   root.innerHTML = `
     <header class="site-header">
-      <nav class="site-nav" aria-label="主导航"><a href="#vehicle-stage">SU7</a><a href="#story">细节</a><a href="#technology">科技</a><a href="#film">影像</a></nav>
+      <nav class="site-nav" aria-label="主导航"><a href="#vehicle-stage">SU7</a><a href="#story">细节</a><a href="#technology">科技</a></nav>
     </header>
     <section id="vehicle-stage" class="driving-experience" role="region" aria-label="小米 SU7 交互车辆舞台">
       <div class="vehicle-visual">
@@ -93,7 +92,6 @@ export function renderShell(root: HTMLElement): ShellElements {
         <article class="technology-card"><img src="${techCabin}" alt="小米 SU7 HyperOS 智能座舱" loading="lazy" width="1296" height="1050"><div><h3>HyperOS 智能座舱</h3><p>车机与移动设备自然协同，信息始终跟随你的节奏。</p></div></article>
       </div>
     </section>
-    <section id="film" class="brand-film" aria-label="新一代小米 SU7 品牌影像"><img src="${gallerySu7}" alt="新一代小米 SU7 驰骋在开阔天地" loading="lazy" width="3840" height="1920"></section>
     <section class="closing-cta"><div><p>沉浸体验</p><h2>回到车身舞台，继续探索配色、开门与智能座舱。</h2></div><a href="#vehicle-stage">返回车辆舞台</a></section>
     <footer><span>Xiaomi SU7 交互体验</span><span>为热爱驾驶的人而造</span></footer>`;
 

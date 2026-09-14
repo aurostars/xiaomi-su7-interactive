@@ -8,7 +8,6 @@ export type CameraView =
   | 'aero'
   | 'performance'
   | 'cabin'
-  | 'sensing'
   | 'driver'
   | 'passenger'
   | 'rear';
@@ -47,7 +46,6 @@ export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
   aero: { position: [6.1, 2.55, 7], target: [-0.3, 0.7, 0], fov: 32, near: 0.1, vehicleYaw: -0.18 },
   performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
   cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
-  sensing: { position: [-5.5, 2.2, 6.2], target: [0, 0.8, 0.2], fov: 34, near: 0.1, vehicleYaw: 0.48 },
   driver: { position: [-0.38, 1.28, 0.02], target: [-0.2, 0.82, -2.4], fov: 52, near: 0.15, vehicleYaw: 0 },
   passenger: { position: [0.38, 1.25, 0.38], target: [0.05, 0.82, -2.35], fov: 52, near: 0.15, vehicleYaw: 0 },
   rear: { position: [0, 1.32, 1.55], target: [0, 0.76, -1.6], fov: 52, near: 0.15, vehicleYaw: 0 },
@@ -106,7 +104,7 @@ export function projectWorldBoundsToNdc(
   return { minX, maxX, minY, maxY, width, height, area: width * height };
 }
 
-const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin', 'sensing'];
+const STORY_VIEWS: CameraView[] = ['aero', 'performance', 'cabin'];
 const DAMPING = 5;
 const tuple = (value: Vector3): [number, number, number] => [value.x, value.y, value.z];
 

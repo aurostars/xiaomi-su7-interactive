@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDragController } from '../src/interaction/drag-controller';
 import { createScrollStory } from '../src/interaction/scroll-story';
 
-const views = ['aero', 'performance', 'cabin', 'intelligence'] as const;
+const views = ['aero', 'performance', 'cabin'] as const;
 
 function makeSections() {
   let scrollY = 0;
@@ -39,7 +39,7 @@ describe('scroll story', () => {
     vi.useRealTimers();
   });
 
-  it('maps the viewport center to each of the four content sections', () => {
+  it('maps the viewport center to each of the three content sections', () => {
     const fixture = makeSections();
     const selected: string[] = [];
     const story = createScrollStory(fixture.sections, (view) => selected.push(view));

@@ -60,6 +60,27 @@ describe('vehicle state', () => {
     expect(store.getState()).toMatchObject({ mode: 'cabin', seatView: 'passenger' });
   });
 
+  it('defaults to rear only when entering the cabin story', () => {
+    const store = createVehicleStore({
+      mode: 'exterior',
+      seatView: 'driver',
+      activeStoryId: 'performance',
+    });
+    store.actions.setActiveStory('cabin');
+    expect(store.getState()).toMatchObject({
+      activeStoryId: 'cabin',
+      mode: 'cabin',
+      seatView: 'rear',
+    });
+
+    store.actions.setSeatView('passenger');
+    store.actions.setActiveStory('cabin');
+    expect(store.getState().seatView).toBe('passenger');
+
+    store.actions.setActiveStory('performance');
+    expect(store.getState()).toMatchObject({ activeStoryId: 'performance', mode: 'exterior' });
+  });
+
   it('opens all doors when cabin mode is entered', () => {
     const store = createVehicleStore();
     store.actions.setMode('cabin');
@@ -179,12 +200,12 @@ describe('vehicle state', () => {
   });
 
   it('preserves the active story while unrelated actions update vehicle state', () => {
-    const store = createVehicleStore({ activeStoryId: 'intelligence' });
+    const store = createVehicleStore({ activeStoryId: 'performance' });
 
     store.actions.setPaint('pearl-white');
     store.actions.toggleDoors();
     store.actions.setSeatView('rear');
 
-    expect(store.getState().activeStoryId).toBe('intelligence');
+    expect(store.getState().activeStoryId).toBe('performance');
   });
 });
