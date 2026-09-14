@@ -106,6 +106,20 @@ describe('view drag controller', () => {
     controller.dispose();
   });
 
+  it('does not capture pointer input started by an interactive descendant', () => {
+    const { beginInteraction, controller, element, offsets } = createHarness();
+    const button = document.createElement('button');
+    element.append(button);
+
+    dispatchPointer(button, 'pointerdown', 10, 10);
+    dispatchPointer(element, 'pointermove', 30, 10);
+    dispatchPointer(element, 'pointerup', 30, 10);
+
+    expect(beginInteraction).not.toHaveBeenCalled();
+    expect(offsets).toEqual([]);
+    controller.dispose();
+  });
+
   it('ends an active interaction on window blur while preserving its offset', () => {
     const { beginInteraction, controller, element, endInteraction, offsets } = createHarness();
 

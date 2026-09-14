@@ -20,6 +20,8 @@ interface Su7Diagnostics {
     position: number[];
     fov: number;
     near: number;
+    manualYaw: number;
+    manualPitch: number;
   } | null;
   cabinLighting: { enabled: boolean; exposure: number; activeLights: number } | null;
   vehicleYaw: number | null;
@@ -154,6 +156,17 @@ async function readCanvasLuminance(page: Page, region: NormalizedRegion) {
       highlightRatio: luminance.filter((value) => value > 160).length / luminance.length,
     };
   }, { encodedScreenshot: screenshot.toString('base64'), sampleRegion: region });
+}
+
+async function dragVehicleView(page: Page) {
+  const canvas = page.locator('canvas.vehicle-canvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas is not visible');
+
+  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.5, { steps: 8 });
+  await page.mouse.up();
 }
 
 async function activatePublicButton(locator: Locator) {
@@ -538,7 +551,10 @@ test('mid-width cabin detail stays clear of complete controls through every seat
 
     for (const seat of seats) {
       await page.getByRole('button', { name: seat.label, exact: true }).click();
-      await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe(seat.view);
+      await expect.poll(
+        async () => (await readDiagnostics(page)).renderedView,
+        { timeout: 30_000 },
+      ).toBe(seat.view);
       await expect(detail.getByRole('heading', { name: seat.title })).toBeVisible();
       const [seatDetailBox, seatControlsBox, seatStageBox] = await Promise.all(
         [detail, controls, stage].map(requiredBox),
@@ -739,6 +755,102 @@ test('idle render remains stable for 500ms and resumes after a visible interacti
   await expect.poll(async () => (await readDiagnostics(page)).renderRevision).toBeGreaterThan(settled.renderRevision);
 });
 
+test('camera drag keeps exterior yaw manual, idle, and chapter reset contracts', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await expect.poll(async () => (await readDiagnostics(page)).renderActive).toBe(false);
+
+  const before = await readDiagnostics(page);
+  await dragVehicleView(page);
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      manualYawChanged: Math.abs(diagnostics.camera?.manualYaw ?? 0) > 0.2,
+      cameraMoved: JSON.stringify(diagnostics.camera?.position) !== JSON.stringify(before.camera?.position),
+      vehicleYaw: diagnostics.vehicleYaw,
+    };
+  }, { timeout: 30_000 }).toEqual({
+    manualYawChanged: true,
+    cameraMoved: true,
+    vehicleYaw: before.vehicleYaw,
+  });
+
+  await expect.poll(async () => (await readDiagnostics(page)).renderActive).toBe(false);
+  const released = await readDiagnostics(page);
+  const sampledAt = Date.now();
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      elapsed: Date.now() - sampledAt > 500,
+      manualYaw: diagnostics.camera?.manualYaw,
+      revision: diagnostics.renderRevision,
+      renderActive: diagnostics.renderActive,
+      pendingRenderReasons: diagnostics.pendingRenderReasons,
+    };
+  }, { timeout: 5_000, intervals: [50, 100, 200] }).toEqual({
+    elapsed: true,
+    manualYaw: released.camera?.manualYaw,
+    revision: released.renderRevision,
+    renderActive: false,
+    pendingRenderReasons: [],
+  });
+
+  await scrollStoryTo(page, 'performance');
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      activeStoryId: diagnostics.activeStoryId,
+      manualYaw: diagnostics.camera?.manualYaw,
+      manualPitch: diagnostics.camera?.manualPitch,
+    };
+  }).toEqual({ activeStoryId: 'performance', manualYaw: 0, manualPitch: 0 });
+});
+
+test('cabin rear camera drag fixes position and passenger view restores an unobstructed default', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await page.getByRole('button', { name: '进入座舱' }).click();
+  await page.getByRole('button', { name: '后排', exact: true }).click();
+  await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe('rear');
+
+  const before = await readDiagnostics(page);
+  await dragVehicleView(page);
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      manualYawChanged: Math.abs(diagnostics.camera?.manualYaw ?? 0) > 0.2,
+      position: diagnostics.camera?.position,
+      targetChanged: JSON.stringify(diagnostics.camera?.target) !== JSON.stringify(before.camera?.target),
+    };
+  }).toEqual({ manualYawChanged: true, position: before.camera?.position, targetChanged: true });
+
+  const revisionBeforePassenger = (await readDiagnostics(page)).renderRevision;
+  await page.getByRole('button', { name: '副驾', exact: true }).click();
+  await expectRenderedCamera(page, revisionBeforePassenger, {
+    view: 'passenger',
+    position: [0.28, 1.27, 0.05],
+    near: 0.15,
+  });
+  const passenger = await readDiagnostics(page);
+  expect({
+    manualYaw: passenger.camera?.manualYaw,
+    manualPitch: passenger.camera?.manualPitch,
+  }).toEqual({ manualYaw: 0, manualPitch: 0 });
+  expect(passenger.camera?.target).toHaveLength(3);
+  passenger.camera?.target.forEach((value, index) => {
+    expect(value).toBeCloseTo([-0.05, 0.88, -2.2][index], 6);
+  });
+  const readable = await readCanvasLuminance(page, [0.05, 0.42, 0.71, 0.44]);
+  expect(readable.median, JSON.stringify(readable)).toBeGreaterThanOrEqual(35);
+  expect(readable.darkRatio, JSON.stringify(readable)).toBeLessThanOrEqual(0.29);
+});
+
 test('mobile focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
   const viewport = { width: 390, height: 844 };
   await page.setViewportSize(viewport);
@@ -937,14 +1049,17 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     await expect(page.locator(`[data-story-section="${view}"] .story-copy`)).toBeInViewport();
   }
 
-  const cameraBeforeDrag = JSON.stringify((await readDiagnostics(page)).camera?.position);
-  await page.evaluate(() => {
-    const canvas = document.querySelector('canvas.vehicle-canvas');
-    canvas?.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 700, bubbles: true }));
-    canvas?.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 560, bubbles: true }));
-    canvas?.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 560, bubbles: true }));
-  });
-  await expect.poll(async () => JSON.stringify((await readDiagnostics(page)).camera?.position)).not.toBe(cameraBeforeDrag);
+  const cameraBeforeDrag = (await readDiagnostics(page)).camera;
+  await dragVehicleView(page);
+  await expect.poll(async () => {
+    const camera = (await readDiagnostics(page)).camera;
+    return {
+      positionFixed: camera?.position.every((value, index) => (
+        Math.abs(value - (cameraBeforeDrag?.position[index] ?? Number.POSITIVE_INFINITY)) < 1e-6
+      )),
+      targetChanged: JSON.stringify(camera?.target) !== JSON.stringify(cameraBeforeDrag?.target),
+    };
+  }).toEqual({ positionFixed: true, targetChanged: true });
 
   await page.getByRole('link', { name: '返回车辆舞台' }).click();
   await expect(page.locator('#vehicle-stage')).toBeInViewport();

@@ -27,12 +27,14 @@ const CABIN_PITCH_MIN = -0.72;
 const CABIN_PITCH_MAX = 0.72;
 
 export function createViewDragController(
-  element: HTMLElement,
+  element: HTMLElement | readonly HTMLElement[],
   callbacks: ViewDragCallbacks,
 ): ViewDragController {
+  const interactionElements = element instanceof HTMLElement ? [element] : element;
   let enabled = false;
   let mode: ViewDragMode = 'exterior';
   let activePointer: number | undefined;
+  let activeElement: HTMLElement | undefined;
   let interactionStarted = false;
   let startX = 0;
   let startY = 0;
@@ -46,7 +48,7 @@ export function createViewDragController(
 
   const releaseCapture = (pointerId: number) => {
     try {
-      element.releasePointerCapture?.(pointerId);
+      activeElement?.releasePointerCapture?.(pointerId);
     } catch {
       // Capture may already have been released by the browser on cancellation or blur.
     }
@@ -56,17 +58,20 @@ export function createViewDragController(
     if (activePointer === undefined) return;
     if (releasePointer) releaseCapture(activePointer);
     activePointer = undefined;
+    activeElement = undefined;
     if (interactionStarted) callbacks.endInteraction();
     interactionStarted = false;
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (!enabled || activePointer !== undefined) return;
+    const eventElement = event.currentTarget as HTMLElement;
+    if (!enabled || activePointer !== undefined || event.target !== eventElement) return;
     activePointer = event.pointerId;
+    activeElement = eventElement;
     startX = event.clientX;
     startY = event.clientY;
     origin = { ...offset };
-    element.setPointerCapture?.(event.pointerId);
+    eventElement.setPointerCapture?.(event.pointerId);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -93,10 +98,12 @@ export function createViewDragController(
   };
   const onBlur = () => finishInteraction();
 
-  element.addEventListener('pointerdown', onPointerDown);
-  element.addEventListener('pointermove', onPointerMove);
-  element.addEventListener('pointerup', onPointerEnd);
-  element.addEventListener('pointercancel', onPointerEnd);
+  for (const interactionElement of interactionElements) {
+    interactionElement.addEventListener('pointerdown', onPointerDown);
+    interactionElement.addEventListener('pointermove', onPointerMove);
+    interactionElement.addEventListener('pointerup', onPointerEnd);
+    interactionElement.addEventListener('pointercancel', onPointerEnd);
+  }
   window.addEventListener('blur', onBlur);
 
   const reset = () => {
@@ -122,10 +129,12 @@ export function createViewDragController(
       disposed = true;
       finishInteraction();
       reset();
-      element.removeEventListener('pointerdown', onPointerDown);
-      element.removeEventListener('pointermove', onPointerMove);
-      element.removeEventListener('pointerup', onPointerEnd);
-      element.removeEventListener('pointercancel', onPointerEnd);
+      for (const interactionElement of interactionElements) {
+        interactionElement.removeEventListener('pointerdown', onPointerDown);
+        interactionElement.removeEventListener('pointermove', onPointerMove);
+        interactionElement.removeEventListener('pointerup', onPointerEnd);
+        interactionElement.removeEventListener('pointercancel', onPointerEnd);
+      }
       window.removeEventListener('blur', onBlur);
     },
   };

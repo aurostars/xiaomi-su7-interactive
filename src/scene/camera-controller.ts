@@ -28,6 +28,8 @@ export interface CameraDiagnostics {
   target: [number, number, number];
   fov: number;
   near: number;
+  manualYaw: number;
+  manualPitch: number;
 }
 
 export interface StoryCameraFrame {
@@ -210,6 +212,8 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
         target: tuple(lookTarget),
         fov: camera.fov,
         near: camera.near,
+        manualYaw: manualOffset.yaw,
+        manualPitch: manualOffset.pitch,
       };
     },
   };

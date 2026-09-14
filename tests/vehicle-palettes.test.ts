@@ -18,9 +18,18 @@ void interiorId;
 describe('official initial-generation SU7 palettes', () => {
   it('exposes the exact official 9+4 colors in display order', () => {
     expect(PAINT_OPTIONS).toHaveLength(9);
-    expect(PAINT_OPTIONS.map(({ label }) => label)).toEqual([
-      '海湾蓝', '雅灰', '橄榄绿', '珍珠白', '钻石黑',
-      '流星蓝', '霞光紫', '熔岩橙', '寒武岩灰',
+    expect(PAINT_OPTIONS.map(({ id, label, swatch, materialColor }) => ({
+      id, label, swatch, materialColor,
+    }))).toEqual([
+      { id: 'gulf-blue', label: '海湾蓝', swatch: '#2f6f91', materialColor: 0x2f6f91 },
+      { id: 'elegant-gray', label: '雅灰', swatch: '#868987', materialColor: 0x868987 },
+      { id: 'olive-green', label: '橄榄绿', swatch: '#59614b', materialColor: 0x59614b },
+      { id: 'pearl-white', label: '珍珠白', swatch: '#ecebe6', materialColor: 0xecebe6 },
+      { id: 'diamond-black', label: '钻石黑', swatch: '#111315', materialColor: 0x111315 },
+      { id: 'meteor-blue', label: '流星蓝', swatch: '#4d6675', materialColor: 0x4d6675 },
+      { id: 'radiant-purple', label: '霞光紫', swatch: '#7a667b', materialColor: 0x7a667b },
+      { id: 'lava-orange', label: '熔岩橙', swatch: '#c84a20', materialColor: 0xc84a20 },
+      { id: 'basalt-gray', label: '寒武岩灰', swatch: '#44494d', materialColor: 0x44494d },
     ]);
     expect(INTERIOR_OPTIONS).toEqual([
       { id: 'galaxy-gray', label: '银河灰', swatch: '#969793', materialColor: 0x969793 },

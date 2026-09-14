@@ -211,7 +211,7 @@ orchestrator = createExperienceOrchestrator({
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
-    const drag = createViewDragController(elements.canvas, {
+    const drag = createViewDragController([elements.canvas, elements.stage], {
       applyOffset: (offset) => cameraRender.setManualOffset(offset),
       beginInteraction: () => runtime.beginRenderActivity('view-drag'),
       endInteraction: () => runtime.endRenderActivity('view-drag'),
