@@ -582,10 +582,18 @@ test('technology exit makes fallback retry inert and restores it upward', async 
 
 test('technology exit hides at the viewport boundary and restores upward', async ({ page }) => {
   test.setTimeout(90_000);
+  let releaseModelRequest: (() => void) | undefined;
+  await page.route('**/*.glb', async (route) => {
+    await new Promise<void>((resolve) => { releaseModelRequest = resolve; });
+    await route.abort();
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/xiaomi-su7-interactive/');
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await page.goto('/xiaomi-su7-interactive/', { waitUntil: 'domcontentloaded' });
+  await expect.poll(
+    () => Boolean(releaseModelRequest),
+    { message: 'GLB request should be held while stage visibility is tested' },
+  ).toBe(true);
 
   const visual = page.locator('.vehicle-visual');
   const positionTechnologyAt = async (top: number) => {
@@ -603,27 +611,34 @@ test('technology exit hides at the viewport boundary and restores upward', async
     )), { timeout: 30_000 }).toBe(top);
   };
 
-  await positionTechnologyAt(901);
-  await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+  await test.step('stage remains visible immediately before the technology boundary', async () => {
+    await positionTechnologyAt(901);
+    await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+  });
 
-  await positionTechnologyAt(900);
-  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
-  await expect(visual).toHaveCSS('opacity', '0', { timeout: 30_000 });
-  await expect(visual).toHaveCSS('pointer-events', 'none', { timeout: 30_000 });
+  await test.step('stage hides exactly at the technology boundary', async () => {
+    await positionTechnologyAt(900);
+    await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+    await expect(visual).toHaveCSS('opacity', '0', { timeout: 30_000 });
+    await expect(visual).toHaveCSS('pointer-events', 'none', { timeout: 30_000 });
+  });
 
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
-    if (!section) throw new Error('Missing performance story');
-    const bounds = section.getBoundingClientRect();
-    window.scrollTo({ top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2, behavior: 'instant' });
-    window.dispatchEvent(new Event('scroll'));
-    requestAnimationFrame(() => resolve());
-  }));
-  await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/, { timeout: 30_000 });
-  await expect.poll(
-    async () => (await readDiagnostics(page)).activeStoryId,
-    { timeout: 30_000 },
-  ).toBe('performance');
+  await test.step('stage and performance story restore on upward scroll', async () => {
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
+      if (!section) throw new Error('Missing performance story');
+      const bounds = section.getBoundingClientRect();
+      window.scrollTo({ top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll'));
+      requestAnimationFrame(() => resolve());
+    }));
+    await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/, { timeout: 30_000 });
+    await expect.poll(
+      async () => (await readDiagnostics(page)).activeStoryId,
+      { timeout: 30_000 },
+    ).toBe('performance');
+  });
+  releaseModelRequest?.();
 });
 
 test('scroll story keeps active chapter and rendered camera synchronized', async ({ page }) => {
@@ -715,33 +730,47 @@ test('非 reduced-motion 下中途关门从当前角度连续反向并保持座�
   await page.clock.install({ time: clockStart });
   await page.clock.pauseAt(new Date(clockStart.getTime() + 1_000));
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/xiaomi-su7-interactive/');
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await test.step('load the real vehicle model', async () => {
+    await page.goto('/xiaomi-su7-interactive/');
+    await expect.poll(
+      async () => (await readDiagnostics(page)).modelReady,
+      { timeout: 30_000 },
+    ).toBe(true);
+  });
 
-  await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
-  await activatePublicButton(page.getByRole('button', { name: '副驾', exact: true }));
-  await page.clock.runFor(120);
-  const openingSample = await readDiagnostics(page);
-  const openingMagnitude = Math.abs(openingSample.doorAngles.frontLeft ?? 0);
-  expect(openingMagnitude).toBeGreaterThan(0.1);
-  expect(openingMagnitude).toBeLessThan(0.9);
+  const openingMagnitude = await test.step('advance to a partially open door state', async () => {
+    await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
+    await activatePublicButton(page.getByRole('button', { name: '副驾', exact: true }));
+    await page.clock.fastForward(16);
+    await page.clock.fastForward(120);
+    const openingSample = await readDiagnostics(page);
+    const magnitude = Math.abs(openingSample.doorAngles.frontLeft ?? 0);
+    expect(magnitude).toBeGreaterThan(0.1);
+    expect(magnitude).toBeLessThan(0.9);
+    return magnitude;
+  });
 
-  const closeDoor = page.getByRole('button', { name: '关门' });
-  await closeDoor.evaluate((button: HTMLButtonElement) => button.click());
-  await page.clock.runFor(48);
-  const firstClosingSample = await readDiagnostics(page);
-  const closingMagnitude = Math.abs(firstClosingSample.doorAngles.frontLeft ?? 0);
-  expect(closingMagnitude).toBeLessThan(openingMagnitude);
-  expect(closingMagnitude).toBeGreaterThan(0.1);
-  expect(firstClosingSample.camera?.view).toBe('passenger');
+  await test.step('reverse from the current angle while retaining the passenger view', async () => {
+    const closeDoor = page.getByRole('button', { name: '关门' });
+    await closeDoor.evaluate((button: HTMLButtonElement) => button.click());
+    await page.clock.fastForward(16);
+    await page.clock.fastForward(48);
+    const firstClosingSample = await readDiagnostics(page);
+    const closingMagnitude = Math.abs(firstClosingSample.doorAngles.frontLeft ?? 0);
+    expect(closingMagnitude).toBeLessThan(openingMagnitude);
+    expect(closingMagnitude).toBeGreaterThan(0.1);
+    expect(firstClosingSample.camera?.view).toBe('passenger');
+  });
 
-  await page.clock.runFor(400);
-  const settled = await readDiagnostics(page);
-  expect({
-    closed: Object.values(settled.doorAngles)
-      .every((angle) => angle !== null && Math.abs(angle) < 0.01),
-    seatView: settled.camera?.view,
-  }).toEqual({ closed: true, seatView: 'passenger' });
+  await test.step('settle every door closed while retaining the passenger view', async () => {
+    await page.clock.fastForward(400);
+    const settled = await readDiagnostics(page);
+    expect({
+      closed: Object.values(settled.doorAngles)
+        .every((angle) => angle !== null && Math.abs(angle) < 0.01),
+      seatView: settled.camera?.view,
+    }).toEqual({ closed: true, seatView: 'passenger' });
+  });
 });
 
 test('用户操作会改变真实车辆、车门、相机与滚动叙事状态', async ({ page }) => {
