@@ -83,8 +83,9 @@ export function createVehicleStore(initial: VehicleStateHydration = {}): Vehicle
         ? { seatView }
         : { mode: 'cabin', doorsOpen: true, seatView }),
       setActiveStory: (activeStoryId) => {
-        const enteringCabin = activeStoryId === 'cabin' && state.activeStoryId !== 'cabin';
-        const leavingCabin = activeStoryId !== 'cabin' && state.activeStoryId === 'cabin';
+        const storyChanged = activeStoryId !== state.activeStoryId;
+        const enteringCabin = storyChanged && activeStoryId === 'cabin';
+        const leavingCabin = storyChanged && activeStoryId !== 'cabin' && state.mode === 'cabin';
         update(enteringCabin
           ? { activeStoryId, mode: 'cabin', doorsOpen: true, seatView: 'rear' }
           : leavingCabin

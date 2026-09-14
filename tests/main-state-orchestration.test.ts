@@ -91,6 +91,44 @@ describe('main state orchestration', () => {
     document.body.replaceChildren();
   });
 
+  it('lets a changed exterior story retake the camera after cabin was entered manually', () => {
+    const store = createVehicleStore({ activeStoryId: 'performance' });
+    const camera = createCameraController(new PerspectiveCamera(32, 1, 0.1, 100));
+    const cameraRender = createMainRenderOrchestration({
+      camera,
+      runtime: { requestRender: vi.fn(), beginRenderActivity: vi.fn(), endRenderActivity: vi.fn() },
+      reducedMotion: true,
+      rotateVehicle: () => undefined,
+      suspendAutoCamera: () => undefined,
+      initialTime: 0,
+    });
+    let storyView: 'performance' | 'aero' = 'performance';
+    let previousState = store.getState();
+    const unsubscribe = store.subscribe(() => {
+      const currentState = store.getState();
+      const intent = applyMainStateTransition({
+        previousState,
+        state: currentState,
+        runtime: { requestRender: vi.fn(), setCabinMode: vi.fn() },
+        cameraRender,
+        reducedMotion: true,
+      });
+      previousState = currentState;
+      if (!intent.cameraView && intent.cabinMode === false) {
+        cameraRender.setStoryProgress(storyView, 0);
+      }
+    });
+
+    store.actions.setMode('cabin');
+    storyView = 'aero';
+    store.actions.setActiveStory('aero');
+    cameraRender.beforeRender(16);
+
+    expect(store.getState()).toMatchObject({ activeStoryId: 'aero', mode: 'exterior' });
+    expect(camera.getDiagnostics().view).toBe('aero');
+    unsubscribe();
+  });
+
   it('routes a seat-only cabin delta to lighting and camera without restarting door motion', () => {
     vi.useFakeTimers();
     const scheduleDoorFrame = vi.spyOn(globalThis, 'setTimeout');

@@ -81,6 +81,15 @@ describe('vehicle state', () => {
     expect(store.getState()).toMatchObject({ activeStoryId: 'performance', mode: 'exterior' });
   });
 
+  it('leaves cabin mode when a changed non-cabin story becomes active', () => {
+    const store = createVehicleStore({ activeStoryId: 'performance' });
+    store.actions.setMode('cabin');
+
+    store.actions.setActiveStory('aero');
+
+    expect(store.getState()).toMatchObject({ activeStoryId: 'aero', mode: 'exterior' });
+  });
+
   it('opens all doors when cabin mode is entered', () => {
     const store = createVehicleStore();
     store.actions.setMode('cabin');
@@ -124,7 +133,7 @@ describe('vehicle state', () => {
     store.actions.setActiveStory('performance');
 
     expect(store.getState()).toMatchObject({
-      mode: 'cabin',
+      mode: 'exterior',
       paint: 'pearl-white',
       interior: 'mist-purple',
       activeStoryId: 'performance',
