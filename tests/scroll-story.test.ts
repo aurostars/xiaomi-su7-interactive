@@ -71,6 +71,18 @@ describe('scroll story', () => {
     story.dispose();
   });
 
+  it('initializes from current geometry when listeners attach after scrolling', async () => {
+    const fixture = makeSections();
+    const selected: string[] = [];
+    fixture.scrollTo(800);
+
+    const story = createScrollStory(fixture.sections, (view) => selected.push(view));
+    await Promise.resolve();
+
+    expect(selected).toEqual(['performance']);
+    story.dispose();
+  });
+
   it('updates immediately from scroll input without waiting for the render loop', () => {
     const fixture = makeSections();
     const selected: string[] = [];

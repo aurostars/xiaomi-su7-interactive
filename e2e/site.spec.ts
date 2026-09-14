@@ -437,6 +437,7 @@ test('mid-width cabin detail stays clear of complete controls through every seat
   await page.setViewportSize(viewports[0]);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
   await page.getByRole('button', { name: '进入座舱' }).click();
 

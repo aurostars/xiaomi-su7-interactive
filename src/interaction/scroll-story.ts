@@ -41,6 +41,7 @@ export function createScrollStory(
   const onViewportChange = () => update();
   window.addEventListener('scroll', onViewportChange, { passive: true });
   window.addEventListener('resize', onViewportChange);
+  queueMicrotask(update);
 
   return {
     update,
