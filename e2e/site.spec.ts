@@ -287,22 +287,39 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
 });
 
 test('hero controls remain complete, clear and continuous across responsive boundaries', async ({ page }) => {
-  test.setTimeout(120_000);
-  const viewports = [768, 900, 1024, 1152, 1199, 1200, 1280, 1440]
-    .map((width) => ({ width, height: 900 }));
+  test.setTimeout(300_000);
+  const viewports = [
+    ...[768, 900, 1024, 1152, 1199, 1200, 1280, 1440].map((width) => ({ width, height: 900 })),
+    { width: 768, height: 600 },
+    { width: 900, height: 700 },
+    { width: 1199, height: 700 },
+    { width: 1279, height: 800 },
+    { width: 1280, height: 800 },
+  ];
   let geometryAt1199: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>> | null = null;
+  const boundaryGeometry = new Map<number, {
+    controls: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>;
+    minButtonWidth: number;
+    minButtonHeight: number;
+    maxLabelOverflow: number;
+  }>();
 
+  await page.goto('/xiaomi-su7-interactive/');
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
-    await page.goto('/xiaomi-su7-interactive/');
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
 
     const controls = page.locator('.vehicle-controls');
     const heroCopy = page.locator('.hero-copy');
     const heroActions = page.locator('.hero-actions');
     const focusZone = page.locator('[data-vehicle-focus-zone]');
+    const stage = page.locator('.vehicle-stage');
+    const heading = page.getByRole('heading', { level: 1, name: /Xiaomi\s*SU7/ });
+    const specs = page.locator('.hero-specs');
     await expectFullyInViewport(controls, viewport);
-    const [controlsBox, copyBox, actionsBox, focusBox] = await Promise.all(
-      [controls, heroCopy, heroActions, focusZone].map(requiredBox),
+    const [controlsBox, copyBox, actionsBox, focusBox, stageBox, headingBox, specsBox] = await Promise.all(
+      [controls, heroCopy, heroActions, focusZone, stage, heading, specs].map(requiredBox),
     );
     for (const [name, occupiedBox] of [
       ['hero-copy', copyBox],
@@ -310,6 +327,19 @@ test('hero controls remain complete, clear and continuous across responsive boun
       ['vehicle-focus-zone', focusBox],
     ] as const) {
       expect(overlaps(controlsBox, occupiedBox), JSON.stringify({ viewport, name, controlsBox, occupiedBox })).toBe(false);
+    }
+    expect(overlaps(copyBox, focusBox), JSON.stringify({ viewport, copyBox, focusBox })).toBe(false);
+    for (const [name, heroBox] of [
+      ['heading', headingBox],
+      ['hero-actions', actionsBox],
+      ['hero-specs', specsBox],
+    ] as const) {
+      expect(heroBox.x, JSON.stringify({ viewport, name, stageBox, heroBox })).toBeGreaterThanOrEqual(stageBox.x);
+      expect(heroBox.y, JSON.stringify({ viewport, name, stageBox, heroBox })).toBeGreaterThanOrEqual(stageBox.y);
+      expect(heroBox.x + heroBox.width, JSON.stringify({ viewport, name, stageBox, heroBox }))
+        .toBeLessThanOrEqual(stageBox.x + stageBox.width);
+      expect(heroBox.y + heroBox.height, JSON.stringify({ viewport, name, stageBox, heroBox }))
+        .toBeLessThanOrEqual(stageBox.y + stageBox.height);
     }
 
     const buttons = controls.locator('button');
@@ -345,8 +375,22 @@ test('hero controls remain complete, clear and continuous across responsive boun
         .toBeLessThanOrEqual(geometry.labelClientWidth);
     }
 
-    if (viewport.width === 1199) geometryAt1199 = controlsBox;
-    if (viewport.width === 1200) {
+    if (viewport.height === 800 && (viewport.width === 1279 || viewport.width === 1280)) {
+      boundaryGeometry.set(viewport.width, {
+        controls: controlsBox,
+        minButtonWidth: Math.min(...buttonGeometries.map(({ targetWidth }) => targetWidth)),
+        minButtonHeight: Math.min(...buttonGeometries.map(({ targetHeight }) => targetHeight)),
+        maxLabelOverflow: Math.max(...buttonGeometries.map(({ labelClientWidth, labelScrollWidth }) => (
+          labelScrollWidth - labelClientWidth
+        ))),
+      });
+    }
+
+    await specs.scrollIntoViewIfNeeded();
+    await expect(specs, JSON.stringify({ viewport, stageBox, specsBox })).toBeInViewport();
+
+    if (viewport.width === 1199 && viewport.height === 900) geometryAt1199 = controlsBox;
+    if (viewport.width === 1200 && viewport.height === 900) {
       expect(geometryAt1199).not.toBeNull();
       if (geometryAt1199) {
         for (const key of ['x', 'y', 'width', 'height'] as const) {
@@ -357,6 +401,21 @@ test('hero controls remain complete, clear and continuous across responsive boun
         }
       }
     }
+  }
+
+  const geometry1279 = boundaryGeometry.get(1279);
+  const geometry1280 = boundaryGeometry.get(1280);
+  expect(geometry1279).toBeDefined();
+  expect(geometry1280).toBeDefined();
+  if (geometry1279 && geometry1280) {
+    expect(Math.abs(geometry1279.controls.x - geometry1280.controls.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry1279.controls.y - geometry1280.controls.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry1279.controls.width - geometry1280.controls.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry1279.controls.height - geometry1280.controls.height)).toBeLessThanOrEqual(60);
+    expect(Math.abs(geometry1279.minButtonWidth - geometry1280.minButtonWidth)).toBeLessThanOrEqual(24);
+    expect(Math.abs(geometry1279.minButtonHeight - geometry1280.minButtonHeight)).toBeLessThanOrEqual(1);
+    expect(geometry1279.maxLabelOverflow).toBeLessThanOrEqual(0);
+    expect(geometry1280.maxLabelOverflow).toBeLessThanOrEqual(0);
   }
 });
 
