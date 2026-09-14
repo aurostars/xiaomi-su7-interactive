@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 
 interface Su7Diagnostics {
   modelReady: boolean;
@@ -583,62 +583,87 @@ test('technology exit makes fallback retry inert and restores it upward', async 
 test('technology exit hides at the viewport boundary and restores upward', async ({ page }) => {
   test.setTimeout(90_000);
   let releaseModelRequest: (() => void) | undefined;
-  await page.route('**/*.glb', async (route) => {
-    await new Promise<void>((resolve) => { releaseModelRequest = resolve; });
-    await route.abort();
-  });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/xiaomi-su7-interactive/', { waitUntil: 'domcontentloaded' });
-  await expect.poll(
-    () => Boolean(releaseModelRequest),
-    { message: 'GLB request should be held while stage visibility is tested' },
-  ).toBe(true);
-
-  const visual = page.locator('.vehicle-visual');
-  const positionTechnologyAt = async (top: number) => {
-    await page.evaluate((targetTop) => {
-      const technology = document.querySelector<HTMLElement>('#technology');
-      if (!technology) throw new Error('Missing technology section');
-      window.scrollTo({
-        top: window.scrollY + technology.getBoundingClientRect().top - targetTop,
-        behavior: 'instant',
-      });
-      window.dispatchEvent(new Event('scroll'));
-    }, top);
-    await expect.poll(async () => page.evaluate(() => Math.round(
-      document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity,
-    )), { timeout: 30_000 }).toBe(top);
+  let modelRequestCompletion: Promise<void> | undefined;
+  const holdModelRequest = (route: Route) => {
+    modelRequestCompletion = (async () => {
+      await new Promise<void>((resolve) => { releaseModelRequest = resolve; });
+      await route.abort();
+    })();
+    return modelRequestCompletion;
   };
+  await page.route('**/*.glb', holdModelRequest);
 
-  await test.step('stage remains visible immediately before the technology boundary', async () => {
-    await positionTechnologyAt(901);
-    await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
-  });
-
-  await test.step('stage hides exactly at the technology boundary', async () => {
-    await positionTechnologyAt(900);
-    await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
-    await expect(visual).toHaveCSS('opacity', '0', { timeout: 30_000 });
-    await expect(visual).toHaveCSS('pointer-events', 'none', { timeout: 30_000 });
-  });
-
-  await test.step('stage and performance story restore on upward scroll', async () => {
-    await page.evaluate(() => new Promise<void>((resolve) => {
-      const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
-      if (!section) throw new Error('Missing performance story');
-      const bounds = section.getBoundingClientRect();
-      window.scrollTo({ top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2, behavior: 'instant' });
-      window.dispatchEvent(new Event('scroll'));
-      requestAnimationFrame(() => resolve());
-    }));
-    await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/, { timeout: 30_000 });
+  let assertionFailed = false;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/xiaomi-su7-interactive/', { waitUntil: 'domcontentloaded' });
     await expect.poll(
-      async () => (await readDiagnostics(page)).activeStoryId,
-      { timeout: 30_000 },
-    ).toBe('performance');
-  });
-  releaseModelRequest?.();
+      () => Boolean(releaseModelRequest),
+      { message: 'GLB request should be held while stage visibility is tested' },
+    ).toBe(true);
+
+    const visual = page.locator('.vehicle-visual');
+    const positionTechnologyAt = async (top: number) => {
+      await page.evaluate((targetTop) => {
+        const technology = document.querySelector<HTMLElement>('#technology');
+        if (!technology) throw new Error('Missing technology section');
+        window.scrollTo({
+          top: window.scrollY + technology.getBoundingClientRect().top - targetTop,
+          behavior: 'instant',
+        });
+        window.dispatchEvent(new Event('scroll'));
+      }, top);
+      await expect.poll(async () => page.evaluate(() => Math.round(
+        document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity,
+      )), { timeout: 30_000 }).toBe(top);
+    };
+
+    await test.step('stage remains visible immediately before the technology boundary', async () => {
+      await positionTechnologyAt(901);
+      await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+    });
+
+    await test.step('stage hides exactly at the technology boundary', async () => {
+      await positionTechnologyAt(900);
+      await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+      await expect(visual).toHaveCSS('opacity', '0', { timeout: 30_000 });
+      await expect(visual).toHaveCSS('pointer-events', 'none', { timeout: 30_000 });
+    });
+
+    await test.step('stage and performance story restore on upward scroll', async () => {
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
+        if (!section) throw new Error('Missing performance story');
+        const bounds = section.getBoundingClientRect();
+        window.scrollTo({ top: window.scrollY + bounds.top + bounds.height / 2 - window.innerHeight / 2, behavior: 'instant' });
+        window.dispatchEvent(new Event('scroll'));
+        requestAnimationFrame(() => resolve());
+      }));
+      await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/, { timeout: 30_000 });
+      await expect.poll(
+        async () => (await readDiagnostics(page)).activeStoryId,
+        { timeout: 30_000 },
+      ).toBe('performance');
+    });
+  } catch (error) {
+    assertionFailed = true;
+    throw error;
+  } finally {
+    releaseModelRequest?.();
+    let cleanupError: unknown;
+    try {
+      await modelRequestCompletion;
+    } catch (error) {
+      cleanupError = error;
+    }
+    try {
+      await page.unroute('**/*.glb', holdModelRequest);
+    } catch (error) {
+      cleanupError ??= error;
+    }
+    if (!assertionFailed && cleanupError) throw cleanupError;
+  }
 });
 
 test('scroll story keeps active chapter and rendered camera synchronized', async ({ page }) => {
