@@ -156,6 +156,10 @@ footer { display: flex; justify-content: space-between; padding: 28px max(40px, 
   .vehicle-stage[data-mode='cabin'] .cabin-detail { top: 320px; }
 }
 
+@media (min-width: 768px) and (max-width: 999px) {
+  .vehicle-stage[data-mode='cabin'] .cabin-detail { top: 359px; }
+}
+
 @media (max-width: 767px) {
   .site-header { top: 0; width: 100%; height: 58px; border-width: 0 0 1px; }
   .site-header nav { gap: clamp(18px, 7vw, 38px); }

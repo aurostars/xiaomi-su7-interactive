@@ -305,6 +305,7 @@ test('hero controls remain complete, clear and continuous across responsive boun
   }>();
 
   await page.goto('/xiaomi-su7-interactive/');
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
@@ -416,6 +417,104 @@ test('hero controls remain complete, clear and continuous across responsive boun
     expect(Math.abs(geometry1279.minButtonHeight - geometry1280.minButtonHeight)).toBeLessThanOrEqual(1);
     expect(geometry1279.maxLabelOverflow).toBeLessThanOrEqual(0);
     expect(geometry1280.maxLabelOverflow).toBeLessThanOrEqual(0);
+  }
+});
+
+test('mid-width cabin detail stays clear of complete controls through every seat', async ({ page }) => {
+  test.setTimeout(180_000);
+  const viewports = [
+    { width: 768, height: 600 },
+    { width: 900, height: 700 },
+    { width: 999, height: 800 },
+    { width: 1000, height: 800 },
+  ];
+  const seats = [
+    { label: '主驾', view: 'driver', title: '主驾沉浸视野' },
+    { label: '副驾', view: 'passenger', title: '副驾交互空间' },
+    { label: '后排', view: 'rear', title: '后排空间关系' },
+  ] as const;
+
+  await page.setViewportSize(viewports[0]);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await page.getByRole('button', { name: '进入座舱' }).click();
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
+
+    const controls = page.locator('.vehicle-controls');
+    const detail = page.locator('.cabin-detail');
+    const stage = page.locator('.vehicle-stage');
+    const focusZone = page.locator('[data-vehicle-focus-zone]');
+    const [controlsBox, detailBox, stageBox, focusBox] = await Promise.all(
+      [controls, detail, stage, focusZone].map(requiredBox),
+    );
+    expect(overlaps(detailBox, controlsBox), JSON.stringify({ viewport, controlsBox, detailBox })).toBe(false);
+    expect(detailBox.x, JSON.stringify({ viewport, stageBox, detailBox })).toBeGreaterThanOrEqual(stageBox.x);
+    expect(detailBox.y, JSON.stringify({ viewport, stageBox, detailBox })).toBeGreaterThanOrEqual(stageBox.y);
+    expect(detailBox.x + detailBox.width, JSON.stringify({ viewport, stageBox, detailBox }))
+      .toBeLessThanOrEqual(stageBox.x + stageBox.width);
+    expect(detailBox.y + detailBox.height, JSON.stringify({ viewport, stageBox, detailBox }))
+      .toBeLessThanOrEqual(stageBox.y + stageBox.height);
+    expect(focusBox.width, JSON.stringify({ viewport, focusBox })).toBeGreaterThan(0);
+    expect(focusBox.height, JSON.stringify({ viewport, focusBox })).toBeGreaterThan(0);
+
+    const buttons = controls.locator('button');
+    await expect(buttons).toHaveCount(19);
+    const buttonState = await buttons.evaluateAll((elements) => elements.map((button: HTMLButtonElement) => {
+      const box = button.getBoundingClientRect();
+      return {
+        text: button.textContent?.trim(),
+        visible: button.checkVisibility(),
+        disabled: button.disabled,
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        overflow: button.scrollWidth - button.clientWidth,
+      };
+    }));
+    for (const state of buttonState) {
+      expect(state.visible, JSON.stringify({ viewport, ...state })).toBe(true);
+      expect(state.disabled, JSON.stringify({ viewport, ...state })).toBe(false);
+      expect(state.x, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(0);
+      expect(state.y, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(0);
+      expect(state.x + state.width, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(viewport.width);
+      expect(state.y + state.height, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(viewport.height);
+      expect(state.width, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(44);
+      expect(state.height, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(44);
+      expect(state.overflow, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(0);
+    }
+
+    for (const seat of seats) {
+      await page.getByRole('button', { name: seat.label, exact: true }).click();
+      await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe(seat.view);
+      await expect(detail.getByRole('heading', { name: seat.title })).toBeVisible();
+      const [seatDetailBox, seatControlsBox, seatStageBox] = await Promise.all(
+        [detail, controls, stage].map(requiredBox),
+      );
+      expect(
+        overlaps(seatDetailBox, seatControlsBox),
+        JSON.stringify({ viewport, seat: seat.view, seatControlsBox, seatDetailBox }),
+      ).toBe(false);
+      expect(seatDetailBox.x, JSON.stringify({ viewport, seat: seat.view, seatStageBox, seatDetailBox }))
+        .toBeGreaterThanOrEqual(seatStageBox.x);
+      expect(seatDetailBox.y, JSON.stringify({ viewport, seat: seat.view, seatStageBox, seatDetailBox }))
+        .toBeGreaterThanOrEqual(seatStageBox.y);
+      expect(
+        seatDetailBox.x + seatDetailBox.width,
+        JSON.stringify({ viewport, seat: seat.view, seatStageBox, seatDetailBox }),
+      ).toBeLessThanOrEqual(seatStageBox.x + seatStageBox.width);
+      expect(
+        seatDetailBox.y + seatDetailBox.height,
+        JSON.stringify({ viewport, seat: seat.view, seatStageBox, seatDetailBox }),
+      ).toBeLessThanOrEqual(seatStageBox.y + seatStageBox.height);
+      await detail.scrollIntoViewIfNeeded();
+      await expect(detail, JSON.stringify({ viewport, seat: seat.view, seatStageBox, seatDetailBox })).toBeInViewport();
+    }
   }
 });
 
