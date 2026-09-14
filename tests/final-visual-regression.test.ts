@@ -55,7 +55,7 @@ describe('final visual regression guardrails', () => {
     expect(storyCopyRule).toContain('max-width: 420px');
     expect(focusZoneRule).toContain('inset: 39% 4% 14% 40%');
     expect(visualRule).toContain('opacity: calc(1 - var(--stage-exit-progress))');
-    expect(css).toMatch(/\.vehicle-controls\s*\{[^}]*grid-template-areas:\s*"mode seats door" "paint paint paint" "interior interior interior";/);
+    expect(css).toMatch(/\.vehicle-controls\s*\{[^}]*grid-template-areas:\s*"mode door" "paint paint" "interior interior" "seats seats";/);
     expect(canvasRule).toContain('inset: 0 0 0 40%');
     expect(canvasRule).toContain('width: 60%');
     expect(technologyRule).toContain('#090b0e');

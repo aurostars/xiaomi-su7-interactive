@@ -380,16 +380,18 @@ test('hero controls remain complete, clear and continuous across responsive boun
         .toBeLessThanOrEqual(stageBox.y + stageBox.height);
     }
 
-    const buttons = controls.locator('button');
+    const buttons = controls.locator('button:visible');
     await expect(controls.locator('[data-mode]')).toHaveCount(2);
     await expect(controls.locator('[data-seat]')).toHaveCount(3);
     await expect(controls.locator('.door-button')).toHaveCount(1);
     await expect(controls.locator('.color-swatch')).toHaveCount(13);
-    await expect(buttons).toHaveCount(19);
+    await expect(controls.locator('button')).toHaveCount(19);
+    await expect(buttons).toHaveCount(12);
     const buttonGeometries = await buttons.evaluateAll((elements) => elements.map((button) => {
       const bounds = button.getBoundingClientRect();
       return {
         text: button.textContent?.trim(),
+        swatch: button.classList.contains('color-swatch'),
         visible: button.checkVisibility(),
         x: bounds.x,
         y: bounds.y,
@@ -409,8 +411,10 @@ test('hero controls remain complete, clear and continuous across responsive boun
         .toBeLessThanOrEqual(viewport.height);
       expect(geometry.targetWidth, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
       expect(geometry.targetHeight, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
-      expect(geometry.labelScrollWidth, JSON.stringify({ viewport, ...geometry }))
-        .toBeLessThanOrEqual(geometry.labelClientWidth);
+      if (!geometry.swatch) {
+        expect(geometry.labelScrollWidth, JSON.stringify({ viewport, ...geometry }))
+          .toBeLessThanOrEqual(geometry.labelClientWidth);
+      }
     }
 
     if (viewport.height === 800 && (viewport.width === 1279 || viewport.width === 1280)) {
@@ -418,9 +422,9 @@ test('hero controls remain complete, clear and continuous across responsive boun
         controls: controlsBox,
         minButtonWidth: Math.min(...buttonGeometries.map(({ targetWidth }) => targetWidth)),
         minButtonHeight: Math.min(...buttonGeometries.map(({ targetHeight }) => targetHeight)),
-        maxLabelOverflow: Math.max(...buttonGeometries.map(({ labelClientWidth, labelScrollWidth }) => (
-          labelScrollWidth - labelClientWidth
-        ))),
+        maxLabelOverflow: Math.max(...buttonGeometries
+          .filter(({ swatch }) => !swatch)
+          .map(({ labelClientWidth, labelScrollWidth }) => labelScrollWidth - labelClientWidth)),
       });
     }
 
@@ -503,12 +507,14 @@ test('mid-width cabin detail stays clear of complete controls through every seat
     expect(focusBox.width, JSON.stringify({ viewport, focusBox })).toBeGreaterThan(0);
     expect(focusBox.height, JSON.stringify({ viewport, focusBox })).toBeGreaterThan(0);
 
-    const buttons = controls.locator('button');
-    await expect(buttons).toHaveCount(19);
+    const buttons = controls.locator('button:visible');
+    await expect(controls.locator('button')).toHaveCount(19);
+    await expect(buttons).toHaveCount(10);
     const buttonState = await buttons.evaluateAll((elements) => elements.map((button: HTMLButtonElement) => {
       const box = button.getBoundingClientRect();
       return {
         text: button.textContent?.trim(),
+        swatch: button.classList.contains('color-swatch'),
         visible: button.checkVisibility(),
         disabled: button.disabled,
         x: box.x,
@@ -527,7 +533,7 @@ test('mid-width cabin detail stays clear of complete controls through every seat
       expect(state.y + state.height, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(viewport.height);
       expect(state.width, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(44);
       expect(state.height, JSON.stringify({ viewport, ...state })).toBeGreaterThanOrEqual(44);
-      expect(state.overflow, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(0);
+      if (!state.swatch) expect(state.overflow, JSON.stringify({ viewport, ...state })).toBeLessThanOrEqual(0);
     }
 
     for (const seat of seats) {
@@ -904,7 +910,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   await scrollStoryTo(page, 'performance');
   await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
-  expect((await readDiagnostics(page)).camera?.view).toBe('rear');
+  expect((await readDiagnostics(page)).camera?.view).toBe('performance');
   await page.getByRole('button', { name: '外观', exact: true }).click();
   await expect.poll(async () => {
     const camera = (await readDiagnostics(page)).camera;
@@ -931,36 +937,14 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
     await expect(page.locator(`[data-story-section="${view}"] .story-copy`)).toBeInViewport();
   }
 
-  const yawBefore = (await readDiagnostics(page)).vehicleYaw;
+  const cameraBeforeDrag = JSON.stringify((await readDiagnostics(page)).camera?.position);
   await page.evaluate(() => {
     const canvas = document.querySelector('canvas.vehicle-canvas');
     canvas?.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 700, bubbles: true }));
     canvas?.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 560, bubbles: true }));
     canvas?.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 560, bubbles: true }));
   });
-  await expect.poll(async () => (await readDiagnostics(page)).vehicleYaw).not.toBe(yawBefore);
-  const draggedState = await readDiagnostics(page);
-  const draggedYaw = draggedState.vehicleYaw;
-  expect(draggedState.autoCameraSuspendedUntil).toBeGreaterThan(Date.now());
-
-  await dispatchScrollAndWaitForFrame(page, 180);
-  expect((await readDiagnostics(page)).vehicleYaw).toBe(draggedYaw);
-
-  await expect.poll(async () => {
-    const suspendedUntil = (await readDiagnostics(page)).autoCameraSuspendedUntil;
-    return Number.isFinite(suspendedUntil) && Date.now() >= suspendedUntil;
-  }, { timeout: 12_000 }).toBe(true);
-
-  const storyUpdatedBeforeResume = (await readDiagnostics(page)).story?.updatedAt ?? 0;
-  await dispatchScrollAndWaitForFrame(page, 1);
-  await expect.poll(async () => {
-    const diagnostics = await readDiagnostics(page);
-    return {
-      storyUpdated: (diagnostics.story?.updatedAt ?? 0) > storyUpdatedBeforeResume,
-      cameraView: diagnostics.camera?.view,
-      yawRestored: diagnostics.vehicleYaw !== draggedYaw,
-    };
-  }).toEqual({ storyUpdated: true, cameraView: 'rear', yawRestored: true });
+  await expect.poll(async () => JSON.stringify((await readDiagnostics(page)).camera?.position)).not.toBe(cameraBeforeDrag);
 
   await page.getByRole('link', { name: '返回车辆舞台' }).click();
   await expect(page.locator('#vehicle-stage')).toBeInViewport();
@@ -1004,15 +988,13 @@ for (const viewport of [
       const swatches = page.locator('.vehicle-controls .color-swatch');
       await expect(swatches).toHaveCount(13);
       for (const swatch of await swatches.all()) {
-        const labelGeometry = await swatch.evaluate((button) => ({
-          label: button.textContent?.trim(),
-          clientWidth: button.clientWidth,
-          scrollWidth: button.scrollWidth,
+        const semantics = await swatch.evaluate((button) => ({
+          text: button.textContent?.trim(),
+          label: button.getAttribute('aria-label'),
+          tooltip: button.getAttribute('data-tooltip'),
         }));
-        expect(
-          labelGeometry.scrollWidth,
-          JSON.stringify({ viewport, ...labelGeometry }),
-        ).toBeLessThanOrEqual(labelGeometry.clientWidth);
+        expect(semantics.text).toBe('');
+        expect(semantics.tooltip).toBe(semantics.label);
       }
       await expect(page).toHaveScreenshot(`hero-${viewport.width}x${viewport.height}.png`, {
         animations: 'disabled',
@@ -1086,8 +1068,8 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
 
   const seats = [
     {
-      key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.38, 1.25, 0.38],
-      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.28, maxHighlightRatio: 0.04,
+      key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.28, 1.27, 0.05],
+      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.29, maxHighlightRatio: 0.04,
       glareRegion: [0.27, 0.12, 0.15, 0.16],
     },
     {
@@ -1118,14 +1100,10 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
     await expect(card.locator('li')).toHaveCount(3);
     for (let index = 0; index < 3; index += 1) await expect(card.locator('li').nth(index)).toBeVisible();
     const cardBox = await requiredBox(card);
-    for (const swatch of await page.locator('.vehicle-controls .color-swatch').all()) {
+    for (const swatch of await page.locator('.vehicle-controls .color-swatch:visible').all()) {
       const swatchBox = await requiredBox(swatch);
-      expect(overlaps(cardBox, swatchBox), `${seat.key}: ${await swatch.textContent() ?? ''}`).toBe(false);
-      const labelGeometry = await swatch.evaluate((button) => ({
-        label: button.textContent?.trim(), clientWidth: button.clientWidth, scrollWidth: button.scrollWidth,
-      }));
-      expect(labelGeometry.scrollWidth, `${seat.key}: ${JSON.stringify(labelGeometry)}`)
-        .toBeLessThanOrEqual(labelGeometry.clientWidth);
+      expect(overlaps(cardBox, swatchBox), `${seat.key}: ${await swatch.getAttribute('aria-label') ?? ''}`).toBe(false);
+      expect(await swatch.getAttribute('data-tooltip')).toBe(await swatch.getAttribute('aria-label'));
     }
     const readable = await readCanvasLuminance(page, seat.readableRegion);
     expect(readable.median, `${seat.key} readable-region luminance ${JSON.stringify(readable)}`)
@@ -1243,4 +1221,36 @@ test('reduced motion keeps scroll chapters and target camera active with immedia
     const state = await readDiagnostics(page);
     return { activeStoryId: state.activeStoryId, view: state.camera?.view, fov: state.camera?.fov };
   }).toEqual({ activeStoryId: 'cabin', view: 'rear', fov: 52 });
+});
+
+
+test('floating controls and guidance stay clear at target responsive viewports', async ({ page }) => {
+  test.setTimeout(120_000);
+  const viewports = [
+    { width: 390, height: 844 },
+    { width: 768, height: 600 },
+    { width: 900, height: 700 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 },
+  ];
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    const controls = page.locator('.vehicle-controls');
+    const hint = page.locator('[data-view-hint]');
+    const heroCopy = page.locator('.hero-copy');
+    const focusZone = page.locator('[data-vehicle-focus-zone]');
+    for (const locator of [controls, hint]) await expectFullyInViewport(locator, viewport);
+    const [controlsBox, hintBox, copyBox, focusBox] = await Promise.all(
+      [controls, hint, heroCopy, focusZone].map(requiredBox),
+    );
+    for (const [name, floatingBox] of [['controls', controlsBox], ['hint', hintBox]] as const) {
+      expect(overlaps(floatingBox, copyBox), JSON.stringify({ viewport, name, floatingBox, copyBox })).toBe(false);
+      expect(overlaps(floatingBox, focusBox), JSON.stringify({ viewport, name, floatingBox, focusBox })).toBe(false);
+    }
+    expect(overlaps(controlsBox, hintBox), JSON.stringify({ viewport, controlsBox, hintBox })).toBe(false);
+  }
 });

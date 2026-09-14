@@ -71,7 +71,19 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   const cabinTitle = elements.cabinDetail.querySelector<HTMLElement>('h2');
   const cabinDescription = elements.cabinDetail.querySelector<HTMLElement>('[data-cabin-description]');
   const cabinTags = elements.cabinDetail.querySelector<HTMLUListElement>('ul');
-  if (!cabinTitle || !cabinDescription || !cabinTags) throw new Error('Cabin detail failed to render');
+  const hintPrimary = elements.viewHint.querySelector<HTMLElement>('[data-view-hint-primary]');
+  const groups = new Map(elements.controlGroups.map((group) => [group.dataset.controlGroup, group]));
+  const paintGroup = groups.get('paint');
+  const interiorGroup = groups.get('interior');
+  const seatGroup = groups.get('seat');
+  if (!cabinTitle || !cabinDescription || !cabinTags || !hintPrimary || !paintGroup || !interiorGroup || !seatGroup) {
+    throw new Error('Vehicle controls failed to render');
+  }
+
+  const setGroupVisible = (group: HTMLElement, visible: boolean) => {
+    group.hidden = !visible;
+    group.setAttribute('aria-hidden', String(!visible));
+  };
 
   const sync = () => {
     const state = store.getState();
@@ -90,6 +102,11 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       button.setAttribute('aria-pressed', String(button.dataset.seat === state.seatView));
     });
     elements.doorButton.setAttribute('aria-pressed', String(state.doorsOpen));
+    const cabinMode = state.mode === 'cabin';
+    setGroupVisible(paintGroup, !cabinMode);
+    setGroupVisible(interiorGroup, cabinMode);
+    setGroupVisible(seatGroup, cabinMode);
+    hintPrimary.textContent = cabinMode ? '拖拽视角查看座舱细节' : '拖拽车辆查看外观细节';
     const doorLabel = elements.doorButton.querySelector<HTMLElement>('span');
     if (!doorLabel) throw new Error('Door control failed to render');
     doorLabel.textContent = state.doorsOpen ? '关门' : '开门';

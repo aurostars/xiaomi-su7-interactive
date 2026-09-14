@@ -43,13 +43,21 @@ describe('high fidelity page shell', () => {
     expect(elements.storySections).toHaveLength(3);
     expect(document.querySelector('[role="region"][aria-label="小米 SU7 交互车辆舞台"]')).not.toBeNull();
     expect(elements.modeButtons.map((button) => button.textContent)).toEqual(['外观', '座舱']);
+    expect(document.querySelectorAll('[data-control-group]')).toHaveLength(5);
+    expect(Array.from(document.querySelectorAll<HTMLElement>('[data-control-group]'), (group) => group.dataset.controlGroup))
+      .toEqual(['mode', 'paint', 'interior', 'seat', 'doors']);
+    const paintButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-paint]')];
+    expect(paintButtons).toHaveLength(9);
+    for (const button of paintButtons) {
+      expect(button.getAttribute('aria-label')).toMatch(/.+/);
+      expect(button.getAttribute('data-tooltip')).toBe(button.getAttribute('aria-label'));
+      expect(button.textContent?.trim()).toBe('');
+    }
     expect(elements.colorButtons).toHaveLength(13);
-    expect(elements.colorButtons.map((button) => button.textContent)).toEqual([
-      '海湾蓝', '雅灰', '橄榄绿', '珍珠白', '钻石黑', '流星蓝', '霞光紫', '熔岩橙', '寒武岩灰',
-      '银河灰', '曜石黑', '暮光红', '迷雾紫',
-    ]);
-    expect(elements.colorButtons.every((button) => button.getAttribute('aria-label') === button.textContent)).toBe(true);
     expect(elements.colorButtons.every((button) => button.hasAttribute('aria-pressed'))).toBe(true);
+    expect(document.querySelector('[data-view-hint]')?.textContent).toContain('拖拽车辆查看外观细节');
+    expect(document.querySelector('[data-view-hint]')?.textContent)
+      .toContain('滚动页面切换细节，右侧会跟随叙事自动调整视角');
     expect(elements.doorButton.textContent).toContain('开门');
     expect(elements.canvas.getAttribute('aria-label')).toBe('小米 SU7 三维车辆');
     expect(document.querySelector('.hero-actions')?.textContent).toContain('进入座舱');
@@ -262,21 +270,34 @@ describe('high fidelity page shell', () => {
     unbind();
   });
 
-  it('keeps both desktop palettes visible and exposes icon control state accessibly', () => {
+  it('synchronizes relevant control groups and guidance with the real store mode', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const unbind = bindControls(elements, store);
-    const palettes = Array.from(document.querySelectorAll<HTMLFieldSetElement>('.control-palette'));
+    const paintGroup = document.querySelector<HTMLElement>('[data-control-group="paint"]')!;
+    const interiorGroup = document.querySelector<HTMLElement>('[data-control-group="interior"]')!;
+    const seatGroup = document.querySelector<HTMLElement>('[data-control-group="seat"]')!;
+    const hint = document.querySelector<HTMLElement>('[data-view-hint]')!;
 
-    expect(palettes.map((palette) => palette.dataset.palette)).toEqual(['paint', 'interior']);
-    expect(palettes.every((palette) => !palette.hidden)).toBe(true);
+    expect(paintGroup.hidden).toBe(false);
+    expect(paintGroup.getAttribute('aria-hidden')).toBe('false');
+    for (const group of [interiorGroup, seatGroup]) {
+      expect(group.hidden).toBe(true);
+      expect(group.getAttribute('aria-hidden')).toBe('true');
+    }
+    expect(hint.textContent).toContain('拖拽车辆查看外观细节');
     expect(elements.modeButtons.every((button) => button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
     expect(elements.doorButton.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-    expect(elements.modeButtons.every((button) => button.hasAttribute('aria-pressed'))).toBe(true);
-    expect(elements.doorButton.hasAttribute('aria-pressed')).toBe(true);
 
     elements.modeButtons[1].click();
-    expect(palettes.every((palette) => !palette.hidden)).toBe(true);
+    expect(store.getState().mode).toBe('cabin');
+    expect(paintGroup.hidden).toBe(true);
+    expect(paintGroup.getAttribute('aria-hidden')).toBe('true');
+    for (const group of [interiorGroup, seatGroup]) {
+      expect(group.hidden).toBe(false);
+      expect(group.getAttribute('aria-hidden')).toBe('false');
+    }
+    expect(hint.textContent).toContain('拖拽视角查看座舱细节');
     expect(elements.seatButtons.every((button) => !button.disabled && button.tabIndex === 0)).toBe(true);
 
     elements.modeButtons[0].click();

@@ -12,6 +12,8 @@ export interface ShellElements {
   doorButton: HTMLButtonElement;
   enterCabinButton: HTMLButtonElement;
   cabinDetail: HTMLElement;
+  viewHint: HTMLElement;
+  controlGroups: HTMLElement[];
   seatButtons: HTMLButtonElement[];
   storySections: HTMLElement[];
 }
@@ -26,7 +28,7 @@ function controlIcon(type: 'exterior' | 'cabin' | 'door') {
 }
 
 function colorButton(value: string, name: string, color: string, type: 'paint' | 'interior') {
-  return `<button class="color-swatch" type="button" data-${type}="${value}" aria-label="${name}" aria-pressed="false" title="${name}" style="--swatch:${color}"><span>${name}</span></button>`;
+  return `<button class="color-swatch" type="button" data-${type}="${value}" aria-label="${name}" data-tooltip="${name}" aria-pressed="false" style="--swatch:${color}"></button>`;
 }
 
 function renderStory() {
@@ -61,18 +63,22 @@ export function renderShell(root: HTMLElement): ShellElements {
           <dl class="hero-specs"><div><dt>800V</dt><dd>高压平台</dd></div><div><dt>HyperOS</dt><dd>智能座舱</dd></div><div><dt>EV</dt><dd>高性能电驱</dd></div></dl>
         </div>
         <aside class="vehicle-controls mobile-control-rail" aria-label="车辆个性化控制" data-mobile-control-rail>
-          <div class="mode-tabs" role="group" aria-label="车辆视图">
+          <div class="mode-tabs" role="group" aria-label="车辆视图" data-control-group="mode">
             <button type="button" data-mode="exterior" data-primary-control>${controlIcon('exterior')}<span>外观</span></button>
             <button type="button" data-mode="cabin" data-primary-control>${controlIcon('cabin')}<span>座舱</span></button>
           </div>
-          <fieldset id="exterior-controls" class="control-palette secondary-palette paint-group" data-palette="paint">
+          <fieldset id="exterior-controls" class="control-palette secondary-palette paint-group" data-palette="paint" data-control-group="paint" aria-label="车漆" aria-hidden="false">
             <legend>车漆</legend><div>${PAINT_OPTIONS.map(({ id, label, swatch }) => colorButton(id, label, swatch, 'paint')).join('')}</div>
           </fieldset>
-          <fieldset id="cabin-controls" class="control-palette secondary-palette interior-group" data-palette="interior">
+          <fieldset id="cabin-controls" class="control-palette secondary-palette interior-group" data-palette="interior" data-control-group="interior" aria-label="内饰" aria-hidden="true" hidden>
             <legend>内饰</legend><div>${INTERIOR_OPTIONS.map(({ id, label, swatch }) => colorButton(id, label, swatch, 'interior')).join('')}</div>
           </fieldset>
-          <div class="seat-views" role="group" aria-label="座舱座席"><button type="button" data-seat="driver" data-primary-control>主驾</button><button type="button" data-seat="passenger" data-primary-control>副驾</button><button type="button" data-seat="rear" data-primary-control>后排</button></div>
-          <button class="door-button" type="button" aria-pressed="false" data-primary-control>${controlIcon('door')}<span>开门</span></button>
+          <div class="seat-views" role="group" aria-label="座舱座席" data-control-group="seat" aria-hidden="true" hidden><button type="button" data-seat="driver" data-primary-control>主驾</button><button type="button" data-seat="passenger" data-primary-control>副驾</button><button type="button" data-seat="rear" data-primary-control>后排</button></div>
+          <div class="door-control" role="group" aria-label="车门" data-control-group="doors"><button class="door-button" type="button" aria-pressed="false" data-primary-control>${controlIcon('door')}<span>开门</span></button></div>
+        </aside>
+        <aside class="view-hint" data-view-hint aria-live="polite">
+          <strong data-view-hint-primary>拖拽车辆查看外观细节</strong>
+          <span>滚动页面切换细节，右侧会跟随叙事自动调整视角</span>
         </aside>
         <aside class="cabin-detail" aria-live="polite" hidden>
           <p>当前座舱</p>
@@ -100,13 +106,19 @@ export function renderShell(root: HTMLElement): ShellElements {
   const doorButton = root.querySelector<HTMLButtonElement>('.door-button');
   const enterCabinButton = root.querySelector<HTMLButtonElement>('[data-enter-cabin]');
   const cabinDetail = root.querySelector<HTMLElement>('.cabin-detail');
-  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail) throw new Error('Vehicle shell failed to render');
+  const viewHint = root.querySelector<HTMLElement>('[data-view-hint]');
+  const controlGroups = Array.from(root.querySelectorAll<HTMLElement>('[data-control-group]'));
+  if (!stage || !canvas || !doorButton || !enterCabinButton || !cabinDetail || !viewHint || controlGroups.length !== 5) {
+    throw new Error('Vehicle shell failed to render');
+  }
   return {
     stage,
     canvas,
     doorButton,
     enterCabinButton,
     cabinDetail,
+    viewHint,
+    controlGroups,
     modeButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')),
     colorButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('.color-swatch')),
     seatButtons: Array.from(root.querySelectorAll<HTMLButtonElement>('[data-seat]')),
