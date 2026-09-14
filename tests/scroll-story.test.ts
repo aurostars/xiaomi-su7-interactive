@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDragController } from '../src/interaction/drag-controller';
 import { createScrollStory } from '../src/interaction/scroll-story';
 
 const views = ['aero', 'performance', 'cabin'] as const;
@@ -23,15 +22,6 @@ function makeSections() {
   });
 
   return { sections, scrollTo: (value: number) => { scrollY = value; } };
-}
-
-function pointer(type: string, pointerId: number, clientX: number) {
-  const event = new Event(type, { bubbles: true }) as PointerEvent;
-  Object.defineProperties(event, {
-    pointerId: { value: pointerId },
-    clientX: { value: clientX },
-  });
-  return event;
 }
 
 describe('scroll story', () => {
@@ -122,26 +112,5 @@ describe('scroll story', () => {
     expect(selected).toEqual(['aero']);
 
     story.dispose();
-  });
-});
-
-describe('drag controller', () => {
-  it('updates vehicle yaw from pointer deltas and suspends auto camera for 10000ms', () => {
-    const element = document.createElement('div');
-    let yaw = 0;
-    let suspendedFor = 0;
-    const controller = createDragController(element, {
-      rotateBy: (deltaYaw) => { yaw += deltaYaw; },
-      suspendAutoCamera: (durationMs) => { suspendedFor = durationMs; },
-    });
-
-    element.dispatchEvent(pointer('pointerdown', 7, 100));
-    element.dispatchEvent(pointer('pointermove', 7, 132));
-    element.dispatchEvent(pointer('pointerup', 7, 132));
-
-    expect(yaw).toBeCloseTo(0.256);
-    expect(suspendedFor).toBe(10_000);
-
-    controller.dispose();
   });
 });

@@ -60,8 +60,6 @@ describe('main state orchestration', () => {
       camera,
       runtime: { requestRender: vi.fn(), beginRenderActivity: vi.fn(), endRenderActivity: vi.fn() },
       reducedMotion: true,
-      rotateVehicle: () => undefined,
-      suspendAutoCamera: () => undefined,
       initialTime: 0,
     });
 
@@ -98,8 +96,6 @@ describe('main state orchestration', () => {
       camera,
       runtime: { requestRender: vi.fn(), beginRenderActivity: vi.fn(), endRenderActivity: vi.fn() },
       reducedMotion: true,
-      rotateVehicle: () => undefined,
-      suspendAutoCamera: () => undefined,
       initialTime: 0,
     });
     let storyView: 'performance' | 'aero' = 'performance';
@@ -156,8 +152,6 @@ describe('main state orchestration', () => {
       camera,
       runtime: renderRuntime,
       reducedMotion: true,
-      rotateVehicle: () => undefined,
-      suspendAutoCamera: () => undefined,
       initialTime: 0,
     });
     const runtime = {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PerspectiveCamera } from 'three';
+import { PerspectiveCamera, Vector3 } from 'three';
 import {
   CAMERA_PRESETS,
   SU7_WORLD_BOUNDS,
@@ -112,21 +112,21 @@ describe('camera controller', () => {
       // shell treatment prevents the roof/body occluders identified by GLB raycasts.
       expect(y).toBeGreaterThanOrEqual(1.2);
       expect(y).toBeLessThanOrEqual(1.4);
-      expect(z).toBeGreaterThanOrEqual(view === 'driver' ? -0.1 : view === 'rear' ? 1.45 : 0.3);
-      expect(z).toBeLessThanOrEqual(view === 'driver' ? 0.1 : 1.8);
+      expect(z).toBeGreaterThanOrEqual(view === 'rear' ? 1.45 : -0.1);
+      expect(z).toBeLessThanOrEqual(view === 'rear' ? 1.8 : 0.1);
       expect(CAMERA_PRESETS[view].near).toBeGreaterThanOrEqual(0.12);
       expect(CAMERA_PRESETS[view].near).toBeLessThanOrEqual(0.2);
       const [targetX, targetY, targetZ] = CAMERA_PRESETS[view].target;
       expect(y - targetY).toBeGreaterThanOrEqual(0.35);
       expect(Math.hypot(targetX - x, targetY - y, targetZ - z))
-        .toBeGreaterThanOrEqual(view === 'driver' ? 2.4 : 2.7);
+        .toBeGreaterThanOrEqual(view === 'driver' ? 2.4 : view === 'passenger' ? 2.2 : 2.7);
       expect(CAMERA_PRESETS[view].fov).toBeGreaterThanOrEqual(50);
       expect(CAMERA_PRESETS[view].fov).toBeLessThanOrEqual(58);
     }
     expect(CAMERA_PRESETS.driver.position[0]).toBeLessThan(0);
     expect(CAMERA_PRESETS.passenger.position[0]).toBeGreaterThan(0);
     expect(CAMERA_PRESETS.driver.position[2]).toBeLessThanOrEqual(0.1);
-    expect(CAMERA_PRESETS.passenger.position[2]).toBeGreaterThanOrEqual(0.3);
+    expect(CAMERA_PRESETS.passenger.position[2]).toBeLessThanOrEqual(0.1);
     expect(new Set(positions).size).toBe(3);
     expect(new Set(targets).size).toBe(3);
   });
@@ -211,6 +211,70 @@ describe('camera controller', () => {
     expect(diagnostics.position).not.toEqual(CAMERA_PRESETS.driver.position);
     expect(diagnostics.fov).toBe(camera.fov);
     expect(diagnostics.target).not.toEqual(CAMERA_PRESETS.driver.target);
+  });
+
+  it('composes exterior orbit offsets around the preset target', () => {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    const controller = createCameraController(camera);
+    controller.setTarget('aero');
+    controller.update(1, true);
+    const exteriorOrigin = camera.position.clone();
+
+    controller.setManualOffset({ yaw: Math.PI / 2, pitch: 0 });
+    controller.update(0, true);
+
+    expect(camera.position.distanceTo(exteriorOrigin)).toBeGreaterThan(1);
+    expect(controller.getDiagnostics().target).toEqual(CAMERA_PRESETS.aero.target);
+  });
+
+  it('rotates the cabin look direction while keeping its preset position fixed', () => {
+    const camera = new PerspectiveCamera(52, 1, 0.15, 100);
+    const controller = createCameraController(camera);
+    controller.setTarget('rear');
+    controller.update(1, true);
+    const cabinOrigin = camera.position.clone();
+
+    controller.setManualOffset({ yaw: Math.PI, pitch: 0 });
+    controller.update(0, true);
+    const forward = new Vector3();
+    camera.getWorldDirection(forward);
+
+    expect(camera.position.toArray()).toEqual(cabinOrigin.toArray());
+    expect(forward.x).toBeCloseTo(0, 6);
+    expect(forward.y).toBeCloseTo(-0.1750, 4);
+    expect(forward.z).toBeCloseTo(0.9846, 4);
+  });
+
+  it('resets manual offsets when the target source changes', () => {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    const controller = createCameraController(camera);
+    controller.setTarget('aero');
+    controller.setManualOffset({ yaw: 1, pitch: 0.2 });
+
+    controller.setTarget('performance');
+    controller.update(0, true);
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.performance.position);
+
+    controller.setManualOffset({ yaw: 1, pitch: 0.2 });
+    controller.setStoryProgress('aero', 0.5);
+    controller.update(0, true);
+    expect(camera.position.toArray()).toEqual([5.65, 1.875, 6.4]);
+  });
+
+  it('places the passenger camera ahead of the seatback and aimed at the dashboard', () => {
+    const camera = new PerspectiveCamera(52, 1, 0.15, 100);
+    const controller = createCameraController(camera);
+    controller.setTarget('passenger');
+    controller.update(0, true);
+    const forward = new Vector3();
+    camera.getWorldDirection(forward);
+
+    expect(camera.position.x).toBeGreaterThan(0);
+    expect(camera.position.x).toBeLessThanOrEqual(0.3);
+    expect(camera.position.z).toBeLessThanOrEqual(0.1);
+    expect(forward.x).toBeCloseTo(-0.143, 3);
+    expect(forward.y).toBeCloseTo(-0.169, 3);
+    expect(forward.z).toBeCloseTo(-0.975, 3);
   });
 
   it('uses frame-rate independent damping', () => {

@@ -17,28 +17,30 @@ describe('main render orchestration', () => {
       beginRenderActivity: vi.fn(() => requestRender()),
       endRenderActivity: vi.fn(),
     };
-    const rotateVehicle = vi.fn();
-    const suspendAutoCamera = vi.fn();
     const orchestration = createMainRenderOrchestration({
       camera,
       runtime,
       reducedMotion,
-      rotateVehicle,
-      suspendAutoCamera,
       initialTime: 0,
     });
-    return { camera, orchestration, requestRender, rotateVehicle, runtime, suspendAutoCamera };
+    return { camera, orchestration, requestRender, runtime };
   }
 
-  it('requests a frame through the actual drag callback', () => {
-    const { orchestration, requestRender, rotateVehicle, suspendAutoCamera } = createHarness();
+  it('applies a manual camera offset without rotating the vehicle and renders through settling', () => {
+    const { camera, orchestration, runtime } = createHarness();
+    camera.setTarget('aero');
+    camera.update(0, true);
+    const origin = camera.getDiagnostics().position;
 
-    orchestration.dragCallbacks.rotateBy(0.25);
-    orchestration.dragCallbacks.suspendAutoCamera(10_000);
+    orchestration.setManualOffset({ yaw: Math.PI / 2, pitch: 0 });
+    expect(runtime.beginRenderActivity).toHaveBeenCalledWith('camera');
+    for (let time = 16; time < 5_000 && runtime.endRenderActivity.mock.calls.length === 0; time += 16) {
+      orchestration.beforeRender(time);
+    }
 
-    expect(rotateVehicle).toHaveBeenCalledWith(0.25);
-    expect(suspendAutoCamera).toHaveBeenCalledWith(10_000);
-    expect(requestRender).toHaveBeenCalledTimes(1);
+    expect(camera.getDiagnostics().position).not.toEqual(origin);
+    expect(camera.isSettled()).toBe(true);
+    expect(runtime.endRenderActivity).toHaveBeenCalledWith('camera');
   });
 
   it('retains a reduced-motion target until its requested terminal frame', () => {
@@ -64,6 +66,10 @@ describe('main render orchestration', () => {
     const endRenderActivity = vi.fn();
     const stageVisibilityDispose = vi.fn();
     const stageVisibilityUpdate = vi.fn();
+    const dragDispose = vi.fn();
+    const dragReset = vi.fn();
+    const dragSetEnabled = vi.fn();
+    const dragSetMode = vi.fn();
     let visibilityOptions: {
       stage: HTMLElement;
       finalStory: HTMLElement;
@@ -72,6 +78,8 @@ describe('main render orchestration', () => {
       onChange(state: { phase: 'visible' | 'fading' | 'hidden'; progress: number }): void;
     } | undefined;
     let disposeAttempt = () => undefined;
+    let activateAttempt: ((vehicle: unknown) => void) | undefined;
+    let changeStory: ((storyId: 'aero' | 'performance' | 'cabin', progress: number) => void) | undefined;
 
     vi.doMock('../src/interaction/stage-visibility', () => ({
       createStageVisibilityController: vi.fn((options) => {
@@ -93,11 +101,28 @@ describe('main render orchestration', () => {
       applyMainStateTransition: vi.fn(() => ({})),
       createMainRenderOrchestration: vi.fn(() => ({
         beforeRender: vi.fn(), setTarget: vi.fn(), setStoryProgress: vi.fn(() => ({ vehicleYaw: 0 })),
-        forceImmediateUpdate: vi.fn(), dragCallbacks: {}, bindVisibility: () => () => undefined,
+        setManualOffset: vi.fn(), forceImmediateUpdate: vi.fn(), bindVisibility: () => () => undefined,
       })),
     }));
-    vi.doMock('../src/interaction/scroll-story', () => ({ createScrollStory: vi.fn(() => ({ dispose: vi.fn() })) }));
-    vi.doMock('../src/interaction/drag-controller', () => ({ createDragController: vi.fn(() => ({ dispose: vi.fn() })) }));
+    vi.doMock('../src/interaction/scroll-story', () => ({
+      createScrollStory: vi.fn((_sections, onChange) => {
+        changeStory = onChange;
+        return { dispose: vi.fn() };
+      }),
+    }));
+    vi.doMock('../src/scene/vehicle-controller', () => ({
+      createVehicleController: () => ({
+        applyState: vi.fn(), dispose: vi.fn(), getDiagnostics: vi.fn(), setRotation: vi.fn(),
+      }),
+    }));
+    vi.doMock('../src/interaction/view-drag-controller', () => ({
+      createViewDragController: vi.fn(() => ({
+        dispose: dragDispose,
+        reset: dragReset,
+        setEnabled: dragSetEnabled,
+        setMode: dragSetMode,
+      })),
+    }));
     vi.doMock('../src/performance/capabilities', async () => {
       const actual = await vi.importActual<typeof import('../src/performance/capabilities')>('../src/performance/capabilities');
       return {
@@ -107,12 +132,35 @@ describe('main render orchestration', () => {
         createExperienceOrchestrator: vi.fn(({ createAttempt }) => {
           const attempt = createAttempt();
           disposeAttempt = attempt.dispose;
+          activateAttempt = attempt.activate;
           return { retry: vi.fn(), dispose: () => disposeAttempt() };
         }),
       };
     });
 
     await import('../src/main');
+
+    expect(dragSetMode).toHaveBeenCalledWith('exterior');
+    expect(dragSetEnabled).not.toHaveBeenCalledWith(true);
+    activateAttempt?.({
+      root: {},
+      capabilities: {
+        bodyColor: false,
+        interiorColor: false,
+        screenGlow: false,
+        doors: { frontLeft: false, frontRight: false, rearLeft: false, rearRight: false },
+      },
+    });
+    expect(dragSetEnabled).toHaveBeenLastCalledWith(true);
+
+    document.querySelector<HTMLButtonElement>('[data-mode="cabin"]')?.click();
+    expect(dragSetMode).toHaveBeenLastCalledWith('cabin');
+    expect(dragReset).toHaveBeenCalledTimes(1);
+    document.querySelector<HTMLButtonElement>('[data-seat="passenger"]')?.click();
+    expect(dragReset).toHaveBeenCalledTimes(2);
+    changeStory?.('performance', 0.5);
+    expect(dragSetMode).toHaveBeenLastCalledWith('exterior');
+    expect(dragReset).toHaveBeenCalledTimes(3);
 
     const stories = Array.from(document.querySelectorAll<HTMLElement>('.story-section'));
     expect(visibilityOptions?.stage).toBe(document.querySelector('.vehicle-visual'));
@@ -130,8 +178,12 @@ describe('main render orchestration', () => {
     visibilityOptions?.onChange({ phase: 'hidden', progress: 1 });
     expect(requestRender).toHaveBeenCalledTimes(2);
     expect(endRenderActivity).toHaveBeenCalledWith('story');
+    expect(dragSetEnabled).toHaveBeenLastCalledWith(false);
+    visibilityOptions?.onChange({ phase: 'visible', progress: 0 });
+    expect(dragSetEnabled).toHaveBeenLastCalledWith(true);
 
     disposeAttempt();
+    expect(dragDispose).toHaveBeenCalledTimes(1);
     expect(stageVisibilityDispose).not.toHaveBeenCalled();
 
     window.dispatchEvent(new Event('pagehide'));
@@ -165,11 +217,15 @@ describe('main render orchestration', () => {
       applyMainStateTransition: () => ({}),
       createMainRenderOrchestration: () => ({
         beforeRender: vi.fn(), setTarget: vi.fn(), setStoryProgress: () => ({ vehicleYaw: 0 }),
-        forceImmediateUpdate: vi.fn(), dragCallbacks: {}, bindVisibility: () => () => undefined,
+        setManualOffset: vi.fn(), forceImmediateUpdate: vi.fn(), bindVisibility: () => () => undefined,
       }),
     }));
     vi.doMock('../src/interaction/scroll-story', () => ({ createScrollStory: () => ({ dispose: vi.fn() }) }));
-    vi.doMock('../src/interaction/drag-controller', () => ({ createDragController: () => ({ dispose: vi.fn() }) }));
+    vi.doMock('../src/interaction/view-drag-controller', () => ({
+      createViewDragController: () => ({
+        dispose: vi.fn(), reset: vi.fn(), setEnabled: vi.fn(), setMode: vi.fn(),
+      }),
+    }));
     vi.doMock('../src/performance/capabilities', async () => {
       const actual = await vi.importActual<typeof import('../src/performance/capabilities')>('../src/performance/capabilities');
       return {

@@ -1,6 +1,6 @@
 import { type StoryId } from './content/story-chapters';
 import './styles.css';
-import { createDragController } from './interaction/drag-controller';
+import { createViewDragController, type ViewDragController } from './interaction/view-drag-controller';
 import { createStageVisibilityController } from './interaction/stage-visibility';
 import { createScrollStory } from './interaction/scroll-story';
 import { applyMainStateTransition, createMainRenderOrchestration } from './main-render-orchestration';
@@ -114,6 +114,8 @@ document.documentElement.dataset.quality = capabilities.quality;
 document.documentElement.classList.toggle('reduced-motion', capabilities.reducedMotion);
 
 let stageRuntime: Pick<ReturnType<typeof createScene>, 'requestRender' | 'beginRenderActivity' | 'endRenderActivity'> | undefined;
+let activeViewDrag: ViewDragController | undefined;
+let stageAllowsInteraction = true;
 let stageVisibilityIdleTimer: ReturnType<typeof window.setTimeout> | undefined;
 const clearStageVisibilityActivity = (runtime = stageRuntime) => {
   if (stageVisibilityIdleTimer === undefined) return;
@@ -127,6 +129,8 @@ const stageVisibility = createStageVisibilityController({
   technology,
   reducedMotion: capabilities.reducedMotion,
   onChange(state) {
+    stageAllowsInteraction = state.phase !== 'hidden' && !visual.hasAttribute('inert');
+    activeViewDrag?.setEnabled(stageAllowsInteraction);
     const runtime = stageRuntime;
     runtime?.requestRender();
     clearStageVisibilityActivity(runtime);
@@ -187,11 +191,6 @@ orchestrator = createExperienceOrchestrator({
       camera,
       runtime,
       reducedMotion: capabilities.reducedMotion,
-      rotateVehicle(deltaYaw) {
-        vehicleYaw += deltaYaw;
-        vehicleController?.setRotation(vehicleYaw);
-      },
-      suspendAutoCamera: store.actions.suspendAutoCamera,
     });
     const clearBeforeRender = runtime.setBeforeRender(cameraRender.beforeRender);
 
@@ -212,7 +211,13 @@ orchestrator = createExperienceOrchestrator({
       },
       () => store.getState().autoCameraSuspendedUntil,
     );
-    const drag = createDragController(elements.canvas, cameraRender.dragCallbacks);
+    const drag = createViewDragController(elements.canvas, {
+      applyOffset: (offset) => cameraRender.setManualOffset(offset),
+      beginInteraction: () => runtime.beginRenderActivity('view-drag'),
+      endInteraction: () => runtime.endRenderActivity('view-drag'),
+      requestRender: runtime.requestRender,
+    });
+    drag.setMode(store.getState().mode);
     let previousExperienceState = store.getState();
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
@@ -224,6 +229,12 @@ orchestrator = createExperienceOrchestrator({
         cameraRender,
         reducedMotion: capabilities.reducedMotion,
       });
+      const modeChanged = previousExperienceState.mode !== state.mode;
+      const viewpointChanged = modeChanged
+        || previousExperienceState.seatView !== state.seatView
+        || previousExperienceState.activeStoryId !== state.activeStoryId;
+      if (modeChanged) drag.setMode(state.mode);
+      if (viewpointChanged) drag.reset();
       previousExperienceState = state;
       if (!intent.cameraView && intent.cabinMode === false) {
         const frame = cameraRender.setStoryProgress(storyFrame.view, storyFrame.progress);
@@ -256,6 +267,8 @@ orchestrator = createExperienceOrchestrator({
         }
         cameraRender.forceImmediateUpdate();
         vehicleController.setRotation(vehicleYaw);
+        activeViewDrag = drag;
+        drag.setEnabled(stageAllowsInteraction);
         runtime.render();
       },
       discard(vehicle: LoadedVehicle) {
@@ -270,6 +283,7 @@ orchestrator = createExperienceOrchestrator({
           stageRuntime = undefined;
         }
         unsubscribe();
+        if (activeViewDrag === drag) activeViewDrag = undefined;
         drag.dispose();
         story.dispose();
         unbindVisibility();

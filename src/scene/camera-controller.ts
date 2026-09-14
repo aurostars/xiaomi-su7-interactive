@@ -1,8 +1,10 @@
 import {
   MathUtils,
   PerspectiveCamera,
+  Spherical,
   Vector3,
 } from 'three';
+import type { ManualViewOffset } from '../interaction/view-drag-controller';
 
 export type CameraView =
   | 'aero'
@@ -37,6 +39,8 @@ export interface StoryCameraFrame {
 export interface CameraController {
   setTarget(view: CameraView): void;
   setStoryProgress(view: CameraView, progress: number): StoryCameraFrame;
+  setManualOffset(offset: ManualViewOffset): void;
+  resetManualOffset(): void;
   update(delta: number, immediate?: boolean): void;
   isSettled(): boolean;
   getDiagnostics(): CameraDiagnostics;
@@ -47,7 +51,7 @@ export const CAMERA_PRESETS: Record<CameraView, CameraPreset> = {
   performance: { position: [5.2, 1.2, 5.8], target: [0.2, 0.55, 0], fov: 28, near: 0.1, vehicleYaw: 0.3 },
   cabin: { position: [2.4, 1.55, 2.3], target: [0, 1.05, -0.15], fov: 38, near: 0.1, vehicleYaw: -0.08 },
   driver: { position: [-0.38, 1.28, 0.02], target: [-0.2, 0.82, -2.4], fov: 52, near: 0.15, vehicleYaw: 0 },
-  passenger: { position: [0.38, 1.25, 0.38], target: [0.05, 0.82, -2.35], fov: 52, near: 0.15, vehicleYaw: 0 },
+  passenger: { position: [0.28, 1.27, 0.05], target: [-0.05, 0.88, -2.2], fov: 52, near: 0.15, vehicleYaw: 0 },
   rear: { position: [0, 1.32, 1.55], target: [0, 0.76, -1.6], fov: 52, near: 0.15, vehicleYaw: 0 },
 };
 
@@ -115,6 +119,36 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
   let targetFov = camera.fov;
   let targetNear = camera.near;
   let currentView: CameraView = 'aero';
+  let manualOffset: ManualViewOffset = { yaw: 0, pitch: 0 };
+  const composedPosition = new Vector3();
+  const composedLook = new Vector3();
+  const spherical = new Spherical();
+
+  const resetManualOffset = () => {
+    manualOffset = { yaw: 0, pitch: 0 };
+  };
+
+  const composeManualOffset = () => {
+    if (manualOffset.yaw === 0 && manualOffset.pitch === 0) {
+      composedPosition.copy(targetPosition);
+      composedLook.copy(targetLook);
+      return;
+    }
+    const cabinView = currentView === 'driver' || currentView === 'passenger' || currentView === 'rear';
+    if (cabinView) {
+      composedPosition.copy(targetPosition);
+      spherical.setFromVector3(composedLook.copy(targetLook).sub(targetPosition));
+      spherical.theta += manualOffset.yaw;
+      spherical.phi += manualOffset.pitch;
+      composedLook.setFromSpherical(spherical).add(targetPosition);
+      return;
+    }
+    composedLook.copy(targetLook);
+    spherical.setFromVector3(composedPosition.copy(targetPosition).sub(targetLook));
+    spherical.theta += manualOffset.yaw;
+    spherical.phi += manualOffset.pitch;
+    composedPosition.setFromSpherical(spherical).add(targetLook);
+  };
 
   const applyPreset = (preset: CameraPreset) => {
     targetPosition.fromArray(preset.position);
@@ -122,18 +156,23 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
     targetFov = preset.fov;
     targetNear = preset.near;
   };
-  const isSettled = () => camera.position.distanceToSquared(targetPosition) < 1e-8
-    && lookTarget.distanceToSquared(targetLook) < 1e-8
-    && Math.abs(camera.fov - targetFov) < 1e-4
-    && Math.abs(camera.near - targetNear) < 1e-6;
+  const isSettled = () => {
+    composeManualOffset();
+    return camera.position.distanceToSquared(composedPosition) < 1e-8
+      && lookTarget.distanceToSquared(composedLook) < 1e-8
+      && Math.abs(camera.fov - targetFov) < 1e-4
+      && Math.abs(camera.near - targetNear) < 1e-6;
+  };
 
   return {
     setTarget(view) {
       currentView = view;
+      resetManualOffset();
       applyPreset(CAMERA_PRESETS[view]);
     },
     setStoryProgress(view, progress) {
       currentView = view;
+      resetManualOffset();
       const from = CAMERA_PRESETS[view];
       const index = STORY_VIEWS.indexOf(view);
       const nextView = STORY_VIEWS[Math.min(index + 1, STORY_VIEWS.length - 1)] ?? view;
@@ -149,10 +188,15 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
         vehicleYaw: MathUtils.lerp(from.vehicleYaw, to.vehicleYaw, amount),
       };
     },
+    setManualOffset(nextOffset) {
+      manualOffset = { ...nextOffset };
+    },
+    resetManualOffset,
     update(delta, immediate = false) {
       const alpha = immediate ? 1 : 1 - Math.exp(-DAMPING * Math.max(0, delta));
-      camera.position.lerp(targetPosition, alpha);
-      lookTarget.lerp(targetLook, alpha);
+      composeManualOffset();
+      camera.position.lerp(composedPosition, alpha);
+      lookTarget.lerp(composedLook, alpha);
       camera.fov = MathUtils.lerp(camera.fov, targetFov, alpha);
       camera.near = MathUtils.lerp(camera.near, targetNear, alpha);
       camera.lookAt(lookTarget);
@@ -198,6 +242,10 @@ export function createCameraRenderOrchestration(
       const frame = camera.setStoryProgress(view, progress);
       runtime.requestRender();
       return frame;
+    },
+    setManualOffset(offset: ManualViewOffset) {
+      beginTransition();
+      camera.setManualOffset(offset);
     },
     forceImmediateUpdate() {
       forceImmediate = true;

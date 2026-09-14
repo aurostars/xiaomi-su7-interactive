@@ -1,4 +1,4 @@
-export type RenderReason = 'camera' | 'doors' | 'lighting' | 'drag' | 'story';
+export type RenderReason = 'camera' | 'doors' | 'lighting' | 'view-drag' | 'story';
 
 export interface RenderScheduler {
   requestFrame(): void;
