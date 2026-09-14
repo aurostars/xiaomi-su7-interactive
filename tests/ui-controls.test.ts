@@ -320,14 +320,20 @@ describe('high fidelity page shell', () => {
     expect(styles).toMatch(/\.reduced-motion \.vehicle-controls > \[data-control-group\][^{]*\{[^}]*transition:\s*none !important/);
   });
 
-  it('exposes a real tooltip when a swatch receives keyboard focus', () => {
+  it('shows the real tooltip only for keyboard focus modality', () => {
     const elements = renderShell(document.body);
     const store = createVehicleStore();
     const unbind = bindControls(elements, store);
     const swatch = elements.colorButtons[0];
     const tooltip = document.querySelector<HTMLElement>('[data-control-tooltip]')!;
 
+    swatch.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    swatch.focus();
     expect(tooltip.hidden).toBe(true);
+    expect(tooltip.dataset.visible).toBeUndefined();
+
+    swatch.blur();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
     swatch.focus();
     expect(tooltip.hidden).toBe(false);
     expect(tooltip.dataset.visible).toBe('true');

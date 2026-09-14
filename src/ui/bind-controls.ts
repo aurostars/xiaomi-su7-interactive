@@ -34,6 +34,23 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
     element.addEventListener('click', handler);
     cleanups.push(() => element.removeEventListener('click', handler));
   };
+  let keyboardModality = false;
+  const ownerDocument = elements.stage.ownerDocument;
+  const hideTooltip = () => {
+    elements.controlTooltip.hidden = true;
+    delete elements.controlTooltip.dataset.visible;
+  };
+  const onDocumentKeyDown = () => { keyboardModality = true; };
+  const onDocumentPointerDown = () => {
+    keyboardModality = false;
+    hideTooltip();
+  };
+  ownerDocument.addEventListener('keydown', onDocumentKeyDown, true);
+  ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true);
+  cleanups.push(() => {
+    ownerDocument.removeEventListener('keydown', onDocumentKeyDown, true);
+    ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true);
+  });
 
   elements.modeButtons.forEach((button, index) => {
     listen(button, () => store.actions.setMode(button.dataset.mode === 'cabin' ? 'cabin' : 'exterior'));
@@ -59,13 +76,10 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
       if (button.dataset.interior) store.actions.setInterior(getInteriorOption(button.dataset.interior).id);
     });
     const showTooltip = () => {
+      if (!keyboardModality) return;
       elements.controlTooltip.textContent = button.dataset.tooltip ?? button.getAttribute('aria-label') ?? '';
       elements.controlTooltip.hidden = false;
       elements.controlTooltip.dataset.visible = 'true';
-    };
-    const hideTooltip = () => {
-      elements.controlTooltip.hidden = true;
-      delete elements.controlTooltip.dataset.visible;
     };
     button.addEventListener('focus', showTooltip);
     button.addEventListener('blur', hideTooltip);
@@ -143,6 +157,7 @@ export function bindControls(elements: ShellElements, store: VehicleStore): () =
   return () => {
     unsubscribe();
     cleanups.forEach((cleanup) => cleanup());
+    hideTooltip();
     delete document.documentElement.dataset.vehicleMode;
     delete elements.stage.dataset.mode;
   };

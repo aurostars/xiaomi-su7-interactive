@@ -1266,7 +1266,9 @@ test('floating controls and guidance stay clear at target responsive viewports',
     if (viewport.width === 390) {
       const paintSwatch = page.locator('[data-paint]:visible').first();
       const tooltip = page.locator('[data-control-tooltip]');
-      await paintSwatch.focus();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
+      await expect(paintSwatch).toBeFocused();
       await expect(tooltip).toBeVisible();
       await expect(tooltip).toHaveText(await paintSwatch.getAttribute('aria-label') ?? '');
       await expectFullyInViewport(tooltip, viewport);
@@ -1276,4 +1278,34 @@ test('floating controls and guidance stay clear at target responsive viewports',
     await expect(page.locator('.vehicle-stage')).toHaveAttribute('data-mode', 'cabin');
     await assertClearLayout('cabin');
   }
+});
+
+test('swatch tooltip uses hover for pointer and the real tooltip for keyboard only', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+
+  const swatches = page.locator('[data-paint]:visible');
+  const first = swatches.first();
+  const second = swatches.nth(1);
+  const tooltip = page.locator('[data-control-tooltip]');
+  const pseudoOpacity = (locator: Locator) => locator.evaluate((element) => (
+    getComputedStyle(element, '::after').opacity
+  ));
+
+  await first.hover();
+  expect(await pseudoOpacity(first)).toBe('1');
+  await expect(tooltip).toBeHidden();
+
+  await first.click();
+  expect(await pseudoOpacity(first)).toBe('1');
+  await expect(first).toBeFocused();
+  await expect(tooltip).toBeHidden();
+
+  await page.mouse.move(0, 0);
+  await page.keyboard.press('Tab');
+  await expect(second).toBeFocused();
+  expect(await pseudoOpacity(second)).toBe('0');
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveText(await second.getAttribute('aria-label') ?? '');
 });
