@@ -247,7 +247,7 @@ test('official palettes expose exact names and every selection updates rendered 
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
 
   const paintNames = ['海湾蓝', '雅灰', '橄榄绿', '珍珠白', '钻石黑', '流星蓝', '霞光紫', '熔岩橙', '寒武岩灰'];
-  const paintColors = ['2f6f91', '868987', '59614b', 'ecebe6', '111315', '4d6675', '7a667b', 'c84a20', '44494d'];
+  const paintColors = ['3f8db5', 'a6aaa7', '6f7b59', 'ffffff', '20262b', '66879a', '9a7f9e', 'f05a24', '5e676e'];
   const interiorNames = ['银河灰', '曜石黑', '暮光红', '迷雾紫'];
   await expect(page.locator('[data-palette="paint"] .color-swatch')).toHaveCount(paintNames.length);
   await expect(page.locator('[data-palette="interior"] .color-swatch')).toHaveCount(interiorNames.length);
@@ -834,7 +834,7 @@ test('用户操作会改变真实车辆、车门、相机与滚动叙事状态',
 
   const lavaOrange = page.getByRole('button', { name: '熔岩橙' });
   await lavaOrange.click();
-  await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('c84a20');
+  await expect.poll(async () => (await readDiagnostics(page)).paint).toBe('f05a24');
 
   await page.getByRole('button', { name: '座舱', exact: true }).click();
   await expect.poll(async () => {

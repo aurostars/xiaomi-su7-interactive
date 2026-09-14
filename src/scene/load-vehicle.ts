@@ -32,6 +32,63 @@ const DOOR_DEFINITIONS = {
 const WINDOW_MATERIAL_NAMES = new Set(['car_window', 'car_lightglass']);
 const CABIN_OCCLUDER_NODE_NAMES = ['outside'];
 
+function createPhysicalBodyMaterial(source: MeshStandardMaterial): MeshPhysicalMaterial {
+  const material = new MeshPhysicalMaterial({
+    color: source.color,
+    map: source.map,
+    lightMap: source.lightMap,
+    lightMapIntensity: source.lightMapIntensity,
+    aoMap: source.aoMap,
+    aoMapIntensity: source.aoMapIntensity,
+    emissive: source.emissive,
+    emissiveIntensity: source.emissiveIntensity,
+    emissiveMap: source.emissiveMap,
+    bumpMap: source.bumpMap,
+    bumpScale: source.bumpScale,
+    normalMap: source.normalMap,
+    normalMapType: source.normalMapType,
+    normalScale: source.normalScale,
+    displacementMap: source.displacementMap,
+    displacementScale: source.displacementScale,
+    displacementBias: source.displacementBias,
+    roughness: source.roughness,
+    roughnessMap: source.roughnessMap,
+    metalness: source.metalness,
+    metalnessMap: source.metalnessMap,
+    alphaMap: source.alphaMap,
+    envMap: source.envMap,
+    envMapIntensity: source.envMapIntensity,
+    wireframe: source.wireframe,
+    flatShading: source.flatShading,
+    fog: source.fog,
+    opacity: source.opacity,
+    transparent: source.transparent,
+    alphaTest: source.alphaTest,
+    side: source.side,
+    vertexColors: source.vertexColors,
+  });
+  material.name = source.name;
+  material.userData = { ...source.userData };
+  return material;
+}
+
+function upgradeBodyMaterials(root: Object3D) {
+  const replacements = new Map<MeshStandardMaterial, MeshPhysicalMaterial>();
+  root.traverse((object) => {
+    if (!(object instanceof Mesh)) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    const upgraded = materials.map((material) => {
+      if (normalizeName(material.name) !== 'car_body'
+        || material instanceof MeshPhysicalMaterial
+        || !(material instanceof MeshStandardMaterial)) return material;
+      const replacement = replacements.get(material) ?? createPhysicalBodyMaterial(material);
+      replacements.set(material, replacement);
+      return replacement;
+    });
+    object.material = Array.isArray(object.material) ? upgraded : upgraded[0];
+  });
+}
+
 function tuneAutomotiveMaterial(material: Material) {
   if (!(material instanceof MeshPhysicalMaterial)) return;
   const name = normalizeName(material.name);
@@ -43,11 +100,12 @@ function tuneAutomotiveMaterial(material: Material) {
   }
   material.envMapIntensity = 1.35;
   if (name === 'car_body') {
-    material.color.setHex(getPaintOption('gulf-blue').materialColor);
-    material.metalness = .58;
-    material.roughness = .2;
-    material.clearcoat = .9;
-    material.clearcoatRoughness = .12;
+    const paint = getPaintOption('gulf-blue').material;
+    material.color.setHex(paint.color);
+    material.metalness = paint.metalness;
+    material.roughness = paint.roughness;
+    material.clearcoat = paint.clearcoat;
+    material.clearcoatRoughness = paint.clearcoatRoughness;
   } else if (WINDOW_MATERIAL_NAMES.has(name)) {
     material.roughness = .12;
     material.envMapIntensity = 1.6;
@@ -199,6 +257,7 @@ function disposeGpuResources(root: Object3D) {
 }
 
 export function createLoadedVehicle(root: Object3D): LoadedVehicle {
+  upgradeBodyMaterials(root);
   const bodyMaterials = collectMaterials(root, BODY_MATERIAL_NAMES);
   const interiorMaterials = collectMaterials(root, INTERIOR_MATERIAL_NAMES);
   const doors: VehicleDoors = {};

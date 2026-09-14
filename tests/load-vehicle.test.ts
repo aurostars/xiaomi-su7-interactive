@@ -112,19 +112,21 @@ describe('createLoadedVehicle', () => {
     });
   });
 
-  it('applies the official default paint while preserving metallic body tuning', () => {
+  it('upgrades a standard body material to physical paint with the official default tuning', () => {
     const root = new Group();
-    const body = new MeshPhysicalMaterial({ color: 0xffffff });
-    body.name = 'Car_body';
-    root.add(new Mesh(new BoxGeometry(1, 1, 1), body));
+    const sourceBody = new MeshStandardMaterial({ color: 0xffffff });
+    sourceBody.name = 'Car_body';
+    root.add(new Mesh(new BoxGeometry(1, 1, 1), sourceBody));
 
-    createLoadedVehicle(root);
+    const vehicle = createLoadedVehicle(root);
+    const body = vehicle.bodyMaterials[0];
 
-    expect(body.color.getHex()).toBe(0x2f6f91);
-    expect(body.metalness).toBe(0.58);
-    expect(body.roughness).toBe(0.2);
-    expect(body.clearcoat).toBe(0.9);
-    expect(body.clearcoatRoughness).toBe(0.12);
+    expect(body).toBeInstanceOf(MeshPhysicalMaterial);
+    expect((body as MeshPhysicalMaterial).color.getHex()).toBe(0x3f8db5);
+    expect((body as MeshPhysicalMaterial).metalness).toBe(0.72);
+    expect((body as MeshPhysicalMaterial).roughness).toBe(0.22);
+    expect((body as MeshPhysicalMaterial).clearcoat).toBe(0.96);
+    expect((body as MeshPhysicalMaterial).clearcoatRoughness).toBe(0.1);
   });
 
   it('culls exterior shell backfaces so cabin cameras are not covered by opaque body geometry', () => {

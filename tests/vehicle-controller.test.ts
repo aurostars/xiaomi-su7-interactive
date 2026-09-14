@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Group,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
 } from 'three';
 import type { VehicleState } from '../src/state/vehicle-state';
@@ -28,7 +29,7 @@ function makeVehicle(): LoadedVehicle & {
   const frontRightDoor = new Group();
   const rearLeftDoor = new Group();
   const rearRightDoor = new Group();
-  const bodyMaterial = new MeshStandardMaterial({ color: '#ffffff' });
+  const bodyMaterial = new MeshPhysicalMaterial({ color: '#ffffff' });
   const interiorMaterial = new MeshStandardMaterial({ color: '#111111' });
   const screen = new MeshStandardMaterial({ emissive: '#000000', emissiveIntensity: 0 });
   const untouched = new MeshBasicMaterial({ color: '#123456' });
@@ -277,7 +278,7 @@ describe('createVehicleController', () => {
     finishAnimations();
 
     expect(vehicle.root.rotation.y).toBeCloseTo(Math.PI / 3);
-    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('2f6f91');
+    expect(vehicle.bodyMaterials[0].color.getHexString()).toBe('3f8db5');
     expect(vi.getTimerCount()).toBe(0);
   });
 });

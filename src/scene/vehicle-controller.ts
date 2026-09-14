@@ -1,6 +1,7 @@
 import {
   Color,
   MathUtils,
+  MeshPhysicalMaterial,
   type Material,
 } from 'three';
 import { getInteriorOption, getPaintOption } from '../content/vehicle-palettes';
@@ -92,17 +93,23 @@ export function createVehicleController(
       if (disposed) return;
 
       vehicle.setCabinPresentation(state.mode === 'cabin');
-      const bodyTarget = new Color(getPaintOption(state.paint).materialColor);
+      const paint = getPaintOption(state.paint);
       const usesObsidian = getInteriorOption(state.interior).id === 'obsidian-black';
       const interiorTarget = new Color(
         state.mode === 'cabin' && usesObsidian
           ? CABIN_OBSIDIAN_COLOR
           : getInteriorOption(state.interior).materialColor,
       );
-      vehicle.bodyMaterials.filter(hasColor).forEach((material) => {
-        material.color.copy(bodyTarget);
-        material.needsUpdate = true;
-      });
+      vehicle.bodyMaterials
+        .filter((material): material is MeshPhysicalMaterial => material instanceof MeshPhysicalMaterial)
+        .forEach((material) => {
+          material.color.set(paint.material.color);
+          material.metalness = paint.material.metalness;
+          material.roughness = paint.material.roughness;
+          material.clearcoat = paint.material.clearcoat;
+          material.clearcoatRoughness = paint.material.clearcoatRoughness;
+          material.needsUpdate = true;
+        });
       vehicle.interiorMaterials.filter(hasColor).forEach((material) => {
         material.color.copy(interiorTarget);
         material.needsUpdate = true;
