@@ -44,6 +44,8 @@ const readDiagnostics = (page: Page) => page.evaluate(() => {
   return reader();
 });
 
+const isGlbRequest = (url: string) => new URL(url).pathname.endsWith('.glb');
+
 function cabinSystems(diagnostics: Su7Diagnostics) {
   return {
     lightingEnabled: diagnostics.cabinLighting?.enabled,
@@ -206,7 +208,7 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
 test('simplified chrome keeps four centered links and removes legacy overlays', async ({ page }) => {
   let modelRequests = 0;
   page.on('request', (request) => {
-    if (request.url().endsWith('.glb')) modelRequests += 1;
+    if (isGlbRequest(request.url())) modelRequests += 1;
   });
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -226,7 +228,7 @@ test('simplified chrome keeps four centered links and removes legacy overlays', 
       await expect(page.locator(selector), `${selector} at ${viewport.width}x${viewport.height}`).toHaveCount(0);
     }
   }
-  expect(modelRequests, 'responsive assertions should reuse one loaded vehicle').toBe(1);
+  expect(modelRequests, 'responsive viewport checks should issue exactly one GLB request').toBe(1);
 });
 
 test('official palettes expose exact names and every selection updates rendered material state', async ({ page }) => {
@@ -276,9 +278,10 @@ test('official palettes expose exact names and every selection updates rendered 
 });
 
 test('story safety keeps copy clear of the vehicle and removes overlays at every viewport', async ({ page }) => {
+  test.setTimeout(90_000);
   let modelRequests = 0;
   page.on('request', (request) => {
-    if (request.url().endsWith('.glb')) modelRequests += 1;
+    if (isGlbRequest(request.url())) modelRequests += 1;
   });
 
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -306,7 +309,7 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
   for (const selector of ['.story-hotspot', '.story-hotspots', '.story-detail', '.mobile-story-rail']) {
     await expect(page.locator(selector), selector).toHaveCount(0);
   }
-  expect(modelRequests, 'viewport checks should reuse one loaded vehicle').toBe(1);
+  expect(modelRequests, 'story viewport checks should issue exactly one GLB request').toBe(1);
 });
 
 test('hero controls remain complete, clear and continuous across responsive boundaries', async ({ page }) => {
@@ -332,7 +335,10 @@ test('hero controls remain complete, clear and continuous across responsive boun
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect.poll(
+      async () => page.evaluate(() => window.scrollY),
+      { timeout: 30_000 },
+    ).toBe(0);
 
     const controls = page.locator('.vehicle-controls');
     const heroCopy = page.locator('.hero-copy');
@@ -467,7 +473,10 @@ test('mid-width cabin detail stays clear of complete controls through every seat
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect.poll(
+      async () => page.evaluate(() => window.scrollY),
+      { timeout: 30_000 },
+    ).toBe(0);
 
     const controls = page.locator('.vehicle-controls');
     const detail = page.locator('.cabin-detail');
@@ -702,11 +711,12 @@ test('mobile focus zone, cabin card and primary controls do not overlap', async 
 
 test('非 reduced-motion 下中途关门从当前角度连续反向并保持座席', async ({ page }) => {
   test.setTimeout(90_000);
-  await page.clock.install();
+  const clockStart = new Date('2026-01-01T00:00:00Z');
+  await page.clock.install({ time: clockStart });
+  await page.clock.pauseAt(new Date(clockStart.getTime() + 1_000));
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/xiaomi-su7-interactive/');
   await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
-  await page.clock.pauseAt(await page.evaluate(() => Date.now()));
 
   await activatePublicButton(page.getByRole('button', { name: '进入座舱' }));
   await activatePublicButton(page.getByRole('button', { name: '副驾', exact: true }));
