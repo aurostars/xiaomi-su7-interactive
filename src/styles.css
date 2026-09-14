@@ -127,8 +127,19 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .closing-cta a { padding: 15px 22px; border-radius: 4px; background: var(--accent); white-space: nowrap; }
 footer { display: flex; justify-content: space-between; padding: 28px max(40px, calc((100vw - 1160px) / 2)); color: #777d85; font-size: 11px; background: #030507; }
 
-@media (min-width: 768px) and (max-width: 1199px) {
-  .vehicle-controls { right: 20px; width: min(760px, calc(100% - 40px)); }
+@media (min-width: 768px) and (max-width: 1279px) {
+  .vehicle-controls { right: 20px; width: calc(100% - 40px); }
+  .paint-group > div { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .hero-copy {
+    position: absolute; top: 360px; left: 20px;
+    width: calc(40% - 20px); padding: 0 0 32px;
+  }
+  .hero-copy h1 { font-size: clamp(64px, 7vw, 82px); }
+  .hero-copy > p:not(.hero-label) { margin: 22px 0; font-size: 14px; line-height: 1.6; }
+  .primary-cta, .secondary-cta { min-height: 44px; padding: 0 14px; font-size: 12px; }
+  .hero-specs { gap: 6px; margin-top: 24px; }
+  .hero-specs div { padding: 10px 8px; }
+  .hero-specs dt { font-size: 16px; }
 }
 
 @media (min-width: 768px) {

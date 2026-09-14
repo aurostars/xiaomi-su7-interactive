@@ -286,41 +286,79 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
   }
 });
 
-for (const viewport of [
-  { width: 768, height: 900 },
-  { width: 900, height: 900 },
-  { width: 1024, height: 900 },
-  { width: 1152, height: 900 },
-]) {
-  test(`mid-width vehicle controls stay complete and usable at ${viewport.width}px`, async ({ page }) => {
+test('hero controls remain complete, clear and continuous across responsive boundaries', async ({ page }) => {
+  test.setTimeout(120_000);
+  const viewports = [768, 900, 1024, 1152, 1199, 1200, 1280, 1440]
+    .map((width) => ({ width, height: 900 }));
+  let geometryAt1199: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>> | null = null;
+
+  for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.goto('/xiaomi-su7-interactive/');
 
     const controls = page.locator('.vehicle-controls');
+    const heroCopy = page.locator('.hero-copy');
+    const heroActions = page.locator('.hero-actions');
+    const focusZone = page.locator('[data-vehicle-focus-zone]');
     await expectFullyInViewport(controls, viewport);
-    const paletteButtons = controls.locator('.color-swatch');
-    const seatButtons = controls.locator('[data-seat]');
-    const doorButton = controls.locator('.door-button');
-    await expect(paletteButtons).toHaveCount(13);
-    await expect(seatButtons).toHaveCount(3);
-    await expect(doorButton).toHaveCount(1);
+    const [controlsBox, copyBox, actionsBox, focusBox] = await Promise.all(
+      [controls, heroCopy, heroActions, focusZone].map(requiredBox),
+    );
+    for (const [name, occupiedBox] of [
+      ['hero-copy', copyBox],
+      ['hero-actions', actionsBox],
+      ['vehicle-focus-zone', focusBox],
+    ] as const) {
+      expect(overlaps(controlsBox, occupiedBox), JSON.stringify({ viewport, name, controlsBox, occupiedBox })).toBe(false);
+    }
 
-    for (const control of await paletteButtons.or(seatButtons).or(doorButton).all()) {
-      await expectFullyInViewport(control, viewport);
-      const geometry = await control.evaluate((button) => ({
+    const buttons = controls.locator('button');
+    await expect(controls.locator('[data-mode]')).toHaveCount(2);
+    await expect(controls.locator('[data-seat]')).toHaveCount(3);
+    await expect(controls.locator('.door-button')).toHaveCount(1);
+    await expect(controls.locator('.color-swatch')).toHaveCount(13);
+    await expect(buttons).toHaveCount(19);
+    const buttonGeometries = await buttons.evaluateAll((elements) => elements.map((button) => {
+      const bounds = button.getBoundingClientRect();
+      return {
         text: button.textContent?.trim(),
-        targetWidth: button.getBoundingClientRect().width,
-        targetHeight: button.getBoundingClientRect().height,
+        visible: button.checkVisibility(),
+        x: bounds.x,
+        y: bounds.y,
+        targetWidth: bounds.width,
+        targetHeight: bounds.height,
         labelClientWidth: button.clientWidth,
         labelScrollWidth: button.scrollWidth,
-      }));
+      };
+    }));
+    for (const geometry of buttonGeometries) {
+      expect(geometry.visible, JSON.stringify({ viewport, ...geometry })).toBe(true);
+      expect(geometry.x, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(0);
+      expect(geometry.y, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(0);
+      expect(geometry.x + geometry.targetWidth, JSON.stringify({ viewport, ...geometry }))
+        .toBeLessThanOrEqual(viewport.width);
+      expect(geometry.y + geometry.targetHeight, JSON.stringify({ viewport, ...geometry }))
+        .toBeLessThanOrEqual(viewport.height);
       expect(geometry.targetWidth, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
       expect(geometry.targetHeight, JSON.stringify({ viewport, ...geometry })).toBeGreaterThanOrEqual(44);
       expect(geometry.labelScrollWidth, JSON.stringify({ viewport, ...geometry }))
         .toBeLessThanOrEqual(geometry.labelClientWidth);
     }
-  });
-}
+
+    if (viewport.width === 1199) geometryAt1199 = controlsBox;
+    if (viewport.width === 1200) {
+      expect(geometryAt1199).not.toBeNull();
+      if (geometryAt1199) {
+        for (const key of ['x', 'y', 'width', 'height'] as const) {
+          expect(
+            Math.abs(controlsBox[key] - geometryAt1199[key]),
+            JSON.stringify({ transition: '1199->1200', key, geometryAt1199, geometryAt1200: controlsBox }),
+          ).toBeLessThanOrEqual(24);
+        }
+      }
+    }
+  }
+});
 
 test('technology exit makes fallback retry inert and restores it upward', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
