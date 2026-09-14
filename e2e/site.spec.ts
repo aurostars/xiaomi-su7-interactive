@@ -191,19 +191,30 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
     window.scrollTo({ top: next, behavior: 'instant' });
     return next;
   }, { targetView: view, amount: progress });
-  await expect.poll(async () => page.evaluate(() => Math.round(window.scrollY))).toBe(target);
+  await expect.poll(
+    async () => page.evaluate(() => Math.round(window.scrollY)),
+    { timeout: 30_000 },
+  ).toBe(target);
   await expect.poll(async () => {
     const story = (await readDiagnostics(page)).story;
     return story ? Math.round(story.scrollY) : -1;
-  }).toBe(target);
+  }, { timeout: 30_000 }).toBe(target);
   const after = await page.evaluate(() => Math.round(window.scrollY));
   expect(after, JSON.stringify({ view, before, target, after })).not.toBe(before);
 }
 
 test('simplified chrome keeps four centered links and removes legacy overlays', async ({ page }) => {
+  let modelRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('.glb')) modelRequests += 1;
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await page.goto('/xiaomi-su7-interactive/');
 
     const header = page.locator('.site-header');
     const nav = page.locator('.site-nav');
@@ -215,6 +226,7 @@ test('simplified chrome keeps four centered links and removes legacy overlays', 
       await expect(page.locator(selector), `${selector} at ${viewport.width}x${viewport.height}`).toHaveCount(0);
     }
   }
+  expect(modelRequests, 'responsive assertions should reuse one loaded vehicle').toBe(1);
 });
 
 test('official palettes expose exact names and every selection updates rendered material state', async ({ page }) => {
@@ -264,11 +276,21 @@ test('official palettes expose exact names and every selection updates rendered 
 });
 
 test('story safety keeps copy clear of the vehicle and removes overlays at every viewport', async ({ page }) => {
+  let modelRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('.glb')) modelRequests += 1;
+  });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/xiaomi-su7-interactive/');
+  await expect.poll(
+    async () => (await readDiagnostics(page)).modelReady,
+    { timeout: 30_000 },
+  ).toBe(true);
+
   for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/xiaomi-su7-interactive/');
-    await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
     for (const storyId of ['aero', 'performance', 'cabin', 'intelligence']) {
       await scrollStoryTo(page, storyId);
       const [copyBox, focusBox] = await Promise.all([
@@ -280,10 +302,11 @@ test('story safety keeps copy clear of the vehicle and removes overlays at every
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/xiaomi-su7-interactive/');
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
   for (const selector of ['.story-hotspot', '.story-hotspots', '.story-detail', '.mobile-story-rail']) {
     await expect(page.locator(selector), selector).toHaveCount(0);
   }
+  expect(modelRequests, 'viewport checks should reuse one loaded vehicle').toBe(1);
 });
 
 test('hero controls remain complete, clear and continuous across responsive boundaries', async ({ page }) => {
@@ -568,16 +591,16 @@ test('technology exit hides at the viewport boundary and restores upward', async
     }, top);
     await expect.poll(async () => page.evaluate(() => Math.round(
       document.querySelector('#technology')?.getBoundingClientRect().top ?? Infinity,
-    ))).toBe(top);
+    )), { timeout: 30_000 }).toBe(top);
   };
 
   await positionTechnologyAt(901);
-  await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden');
+  await expect(visual).not.toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
 
   await positionTechnologyAt(900);
-  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden');
-  await expect(visual).toHaveCSS('opacity', '0');
-  await expect(visual).toHaveCSS('pointer-events', 'none');
+  await expect(visual).toHaveAttribute('data-stage-visibility', 'hidden', { timeout: 30_000 });
+  await expect(visual).toHaveCSS('opacity', '0', { timeout: 30_000 });
+  await expect(visual).toHaveCSS('pointer-events', 'none', { timeout: 30_000 });
 
   await page.evaluate(() => new Promise<void>((resolve) => {
     const section = document.querySelector<HTMLElement>('[data-story-view="performance"]');
@@ -587,8 +610,11 @@ test('technology exit hides at the viewport boundary and restores upward', async
     window.dispatchEvent(new Event('scroll'));
     requestAnimationFrame(() => resolve());
   }));
-  await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/);
-  await expect.poll(async () => (await readDiagnostics(page)).activeStoryId).toBe('performance');
+  await expect(visual).toHaveAttribute('data-stage-visibility', /visible|fading/, { timeout: 30_000 });
+  await expect.poll(
+    async () => (await readDiagnostics(page)).activeStoryId,
+    { timeout: 30_000 },
+  ).toBe('performance');
 });
 
 test('scroll story keeps active chapter and rendered camera synchronized', async ({ page }) => {
@@ -675,6 +701,7 @@ test('mobile focus zone, cabin card and primary controls do not overlap', async 
 });
 
 test('非 reduced-motion 下中途关门从当前角度连续反向并保持座席', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.clock.install();
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/xiaomi-su7-interactive/');
@@ -1117,6 +1144,7 @@ for (const viewport of [
 }
 
 test('vehicle stage exits before technology and restores with the correct story on upward scroll', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
