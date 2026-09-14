@@ -107,20 +107,21 @@ describe('view drag controller', () => {
   });
 
   it('ends an active interaction on window blur while preserving its offset', () => {
-    const { controller, element, endInteraction, offsets } = createHarness();
+    const { beginInteraction, controller, element, endInteraction, offsets } = createHarness();
 
     dispatchPointer(element, 'pointerdown', 10, 10);
     dispatchPointer(element, 'pointermove', 20, 20);
     window.dispatchEvent(new Event('blur'));
     dispatchPointer(element, 'pointermove', 30, 30);
 
+    expect(beginInteraction).toHaveBeenCalledTimes(1);
     expect(endInteraction).toHaveBeenCalledTimes(1);
     expect(offsets).toEqual([{ yaw: 0.06, pitch: 0.06 }]);
     controller.dispose();
   });
 
   it('ends an active interaction when disabled and ignores later pointer events', () => {
-    const { controller, element, endInteraction, offsets } = createHarness();
+    const { beginInteraction, controller, element, endInteraction, offsets } = createHarness();
 
     dispatchPointer(element, 'pointerdown', 10, 10);
     dispatchPointer(element, 'pointermove', 20, 20);
@@ -128,6 +129,7 @@ describe('view drag controller', () => {
     dispatchPointer(element, 'pointermove', 30, 30);
     dispatchPointer(element, 'pointerup', 30, 30);
 
+    expect(beginInteraction).toHaveBeenCalledTimes(1);
     expect(endInteraction).toHaveBeenCalledTimes(1);
     expect(offsets).toEqual([{ yaw: 0.06, pitch: 0.06 }]);
     controller.dispose();
