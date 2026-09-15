@@ -173,8 +173,8 @@ export function createCameraController(camera: PerspectiveCamera): CameraControl
       applyPreset(CAMERA_PRESETS[view]);
     },
     setStoryProgress(view, progress) {
+      if (view !== currentView) resetManualOffset();
       currentView = view;
-      resetManualOffset();
       const from = CAMERA_PRESETS[view];
       const index = STORY_VIEWS.indexOf(view);
       const nextView = STORY_VIEWS[Math.min(index + 1, STORY_VIEWS.length - 1)] ?? view;

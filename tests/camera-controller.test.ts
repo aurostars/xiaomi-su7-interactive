@@ -245,6 +245,19 @@ describe('camera controller', () => {
     expect(forward.z).toBeCloseTo(0.9846, 4);
   });
 
+  it('preserves manual offsets for progress updates within the same story view', () => {
+    const camera = new PerspectiveCamera(32, 1, 0.1, 100);
+    const controller = createCameraController(camera);
+    controller.setStoryProgress('aero', 0.4);
+    controller.setManualOffset({ yaw: 1, pitch: 0.2 });
+
+    controller.setStoryProgress('aero', 0.5);
+    controller.update(0, true);
+
+    expect(controller.getDiagnostics()).toMatchObject({ manualYaw: 1, manualPitch: 0.2 });
+    expect(camera.position.toArray()).not.toEqual([5.65, 1.875, 6.4]);
+  });
+
   it('resets manual offsets when the target source changes', () => {
     const camera = new PerspectiveCamera(32, 1, 0.1, 100);
     const controller = createCameraController(camera);
@@ -257,8 +270,10 @@ describe('camera controller', () => {
 
     controller.setManualOffset({ yaw: 1, pitch: 0.2 });
     controller.setStoryProgress('aero', 0.5);
+    controller.setManualOffset({ yaw: 1, pitch: 0.2 });
+    controller.setStoryProgress('performance', 0.5);
     controller.update(0, true);
-    expect(camera.position.toArray()).toEqual([5.65, 1.875, 6.4]);
+    expect(controller.getDiagnostics()).toMatchObject({ manualYaw: 0, manualPitch: 0 });
   });
 
   it('places the passenger camera ahead of the seatback and aimed at the dashboard', () => {

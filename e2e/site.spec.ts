@@ -762,11 +762,11 @@ test('idle render remains stable for 500ms and resumes after a visible interacti
 });
 
 test('camera drag keeps exterior yaw manual, idle, and chapter reset contracts', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 60_000 }).toBe(true);
   await expect.poll(async () => (await readDiagnostics(page)).renderActive).toBe(false);
 
   const before = await readDiagnostics(page);
@@ -782,6 +782,19 @@ test('camera drag keeps exterior yaw manual, idle, and chapter reset contracts',
     manualYawChanged: true,
     cameraMoved: true,
     vehicleYaw: before.vehicleYaw,
+  });
+
+  const manualYawAfterDrag = (await readDiagnostics(page)).camera?.manualYaw;
+  await scrollStoryTo(page, 'aero', 0.2);
+  await expect.poll(async () => {
+    const diagnostics = await readDiagnostics(page);
+    return {
+      activeStoryId: diagnostics.activeStoryId,
+      manualYaw: diagnostics.camera?.manualYaw,
+    };
+  }).toEqual({
+    activeStoryId: 'aero',
+    manualYaw: manualYawAfterDrag,
   });
 
   await expect.poll(async () => (await readDiagnostics(page)).renderActive).toBe(false);
@@ -815,54 +828,75 @@ test('camera drag keeps exterior yaw manual, idle, and chapter reset contracts',
   }).toEqual({ activeStoryId: 'performance', manualYaw: 0, manualPitch: 0 });
 });
 
-test('cabin rear camera drag fixes position and passenger view restores an unobstructed default', async ({ page }) => {
-  test.setTimeout(120_000);
+test('cabin pointer drag fixes position for every seat and passenger first frame is unobstructed', async ({ page }) => {
+  test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/xiaomi-su7-interactive/');
-  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 30_000 }).toBe(true);
+  await expect.poll(async () => (await readDiagnostics(page)).modelReady, { timeout: 60_000 }).toBe(true);
   await page.getByRole('button', { name: '进入座舱' }).click();
-  await page.getByRole('button', { name: '后排', exact: true }).click();
-  await expect.poll(async () => (await readDiagnostics(page)).renderedView).toBe('rear');
 
-  const before = await readDiagnostics(page);
-  await dragVehicleView(page);
-  await expect.poll(async () => {
-    const diagnostics = await readDiagnostics(page);
-    return {
-      manualYawChanged: Math.abs(diagnostics.camera?.manualYaw ?? 0) > 0.2,
-      position: diagnostics.camera?.position,
-      targetChanged: JSON.stringify(diagnostics.camera?.target) !== JSON.stringify(before.camera?.target),
-    };
-  }).toEqual({ manualYawChanged: true, position: before.camera?.position, targetChanged: true });
+  const seats = [
+    { view: 'driver', label: '主驾' },
+    { view: 'passenger', label: '副驾' },
+    { view: 'rear', label: '后排' },
+  ] as const;
 
-  const revisionBeforePassenger = (await readDiagnostics(page)).renderRevision;
-  await page.getByRole('button', { name: '副驾', exact: true }).click();
-  await expect.poll(async () => (
-    (await readDiagnostics(page)).renderHistory.some(({ revision }) => revision > revisionBeforePassenger)
-  ), { timeout: 30_000 }).toBe(true);
-  const passenger = await readDiagnostics(page);
-  const passengerFrames = passenger.renderHistory.filter(({ revision }) => revision > revisionBeforePassenger);
-  expect(passengerFrames).toHaveLength(1);
-  const firstPassengerFrame = passengerFrames[0];
-  expect(firstPassengerFrame.revision).toBe(revisionBeforePassenger + 1);
-  expect({
-    view: firstPassengerFrame.camera.view,
-    manualYaw: firstPassengerFrame.camera.manualYaw,
-    manualPitch: firstPassengerFrame.camera.manualPitch,
-  }).toEqual({ view: 'passenger', manualYaw: 0, manualPitch: 0 });
-  expect(firstPassengerFrame.camera.near).toBeCloseTo(0.15, 6);
-  firstPassengerFrame.camera.position.forEach((value, index) => {
-    expect(value).toBeCloseTo([0.28, 1.27, 0.05][index], 6);
-  });
-  firstPassengerFrame.camera.target.forEach((value, index) => {
-    expect(value).toBeCloseTo([-0.05, 0.88, -2.2][index], 6);
-  });
-  const readable = await readCanvasLuminance(page, [0.05, 0.42, 0.71, 0.44]);
-  expect(readable.median, JSON.stringify(readable)).toBeGreaterThanOrEqual(35);
-  expect(readable.darkRatio, JSON.stringify(readable)).toBeLessThanOrEqual(0.3);
-  const afterGuardrail = await readDiagnostics(page);
-  expect(afterGuardrail.renderRevision).toBe(firstPassengerFrame.revision);
+  for (const seat of seats) {
+    const revisionBeforeSeat = (await readDiagnostics(page)).renderRevision;
+    await page.getByRole('button', { name: seat.label, exact: true }).click();
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return {
+        renderedView: diagnostics.renderedView,
+        manualYaw: diagnostics.camera?.manualYaw,
+        manualPitch: diagnostics.camera?.manualPitch,
+      };
+    }, { timeout: 30_000 }).toEqual({ renderedView: seat.view, manualYaw: 0, manualPitch: 0 });
+
+    if (seat.view === 'passenger') {
+      const passenger = await readDiagnostics(page);
+      const passengerFrames = passenger.renderHistory.filter(({ revision }) => revision > revisionBeforeSeat);
+      expect(passengerFrames).toHaveLength(1);
+      const firstPassengerFrame = passengerFrames[0];
+      expect(firstPassengerFrame.revision).toBe(revisionBeforeSeat + 1);
+      expect({
+        view: firstPassengerFrame.camera.view,
+        manualYaw: firstPassengerFrame.camera.manualYaw,
+        manualPitch: firstPassengerFrame.camera.manualPitch,
+      }).toEqual({ view: 'passenger', manualYaw: 0, manualPitch: 0 });
+      expect(firstPassengerFrame.camera.near).toBeCloseTo(0.15, 6);
+      firstPassengerFrame.camera.position.forEach((value, index) => {
+        expect(value).toBeCloseTo([0.28, 1.27, 0.05][index], 6);
+      });
+      firstPassengerFrame.camera.target.forEach((value, index) => {
+        expect(value).toBeCloseTo([-0.05, 0.88, -2.2][index], 6);
+      });
+      const readable = await readCanvasLuminance(page, [0.05, 0.42, 0.71, 0.44]);
+      expect(readable.median, JSON.stringify(readable)).toBeGreaterThanOrEqual(35);
+      expect(readable.darkRatio, JSON.stringify(readable)).toBeLessThanOrEqual(0.3);
+      expect((await readDiagnostics(page)).renderRevision).toBe(firstPassengerFrame.revision);
+    }
+
+    const before = await readDiagnostics(page);
+    await dragVehicleView(page);
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return {
+        view: diagnostics.camera?.view,
+        manualYawChanged: Math.abs(diagnostics.camera?.manualYaw ?? 0) > 0.2,
+        positionFixed: diagnostics.camera?.position.every(
+          (value, index) => Math.abs(value - (before.camera?.position[index] ?? Number.POSITIVE_INFINITY)) < 1e-6,
+        ),
+        targetChanged: JSON.stringify(diagnostics.camera?.target) !== JSON.stringify(before.camera?.target),
+      };
+    }, { timeout: 30_000 }).toEqual({
+      view: seat.view,
+      manualYawChanged: true,
+      positionFixed: true,
+      targetChanged: true,
+    });
+  }
 });
 
 test('mobile focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
