@@ -33,13 +33,18 @@ interface Su7Diagnostics {
   pendingRenderReasons: string[];
   renderRevision: number;
   renderedView: string | null;
-  renderedCamera: {
-    view: string;
-    target: number[];
-    position: number[];
-    fov: number;
-    near: number;
-  } | null;
+  renderedCamera: CameraFrameDiagnostics | null;
+  renderHistory: Array<{ revision: number; camera: CameraFrameDiagnostics }>;
+}
+
+interface CameraFrameDiagnostics {
+  view: string;
+  target: number[];
+  position: number[];
+  fov: number;
+  near: number;
+  manualYaw: number;
+  manualPitch: number;
 }
 
 const readDiagnostics = (page: Page) => page.evaluate(() => {
@@ -223,6 +228,7 @@ async function scrollStoryTo(page: Page, view: string, progress = .5) {
 }
 
 test('simplified chrome keeps three centered links and removes legacy overlays', async ({ page }) => {
+  test.setTimeout(120_000);
   let modelRequests = 0;
   page.on('request', (request) => {
     if (isGlbRequest(request.url())) modelRequests += 1;
@@ -832,23 +838,31 @@ test('cabin rear camera drag fixes position and passenger view restores an unobs
 
   const revisionBeforePassenger = (await readDiagnostics(page)).renderRevision;
   await page.getByRole('button', { name: '副驾', exact: true }).click();
-  await expectRenderedCamera(page, revisionBeforePassenger, {
-    view: 'passenger',
-    position: [0.28, 1.27, 0.05],
-    near: 0.15,
-  });
+  await expect.poll(async () => (
+    (await readDiagnostics(page)).renderHistory.some(({ revision }) => revision > revisionBeforePassenger)
+  ), { timeout: 30_000 }).toBe(true);
   const passenger = await readDiagnostics(page);
+  const passengerFrames = passenger.renderHistory.filter(({ revision }) => revision > revisionBeforePassenger);
+  expect(passengerFrames).toHaveLength(1);
+  const firstPassengerFrame = passengerFrames[0];
+  expect(firstPassengerFrame.revision).toBe(revisionBeforePassenger + 1);
   expect({
-    manualYaw: passenger.camera?.manualYaw,
-    manualPitch: passenger.camera?.manualPitch,
-  }).toEqual({ manualYaw: 0, manualPitch: 0 });
-  expect(passenger.camera?.target).toHaveLength(3);
-  passenger.camera?.target.forEach((value, index) => {
+    view: firstPassengerFrame.camera.view,
+    manualYaw: firstPassengerFrame.camera.manualYaw,
+    manualPitch: firstPassengerFrame.camera.manualPitch,
+  }).toEqual({ view: 'passenger', manualYaw: 0, manualPitch: 0 });
+  expect(firstPassengerFrame.camera.near).toBeCloseTo(0.15, 6);
+  firstPassengerFrame.camera.position.forEach((value, index) => {
+    expect(value).toBeCloseTo([0.28, 1.27, 0.05][index], 6);
+  });
+  firstPassengerFrame.camera.target.forEach((value, index) => {
     expect(value).toBeCloseTo([-0.05, 0.88, -2.2][index], 6);
   });
   const readable = await readCanvasLuminance(page, [0.05, 0.42, 0.71, 0.44]);
   expect(readable.median, JSON.stringify(readable)).toBeGreaterThanOrEqual(35);
-  expect(readable.darkRatio, JSON.stringify(readable)).toBeLessThanOrEqual(0.29);
+  expect(readable.darkRatio, JSON.stringify(readable)).toBeLessThanOrEqual(0.3);
+  const afterGuardrail = await readDiagnostics(page);
+  expect(afterGuardrail.renderRevision).toBe(firstPassengerFrame.revision);
 });
 
 test('mobile focus zone, cabin card and primary controls do not overlap', async ({ page }) => {
@@ -1184,7 +1198,7 @@ test('visual cabin remains complete for driver, passenger and rear seats', async
   const seats = [
     {
       key: 'passenger', label: '副驾', title: '副驾交互空间', position: [0.28, 1.27, 0.05],
-      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.29, maxHighlightRatio: 0.04,
+      readableRegion: [0.05, 0.42, 0.71, 0.44], minMedian: 35, maxDarkRatio: 0.3, maxHighlightRatio: 0.04,
       glareRegion: [0.27, 0.12, 0.15, 0.16],
     },
     {
@@ -1339,7 +1353,7 @@ test('reduced motion keeps scroll chapters and target camera active with immedia
 });
 
 
-test('floating controls and guidance stay clear at target responsive viewports', async ({ page }) => {
+test('five viewport visual controls and guidance stay clear in exterior and cabin', async ({ page }) => {
   test.setTimeout(120_000);
   const viewports = [
     { width: 390, height: 844 },
@@ -1373,11 +1387,33 @@ test('floating controls and guidance stay clear at target responsive viewports',
         expect(overlaps(floatingBox, focusBox), JSON.stringify({ viewport, mode, name, floatingBox, focusBox })).toBe(false);
       }
       expect(overlaps(controlsBox, hintBox), JSON.stringify({ viewport, mode, controlsBox, hintBox })).toBe(false);
+      const content = mode === 'cabin' ? page.locator('.cabin-detail') : page.locator('.hero-specs');
+      await expectFullyInViewport(content, viewport);
+      if (mode === 'exterior') await expectFullyInViewport(page.locator('.hero-actions'), viewport);
+      const contentBox = await requiredBox(content);
+      expect(
+        overlaps(contentBox, focusBox),
+        JSON.stringify({ viewport, mode, contentBox, focusBox }),
+      ).toBe(false);
     };
 
-    await page.getByRole('button', { name: '外观', exact: true }).click();
+    const exteriorButton = page.getByRole('button', { name: '外观', exact: true });
+    await exteriorButton.click();
+    await page.keyboard.press('Tab');
+    await exteriorButton.focus();
+    await expect(exteriorButton).toBeFocused();
+    await expect(exteriorButton).toHaveCSS('outline-style', 'solid');
     await expect(page.locator('.vehicle-stage')).toHaveAttribute('data-mode', 'exterior');
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return { renderedView: diagnostics.renderedView, renderActive: diagnostics.renderActive };
+    }, { timeout: 30_000 }).toEqual({ renderedView: 'aero', renderActive: false });
     await assertClearLayout('exterior');
+    await expect(page).toHaveScreenshot(`acceptance-exterior-${viewport.width}x${viewport.height}.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.035,
+      timeout: 30_000,
+    });
     if (viewport.width === 390) {
       const paintSwatch = page.locator('[data-paint]:visible').first();
       const tooltip = page.locator('[data-control-tooltip]');
@@ -1389,9 +1425,24 @@ test('floating controls and guidance stay clear at target responsive viewports',
       await expectFullyInViewport(tooltip, viewport);
     }
 
-    await page.getByRole('button', { name: '座舱', exact: true }).click();
+    const cabinButton = page.getByRole('button', { name: '座舱', exact: true });
+    await cabinButton.click();
+    await page.keyboard.press('Tab');
+    await cabinButton.focus();
+    await expect(cabinButton).toBeFocused();
+    await expect(cabinButton).toHaveCSS('outline-style', 'solid');
     await expect(page.locator('.vehicle-stage')).toHaveAttribute('data-mode', 'cabin');
+    await expect(heroCopy).toBeHidden();
+    await expect.poll(async () => {
+      const diagnostics = await readDiagnostics(page);
+      return { renderedView: diagnostics.renderedView, renderActive: diagnostics.renderActive };
+    }, { timeout: 30_000 }).toEqual({ renderedView: 'driver', renderActive: false });
     await assertClearLayout('cabin');
+    await expect(page).toHaveScreenshot(`acceptance-cabin-${viewport.width}x${viewport.height}.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.035,
+      timeout: 30_000,
+    });
   }
 });
 

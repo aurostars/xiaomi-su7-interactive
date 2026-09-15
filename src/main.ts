@@ -71,6 +71,7 @@ let diagnosticRendering: (() => {
   renderRevision: number;
   renderedView: CameraView | null;
   renderedCamera: CameraDiagnostics | null;
+  renderHistory: Array<{ revision: number; camera: CameraDiagnostics }>;
 }) | undefined;
 
 if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
@@ -84,6 +85,7 @@ if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1') {
         renderRevision: 0,
         renderedView: null,
         renderedCamera: null,
+        renderHistory: [],
       };
       return {
         modelReady: Boolean(vehicle),
@@ -159,12 +161,14 @@ orchestrator = createExperienceOrchestrator({
     let renderRevision = 0;
     let renderedView: CameraView | null = null;
     let renderedCamera: CameraDiagnostics | null = null;
+    const renderHistory: Array<{ revision: number; camera: CameraDiagnostics }> = [];
     const readRendering = () => ({
       renderActive: runtime.isRenderActive(),
       pendingRenderReasons: [...runtime.getActiveRenderReasons()],
       renderRevision,
       renderedView,
       renderedCamera,
+      renderHistory: [...renderHistory],
     });
     const runtime = createScene(
       elements.canvas,
@@ -174,6 +178,10 @@ orchestrator = createExperienceOrchestrator({
         renderRevision += 1;
         renderedView = cameraDiagnostics?.view ?? null;
         renderedCamera = cameraDiagnostics ?? null;
+        if (import.meta.env.VITE_E2E_DIAGNOSTICS === '1' && cameraDiagnostics) {
+          renderHistory.push({ revision: renderRevision, camera: cameraDiagnostics });
+          if (renderHistory.length > 120) renderHistory.shift();
+        }
       },
       capabilities.reducedMotion,
     );
